@@ -1,3 +1,11 @@
+service g(a) max cost:10 max latency:84 thrust:10 {
+  skip;
+  assume a<0;
+} {
+  skip;
+}
+policy thrust []
+;
 x := 3 / ?;
 y := 1 / x;
 z := invoke f(y, x);
