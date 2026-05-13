@@ -1,6 +1,6 @@
 (executable
- (public_name simple-symb)
+ (public_name run)
  (name main)
- (libraries simpleLib)
+ (libraries lib)
  (preprocess
   (pps soteria.ppx)))

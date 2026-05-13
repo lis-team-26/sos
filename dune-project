@@ -1,25 +1,24 @@
 (lang dune 3.22)
 
-(name simple-symb)
+(name lis-project)
 
 (generate_opam_files true)
 
 (source
- (github francescoborri/simple-symb))
+ (github lis-team-26/lis-project))
 
-(authors "Francesco Borri")
+(authors "Students of the LIS course")
 
-(maintainers "Francesco Borri")
+(maintainers "Students of the LIS course")
 
 (license GPL-3.0)
 
 (using menhir 3.0)
 
 (package
- (name simple-symb)
- (synopsis "Symbolic interpreter for a simple imperative language")
- (description
-  "Symbolic interpreter for a simple imperative language written using Soteria.")
+ (name lis-project)
+ (synopsis "Symbolic framework for the analysis of service orchestration")
+ (description "Symbolic framework for tha analysis of service orchestration")
  (depends
   ocaml
   dune

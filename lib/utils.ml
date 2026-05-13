@@ -1,5 +1,5 @@
-open SimpleAST
-open SimpleSymbInterpreter
+open Ast
+open SymbolicInterpreter
 
 let build_indent_string level = String.make level ' '
 let next_indent_level indent_level = indent_level + 4

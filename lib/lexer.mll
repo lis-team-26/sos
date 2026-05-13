@@ -1,5 +1,5 @@
 {
-  open SimpleParser
+  open Parser
   exception LexerError of string
 }
 

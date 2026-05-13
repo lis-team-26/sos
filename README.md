@@ -1,4 +1,4 @@
-# Symbolic Interpreter for a Simple Imperative Language
+# Symbolic framework for the analysis of service orchestration
 
 ## Development setup
 
@@ -6,8 +6,8 @@
 - Clone the repository, create a new OPAM switch and setup the environment
 
 ```bash
-git clone https://github.com/francescoborri/simple-symb.git
-cd simple-symb
+git clone https://github.com/lis-team-26/lis-project
+cd lis-project
 opam switch create . --deps-only --with-dev-setup
 eval $(opam env)
 ```
@@ -23,5 +23,5 @@ dune build
 - Run the symbolic interpreter on a sample program
 
 ```bash
-dune exec -- simple_symb test/examples/division_by_zero.example
+dune exec -- run test/examples/division_by_zero.example
 ```

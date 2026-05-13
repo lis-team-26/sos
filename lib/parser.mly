@@ -1,5 +1,5 @@
 %{
-  open SimpleAST
+  open Ast
 %}
 
 %token <int> INT

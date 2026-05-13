@@ -1,19 +1,19 @@
 (ocamllex
- (modules simpleLexer))
+ (modules lexer))
 
 (menhir
- (modules simpleParser))
+ (modules parser))
 
 (library
- (name simpleLib)
+ (name lib)
  (modules
-  simpleLib
-  simpleAST
-  simpleLexer
-  simpleParser
-  simpleSymbInterpreter
-  simpleUtils)
- (modules_without_implementation simpleAST)
+  lib
+  ast
+  lexer
+  parser
+  symbolicInterpreter
+  utils)
+ (modules_without_implementation ast)
  (libraries soteria)
  (preprocess
   (pps soteria.ppx))

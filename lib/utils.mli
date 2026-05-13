@@ -1,4 +1,4 @@
-open SimpleSymbInterpreter
+open SymbolicInterpreter
 
 val string_of_state :
   int ->

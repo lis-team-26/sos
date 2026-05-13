@@ -1,4 +1,4 @@
-open SimpleAST
+open Ast
 module Symex : Soteria.Symex.S
 module SymbMap : Soteria.Soteria_std.Map.S with type key = string
 module Typed = Soteria.Tiny_values.Typed
