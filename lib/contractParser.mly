@@ -1,10 +1,10 @@
 %{
-    open Lang    
+    open ContractAST    
 %}
 
 (* tokens *)
 %token COLON ARROW DOT EQ COMMA EOF 
-%token PLUS MINUS TIMES DIV LE LT GE GT NOT OR
+%token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
 %token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
 %token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS SLA PRECOND OK_POSTCOND ERR_POSTCOND 
@@ -21,7 +21,7 @@
 %right NOT
 %left DOT
 
-%start <Lang.program> prg
+%start <ContractAST.program> prg
 
 %%
 
@@ -77,14 +77,14 @@ policy:
 policy_expr:
     | e=atom                                {PExpr(e)}
     | a=agg OPEN_PAR id=VAR CLOSE_PAR       {PAgg(a, id)}
-    | e1=policy_expr PLUS e2=policy_expr    {PBinOp(Add, e1, e2)}
+    | e1=policy_expr PLUS  e2=policy_expr   {PBinOp(Add, e1, e2)}
     | e1=policy_expr MINUS e2=policy_expr   {PBinOp(Sub, e1, e2)}
     | e1=policy_expr TIMES e2=policy_expr   {PBinOp(Mul, e1, e2)}
-    | e1=policy_expr DIV e2=policy_expr     {PBinOp(Div, e1, e2)}
-    | e1=policy_expr LT e2=policy_expr      {PBinOp(Lt, e1, e2)}
-    | e1=policy_expr LE e2=policy_expr      {PBinOp(Le, e1, e2)}
-    | e1=policy_expr GT e2=policy_expr      {PBinOp(Gt, e1, e2)}
-    | e1=policy_expr GE e2=policy_expr      {PBinOp(Ge, e1, e2)}
+    | e1=policy_expr DIV   e2=policy_expr   {PBinOp(Div, e1, e2)}
+    | e1=policy_expr  LT   e2=policy_expr   {PBinOp(Lt, e1, e2)}
+    | e1=policy_expr  LE   e2=policy_expr   {PBinOp(Le, e1, e2)}
+    | e1=policy_expr  GT   e2=policy_expr   {PBinOp(Gt, e1, e2)}
+    | e1=policy_expr  GE   e2=policy_expr   {PBinOp(Ge, e1, e2)}
     | NOT e=policy_expr                     {PUnOp(Not, e) }
     | OPEN_PAR e=policy_expr CLOSE_PAR      {e}
 

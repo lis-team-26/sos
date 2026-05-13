@@ -1,5 +1,5 @@
 {
-    open Parser
+    open ContractParser
     exception LexingError of string
 }
 
@@ -26,8 +26,7 @@ rule read = parse
 | "&&"      {AND}
 | "||"      {OR}
 | "="       {EQ}
-| "("       {OPEN_PAR}
-| ")"       {CLOSE_PAR}
+
 
 (* Aggregate operators *)
 | "sum"     {SUM}
@@ -36,6 +35,8 @@ rule read = parse
 | "max"     {MAX}
 | "sorted"  {SORTED}
 
+| "("       {OPEN_PAR}
+| ")"       {CLOSE_PAR}
 | "["       {OPEN_LIST}
 | "]"       {CLOSE_LIST}
 | "{"       {LBRACE}
