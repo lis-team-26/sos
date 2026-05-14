@@ -103,7 +103,7 @@ type program = {
 (* TODO: enforce invariants for contracts: 
 - no duplicate service names
 - regex use services that are defined in the program
-- policies only use variables/fields defined in the program
+- policies only use services / QOS fields defined in the program
 - QoS constraints for each field of QoS vector
 *)
 
