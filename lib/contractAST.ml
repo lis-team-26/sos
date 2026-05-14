@@ -1,10 +1,7 @@
 type typ = 
     | TInt
     | TBool
-    | TOutcome
-    | TErr
     | TArrow of typ list * typ
-    | TCustom of string
 
 
 type binop =

@@ -4,9 +4,6 @@ open ContractAST
 let rec pp_typ fmt = function
   | ContractAST.TInt -> fprintf fmt "int"
   | ContractAST.TBool -> fprintf fmt "bool"
-  | ContractAST.TOutcome -> fprintf fmt "outcome"
-  | ContractAST.TErr -> fprintf fmt "err"
-  | ContractAST.TCustom s -> fprintf fmt "%s" s
   | ContractAST.TArrow (args, ret) ->
       fprintf fmt "(";
       pp_typ_list fmt args;
