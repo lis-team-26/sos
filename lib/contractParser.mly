@@ -1,3 +1,8 @@
+(*TODO: 
+    - unify SLA and QoS per service
+    - trust as keyword    
+*)
+
 %{
     open ContractAST    
 %}
@@ -7,7 +12,7 @@
 %token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
 %token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
-%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS SLA PRECOND OK_POSTCOND ERR_POSTCOND 
+%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND 
 
 %token <int> INT
 %token <bool> BOOL
@@ -90,12 +95,11 @@ policies:
     | OPEN_LIST ps=separated_list(COMMA, policy) CLOSE_LIST {ps}
 
 policy:
-    | e=policy_bool     {QosFieldOp(e)}
-    | r=regex           {Regex(r)}
-    
+    | e=policy_bool                     {QosFieldOp(e)}
+    | r=regex                           {Regex(r)}
+    | SORTED OPEN_PAR id=VAR CLOSE_PAR  {Sort(id)}
 
 policy_bool:
-    | SORTED OPEN_PAR id=VAR CLOSE_PAR              {PAgg(Sorted, id)}
     | e1=policy_arith cmp=cmp_op e2=policy_arith    {PBinOp(cmp, e1, e2)}
     | NOT e=policy_bool                             {PUnOp(Not, e)}
     | OPEN_PAR e=policy_bool CLOSE_PAR              {e}
@@ -127,7 +131,7 @@ service:
         NAME         COLON   n=VAR            COMMA
         PARAMS       COLON   ps=params        COMMA
         RETURNS      COLON   rs=returns       COMMA
-        SLA          COLON   sl=sla           COMMA
+        TRUST        COLON   tr=INT           COMMA
         PRECOND      COLON   pre=expr_list    COMMA
         QOS          COLON   qos=qos_constr   COMMA
         OK_POSTCOND  COLON   ok=expr_list     COMMA
@@ -139,7 +143,7 @@ service:
         name = n;
         params = ps;
         returns = rs;
-        sla = sl;
+        trust = tr;
         precond = pre;
         qos = qos;
         ok_post = ok;
@@ -162,12 +166,6 @@ return_item:
     | id=VAR COLON t=typ { (id, t) }
 
 
-sla:
-    | OPEN_LIST assigns=separated_list(COMMA, assign) CLOSE_LIST  {assigns}
-
-assign:
-    | id=VAR COLON e=expr     {(id, e)}
-
 (* ---------- QoS ---------- *)
 qos_constr:
   | OPEN_LIST 
@@ -189,7 +187,6 @@ exprs:
 atom:
     | n=INT                         {EInt(n)}
     | v=VAR                         {EVar(v)}
-    | SLA                           {ESla}
     | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
     | OPEN_PAR e=expr CLOSE_PAR     {e}
     | b=BOOL                                        {EBool(b)}
