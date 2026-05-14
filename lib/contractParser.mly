@@ -182,7 +182,6 @@ exprs:
   | es=separated_list(COMMA, expr) { es }
 
 
-    
 
 atom:
     | n=INT                         {EInt(n)}
@@ -203,10 +202,5 @@ expr:
 
 
 typ:
-    | VAR {
-        match $1 with
-        | "int" -> TInt
-        | "bool" -> TBool
-        | "Outcome" -> TOutcome
-        | _ -> TCustom $1
-        }
+    | INT     {TInt}
+    | BOOL    {TBool}
