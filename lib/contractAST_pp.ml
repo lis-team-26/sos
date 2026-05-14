@@ -40,7 +40,6 @@ let pp_aggrop fmt = function
   | ContractAST.Avg    -> fprintf fmt "avg"
   | ContractAST.Min    -> fprintf fmt "min"
   | ContractAST.Max    -> fprintf fmt "max"
-  | ContractAST.Sorted -> fprintf fmt "sorted"
 
 let rec pp_expr fmt = function
   | ContractAST.EInt i -> fprintf fmt "%d" i
@@ -97,23 +96,6 @@ let pp_funtype =
 let pp_func_sig fmt f =
   fprintf fmt "function %s : %a" f.fname pp_funtype f.ty
 
-let rec pp_policy_expr fmt = function
-  | ContractAST.PExpr e ->
-      pp_expr fmt e
-
-  | ContractAST.PAgg (agg, id) ->
-      fprintf fmt "%a(%s)" pp_aggrop agg id
-
-  | ContractAST.PBinOp (op, a, b) ->
-      fprintf fmt "(";
-      pp_policy_expr fmt a;
-      fprintf fmt " %a " pp_binop op;
-      pp_policy_expr fmt b;
-      fprintf fmt ")"
-
-  | ContractAST.PUnOp (op, e) ->
-      fprintf fmt "(%a%a)" pp_unop op pp_policy_expr e
-
 let rec pp_regex fmt = function
   | ContractAST.RService s ->
       fprintf fmt "%s" s
@@ -138,8 +120,11 @@ let rec pp_regex fmt = function
       fprintf fmt ")*"
 
 let pp_policy fmt = function
-  | ContractAST.QosFieldOp p ->
-      pp_policy_expr fmt p
+  | ContractAST.QosFieldOp (cmp_op, agg_op, id, e) ->
+      pp_aggrop fmt agg_op;
+      fprintf fmt "(%s)" id;
+      pp_binop fmt cmp_op;
+      pp_expr fmt e
 
   | ContractAST.Regex r ->
       pp_regex fmt r

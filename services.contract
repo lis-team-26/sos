@@ -20,7 +20,6 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        3 < 4,
         write . write . write . write
     ],
 

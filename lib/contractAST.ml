@@ -17,7 +17,6 @@ type aggrop =
     | Avg
     | Min
     | Max
-    | Sorted
 
 type ident = string
 
@@ -33,13 +32,6 @@ type expr =
 
 type global = ident * typ
 
-
-type policy_expr =
-  | PExpr of expr
-  | PAgg of aggrop * string
-  | PBinOp of binop * policy_expr * policy_expr
-  | PUnOp of unop * policy_expr
-
 type regex =
     | RService of ident
     | RConcat of regex * regex
@@ -47,7 +39,7 @@ type regex =
     | RStar of regex
 
 type policy = 
-    | QosFieldOp of policy_expr
+    | QosFieldOp of binop * aggrop * string * expr
     | Regex of regex
     | Sort of ident
 
