@@ -1,0 +1,183 @@
+open Format
+open ContractAST
+
+let rec pp_typ fmt = function
+  | ContractAST.TInt -> fprintf fmt "int"
+  | ContractAST.TBool -> fprintf fmt "bool"
+  | ContractAST.TOutcome -> fprintf fmt "outcome"
+  | ContractAST.TErr -> fprintf fmt "err"
+  | ContractAST.TCustom s -> fprintf fmt "%s" s
+  | ContractAST.TArrow (args, ret) ->
+      fprintf fmt "(";
+      pp_typ_list fmt args;
+      fprintf fmt ") -> ";
+      pp_typ fmt ret
+
+and pp_typ_list fmt = function
+  | [] -> ()
+  | [t] -> pp_typ fmt t
+  | t :: ts ->
+      pp_typ fmt t;
+      fprintf fmt ", ";
+      pp_typ_list fmt ts
+
+let pp_binop fmt = function
+  | ContractAST.Add -> fprintf fmt "+"
+  | ContractAST.Sub -> fprintf fmt "-"
+  | ContractAST.Mul -> fprintf fmt "*"
+  | ContractAST.Div -> fprintf fmt "/"
+  | ContractAST.Lt  -> fprintf fmt "<"
+  | ContractAST.Le  -> fprintf fmt "<="
+  | ContractAST.Gt  -> fprintf fmt ">"
+  | ContractAST.Ge  -> fprintf fmt ">="
+  | ContractAST.Eq  -> fprintf fmt "=="
+  | ContractAST.Neq -> fprintf fmt "!="
+  | ContractAST.Or  -> fprintf fmt "||"
+  | ContractAST.And -> fprintf fmt "&&"
+
+let pp_unop fmt = function
+  | ContractAST.Not -> fprintf fmt "!"
+
+let pp_aggrop fmt = function
+  | ContractAST.Sum    -> fprintf fmt "sum"
+  | ContractAST.Avg    -> fprintf fmt "avg"
+  | ContractAST.Min    -> fprintf fmt "min"
+  | ContractAST.Max    -> fprintf fmt "max"
+  | ContractAST.Sorted -> fprintf fmt "sorted"
+
+let rec pp_expr fmt = function
+  | ContractAST.EInt i -> fprintf fmt "%d" i
+  | ContractAST.EBool b -> fprintf fmt "%b" b
+  | ContractAST.EVar v -> fprintf fmt "%s" v
+  | ContractAST.ESla -> fprintf fmt "<sla>"
+  | ContractAST.EField (e, id) ->
+      fprintf fmt "%a.%s" pp_expr e id
+  | ContractAST.EApp (f, args) ->
+      fprintf fmt "%s(" f;
+      pp_expr_list fmt args;
+      fprintf fmt ")"
+  | ContractAST.EBinOp (op, a, b) ->
+      fprintf fmt "(";
+      pp_expr fmt a;
+      fprintf fmt " %a " pp_binop op;
+      pp_expr fmt b;
+      fprintf fmt ")"
+  | ContractAST.EUnOp (op, e) ->
+      fprintf fmt "(%a%a)" pp_unop op pp_expr e
+
+and pp_expr_list fmt = function
+  | [] -> ()
+  | [e] -> pp_expr fmt e
+  | e :: es ->
+      pp_expr fmt e;
+      fprintf fmt ", ";
+      pp_expr_list fmt es
+
+let pp_global fmt (id, ty) =
+  fprintf fmt "%s : %a" id pp_typ ty
+
+let pp_qos_def fmt (id, ty) =
+  fprintf fmt "%s : %a" id pp_typ ty
+
+let pp_param fmt (id, ty) =
+  fprintf fmt "%s : %a" id pp_typ ty
+
+let pp_ret fmt (id, ty) =
+  fprintf fmt "%s : %a" id pp_typ ty
+
+let pp_condition fmt = pp_expr fmt
+
+let pp_sla fmt (id, e) =
+  fprintf fmt "%s = %a" id pp_expr e
+
+let pp_funtype =
+  let rec go fmt = function
+    | ContractAST.TBase t -> pp_typ fmt t
+    | ContractAST.TArrow (t, rest) ->
+        fprintf fmt "%a -> %a" pp_typ t go rest
+  in
+  go
+
+let pp_func_sig fmt f =
+  fprintf fmt "function %s : %a" f.fname pp_funtype f.ty
+
+let rec pp_policy_expr fmt = function
+  | ContractAST.PExpr e ->
+      pp_expr fmt e
+
+  | ContractAST.PAgg (agg, id) ->
+      fprintf fmt "%a(%s)" pp_aggrop agg id
+
+  | ContractAST.PBinOp (op, a, b) ->
+      fprintf fmt "(";
+      pp_policy_expr fmt a;
+      fprintf fmt " %a " pp_binop op;
+      pp_policy_expr fmt b;
+      fprintf fmt ")"
+
+  | ContractAST.PUnOp (op, e) ->
+      fprintf fmt "(%a%a)" pp_unop op pp_policy_expr e
+
+let rec pp_regex fmt = function
+  | ContractAST.RService s ->
+      fprintf fmt "%s" s
+
+  | ContractAST.RConcat (r1, r2) ->
+      fprintf fmt "(";
+      pp_regex fmt r1;
+      fprintf fmt " . ";
+      pp_regex fmt r2;
+      fprintf fmt ")"
+
+  | ContractAST.RChoice (r1, r2) ->
+      fprintf fmt "(";
+      pp_regex fmt r1;
+      fprintf fmt " + ";
+      pp_regex fmt r2;
+      fprintf fmt ")"
+
+  | ContractAST.RStar r ->
+      fprintf fmt "(";
+      pp_regex fmt r;
+      fprintf fmt ")*"
+
+let pp_policy fmt = function
+  | ContractAST.QosFieldOp p ->
+      pp_policy_expr fmt p
+
+  | ContractAST.Regex r ->
+      pp_regex fmt r
+    
+let pp_service fmt s =
+  fprintf fmt "service %s {\n" s.name;
+  fprintf fmt "  params:\n";
+  List.iter (fun p -> fprintf fmt "    %a\n" pp_param p) s.params;
+  fprintf fmt "  returns:\n";
+  List.iter (fun r -> fprintf fmt "    %a\n" pp_ret r) s.returns;
+  fprintf fmt "  sla:\n";
+  List.iter (fun sl -> fprintf fmt "    %a\n" pp_sla sl) s.sla;
+  fprintf fmt "  precond:\n";
+  List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.precond;
+  fprintf fmt "  qos:\n";
+  List.iter (fun q -> fprintf fmt "    %a\n" pp_expr q) s.qos;
+  fprintf fmt "  ok_post:\n";
+  List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.ok_post;
+  fprintf fmt "  err_post:\n";
+  List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.err_post;
+  fprintf fmt "}\n"
+
+let pp_program fmt p =
+  fprintf fmt "globals:\n";
+  List.iter (fun g -> fprintf fmt "  %a\n" pp_global g) p.globals;
+
+  fprintf fmt "\nfunctions:\n";
+  List.iter (fun f -> fprintf fmt "  %a\n" pp_func_sig f) p.functions;
+
+  fprintf fmt "\nqos:\n";
+  List.iter (fun q -> fprintf fmt "  %a\n" pp_qos_def q) p.qos;
+
+  fprintf fmt "\npolicies:\n";
+  List.iter (fun p -> fprintf fmt "  %a\n" pp_policy p) p.policies;
+
+  fprintf fmt "\nservices:\n";
+  List.iter (fun s -> fprintf fmt "%a\n" pp_service s) p.services
