@@ -65,28 +65,42 @@ qos_decl:
     | id=VAR COLON t=typ    {(id, t)}
 
 
+
+(* ---------- Operators ---------- *)
+arith_op:
+    | PLUS  {Add}
+    | MINUS {Sub}
+    | TIMES {Mul}
+    | DIV   {Div}
+
+cmp_op:
+    | LT {Lt}
+    | LE {Le}
+    | GT {Gt}
+    | GE {Ge}
+    | EQ {Eq}
+
 (* ---------- Policies ---------- *)
 policies:
     | OPEN_LIST ps=separated_list(COMMA, policy) CLOSE_LIST {ps}
 
 policy:
-    | e=policy_expr     {QosFieldOp(e)}
+    | e=policy_bool     {QosFieldOp(e)}
     | r=regex           {Regex(r)}
+    
 
+policy_bool:
+    | SORTED OPEN_PAR id=VAR CLOSE_PAR              {PAgg(Sorted, id)}
+    | e1=policy_arith cmp=cmp_op e2=policy_arith    {PBinOp(cmp, e1, e2)}
+    | NOT e=policy_bool                             {PUnOp(Not, e)}
+    | OPEN_PAR e=policy_bool CLOSE_PAR              {e}
 
-policy_expr:
-    | e=atom                                {PExpr(e)}
-    | a=agg OPEN_PAR id=VAR CLOSE_PAR       {PAgg(a, id)}
-    | e1=policy_expr PLUS  e2=policy_expr   {PBinOp(Add, e1, e2)}
-    | e1=policy_expr MINUS e2=policy_expr   {PBinOp(Sub, e1, e2)}
-    | e1=policy_expr TIMES e2=policy_expr   {PBinOp(Mul, e1, e2)}
-    | e1=policy_expr DIV   e2=policy_expr   {PBinOp(Div, e1, e2)}
-    | e1=policy_expr  LT   e2=policy_expr   {PBinOp(Lt, e1, e2)}
-    | e1=policy_expr  LE   e2=policy_expr   {PBinOp(Le, e1, e2)}
-    | e1=policy_expr  GT   e2=policy_expr   {PBinOp(Gt, e1, e2)}
-    | e1=policy_expr  GE   e2=policy_expr   {PBinOp(Ge, e1, e2)}
-    | NOT e=policy_expr                     {PUnOp(Not, e) }
-    | OPEN_PAR e=policy_expr CLOSE_PAR      {e}
+policy_arith:
+    | n=INT                                         {PExpr(EInt n)}
+    | v=VAR                                         {PExpr(EVar v)}
+    | a=num_aggregate OPEN_PAR id=VAR CLOSE_PAR     {PAgg(a, id)}
+    | e1=policy_arith aop=arith_op  e2=policy_arith {PBinOp(aop, e1, e2)}
+    | OPEN_PAR e=policy_arith CLOSE_PAR             {e}
 
 
 regex:
@@ -103,14 +117,14 @@ services:
 
 service:
     | LBRACE
-        NAME         COLON   n=VAR            COMMA
-        PARAMS       COLON   ps=params        COMMA
-        RETURNS      COLON   rs=returns       COMMA
-        SLA          COLON   sl=sla           COMMA
-        PRECOND      COLON   pre=expr_list    COMMA
-        QOS          COLON   qos=qos_constr   COMMA
-        OK_POSTCOND  COLON   ok=expr_list     COMMA
-        ERR_POSTCOND COLON   err=expr_list
+        NAME         COLON   n=VAR                  COMMA
+        PARAMS       COLON   ps=params              COMMA
+        RETURNS      COLON   rs=returns             COMMA
+        SLA          COLON   sl=sla                 COMMA
+        PRECOND      COLON   pre=bool_exprs_list    COMMA
+        QOS          COLON   qos=qos_constr         COMMA
+        OK_POSTCOND  COLON   ok=bool_exprs_list     COMMA
+        ERR_POSTCOND COLON   err=bool_exprs_list
       RBRACE
     
     {
@@ -145,12 +159,13 @@ sla:
     | OPEN_LIST assigns=separated_list(COMMA, assign) CLOSE_LIST  {assigns}
 
 assign:
-    | id=VAR COLON e=expr      {(id, e)}
+    | id=VAR COLON e=arith_expr     {(id, e)}
+    | id=VAR COLON e=bool_expr      {(id, e)}
 
 (* ---------- QoS ---------- *)
 qos_constr:
   | OPEN_LIST 
-        es=separated_list(COMMA, expr)
+        es=separated_list(COMMA, bool_expr)
     CLOSE_LIST
     { es }
 
@@ -162,12 +177,12 @@ expr_list:
 exprs:
   | es=separated_list(COMMA, expr) { es }
 
-agg: 
+num_aggregate: 
     | SUM       {Sum}
     | AVG       {Avg}
     | MIN       {Min}
     | MAX       {Max}
-    | SORTED    {Sorted}
+    
 
 atom:
     | n=INT                         {EInt(n)}
@@ -176,23 +191,27 @@ atom:
     | SLA                           {ESla}
 
 expr:
-    | a=atom                                {a}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR  {EApp(id, args)}
-    | e=expr DOT field=VAR                  {EField(e, field)}
-    | e1=expr PLUS e2=expr                  {EBinOp(Add,e1,e2)}
-    | e1=expr MINUS e2=expr                 {EBinOp(Sub,e1,e2)}
-    | e1=expr TIMES e2=expr                 {EBinOp(Mul,e1,e2)}
-    | e1=expr DIV e2=expr                   {EBinOp(Div,e1,e2)}
-    | NOT e=expr                            {EUnOp(Not,e)}
-    | r=rel_expr                            {r}
+    | e=arith_expr                      {e}
+    | e=bool_expr                       {e}
 
-rel_expr: 
-    | e1=expr LT e2=expr                    {EBinOp(Lt,e1,e2)}
-    | e1=expr LE e2=expr                    {EBinOp(Le,e1,e2)}
-    | e1=expr GT e2=expr                    {EBinOp(Gt,e1,e2)}
-    | e1=expr GE e2=expr                    {EBinOp(Ge,e1,e2)}
-    | e1=expr OR e2=expr                    {EBinOp(Or,e1,e2)}
-    | e1=expr EQ e2=expr                    {EBinOp(Eq,e1,e2)}
+arith_expr:
+    | a=atom                                        {a}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
+    | e=arith_expr DOT field=VAR                    {EField(e, field)}
+    | e1=arith_expr aop=arith_op e2=arith_expr      {EBinOp(aop,e1,e2)}
+
+
+
+bool_exprs_list:
+    | OPEN_LIST es=separated_list(COMMA, bool_expr) CLOSE_LIST { es }
+
+bool_expr:
+    | e1=arith_expr cmp=cmp_op e2=arith_expr        {EBinOp(cmp,e1,e2)}    
+    | NOT e=bool_expr                               {EUnOp(Not,e)}
+    | e1=bool_expr OR e2=bool_expr                  {EBinOp(Or,e1,e2)}
+    | e1=bool_expr AND e2=bool_expr                 {EBinOp(And,e1,e2)}
+
+
 
 
 typ:
