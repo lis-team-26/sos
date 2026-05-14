@@ -1,0 +1,128 @@
+{
+    globals: [
+        MAX_ATTEMPTS: int
+    ],
+
+    functions: [
+        attempts: int -> int,
+        AuthFee: int -> int,
+        GetToken: int -> int -> int,
+        PayFee: int -> int
+    ],
+
+    QoS: [
+        latency: int, 
+        min_latency: int,
+        cost: int
+    ], 
+
+    policies: [
+        sum(cost) < 100,
+        avg(latency) < 50,
+        sorted(trust),
+        min(trust) > 10,
+        write . write . write . write 
+    ],
+
+    services: [
+        {
+            name: Auth,
+            params: [
+                userId: int,
+                password: int,
+                nonce: int
+            ],
+            returns: [token: int],
+            SLA: [
+                latency: 100,
+                cost: 50,
+                trust: 30
+            ],
+            precond: [
+                wellFormed(userId),
+                wellFormed(password),
+                fresh(nonce),
+                !locked(userId),
+                attempts(userId) < MAX_ATTEMPTS
+            ],
+            QoS: [
+                latency <= SLA.latency,
+                cost = AuthFee(userId)
+            ],
+            ok-postcond: [
+                succ = True,
+                verify(userId, password),
+                attempts(userId) = 0,
+                token = GetToken(userId, nonce)
+            ],
+            err-postcond: [
+                succ = False,
+                token = err
+            ]
+        },
+
+        {
+            name: Pay,
+            params: [
+                amt: int
+            ],
+            returns: [r: Outcome], 
+            SLA: [
+                latency: n3,
+                cost: n4
+            ],
+
+            precond: [
+                amt > 0
+            ],
+
+            QoS: [
+                latency > 0,
+                cost = PayFee(amt)
+            ],
+
+            ok-postcond: [
+                succ = True,
+                r = ok
+            ],
+            err-postcond: [
+                succ = False,
+                r = err
+            ]
+        },
+
+        {
+            name: GetPrice,
+            params: [
+                productId: int
+            ],
+
+            returns: [price: int],
+
+            SLA: [
+                latency: n5,
+                cost: n6,
+                trust: 7
+            ],
+
+            precond: [
+                wellFormed(productId)
+            ],
+
+            QoS: [
+                latency <= SLA.latency,
+                cost >= 0
+            ],
+
+            ok-postcond: [
+                succ = True,
+                price > 0
+            ],
+
+            err-postcond: [
+                succ = False,
+                price = err
+            ]
+        }
+    ]
+}
