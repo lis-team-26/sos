@@ -1,20 +1,22 @@
-service g(a) max cost:10 max latency:84 thrust:10 {
-  skip;
-  assume a<0;
-} {
-  skip;
+user := ?;
+pass := ?;
+tok := invoke Auth(user, pass, 0);
+operations := ?;
+assume operations > 0 && operations < 4;
+
+get := 1;
+pay := 2;
+prodId := 0;
+price := 0;
+
+while operations > 0 do {
+      op := ?;
+      assume op == get || op == pay;
+      if op == get then {
+        prodId := ?;
+        price := invoke GetPrice(prodId);
+      } else {
+        invoke Pay(price);
+      }
+      operations := operations - 1;
 }
-policy thrust []
-;
-x := 3 / ?;
-y := 1 / x;
-z := invoke f(y, x);
-t := ? / z;
-invoke f(?);
-if ? != 0 then {
-    assume t != 0;
-    invoke g(?);
-} else {
-    invoke h(?);
-}
-assert t != 0;
