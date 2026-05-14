@@ -14,12 +14,11 @@
 %token <string> VAR
 
 %left OR
-%left EQ
-%left LT LE GT GE
-%left PLUS MINUS
-%left TIMES DIV
-%right NOT
+%left AND
+%left PLUS
+%left TIMES
 %left DOT
+%right NOT
 
 %start <ContractAST.program> prg
 
@@ -80,6 +79,12 @@ cmp_op:
     | GE {Ge}
     | EQ {Eq}
 
+num_aggregate: 
+    | SUM       {Sum}
+    | AVG       {Avg}
+    | MIN       {Min}
+    | MAX       {Max}
+
 (* ---------- Policies ---------- *)
 policies:
     | OPEN_LIST ps=separated_list(COMMA, policy) CLOSE_LIST {ps}
@@ -103,12 +108,14 @@ policy_arith:
     | OPEN_PAR e=policy_arith CLOSE_PAR             {e}
 
 
+
 regex:
     | OPEN_PAR e=regex CLOSE_PAR            {e}
     | s=VAR                                 {RService(s)}
     | r1=regex PLUS r2=regex                {RChoice(r1, r2)}
     | r1=regex DOT r2=regex                 {RConcat(r1, r2)}
     | r=regex TIMES                         {RStar(r)}
+
 
 (* ---------- SERVICES ---------- *)
 services:
@@ -117,14 +124,14 @@ services:
 
 service:
     | LBRACE
-        NAME         COLON   n=VAR                  COMMA
-        PARAMS       COLON   ps=params              COMMA
-        RETURNS      COLON   rs=returns             COMMA
-        SLA          COLON   sl=sla                 COMMA
-        PRECOND      COLON   pre=bool_exprs_list    COMMA
-        QOS          COLON   qos=qos_constr         COMMA
-        OK_POSTCOND  COLON   ok=bool_exprs_list     COMMA
-        ERR_POSTCOND COLON   err=bool_exprs_list
+        NAME         COLON   n=VAR            COMMA
+        PARAMS       COLON   ps=params        COMMA
+        RETURNS      COLON   rs=returns       COMMA
+        SLA          COLON   sl=sla           COMMA
+        PRECOND      COLON   pre=expr_list    COMMA
+        QOS          COLON   qos=qos_constr   COMMA
+        OK_POSTCOND  COLON   ok=expr_list     COMMA
+        ERR_POSTCOND COLON   err=expr_list
       RBRACE
     
     {
@@ -159,13 +166,12 @@ sla:
     | OPEN_LIST assigns=separated_list(COMMA, assign) CLOSE_LIST  {assigns}
 
 assign:
-    | id=VAR COLON e=arith_expr     {(id, e)}
-    | id=VAR COLON e=bool_expr      {(id, e)}
+    | id=VAR COLON e=expr     {(id, e)}
 
 (* ---------- QoS ---------- *)
 qos_constr:
   | OPEN_LIST 
-        es=separated_list(COMMA, bool_expr)
+        es=separated_list(COMMA, expr)
     CLOSE_LIST
     { es }
 
@@ -177,40 +183,25 @@ expr_list:
 exprs:
   | es=separated_list(COMMA, expr) { es }
 
-num_aggregate: 
-    | SUM       {Sum}
-    | AVG       {Avg}
-    | MIN       {Min}
-    | MAX       {Max}
+
     
 
 atom:
     | n=INT                         {EInt(n)}
-    | b=BOOL                        {EBool(b)}
     | v=VAR                         {EVar(v)}
     | SLA                           {ESla}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
+    | OPEN_PAR e=expr CLOSE_PAR     {e}
+    | b=BOOL                                        {EBool(b)}
 
 expr:
-    | e=arith_expr                      {e}
-    | e=bool_expr                       {e}
-
-arith_expr:
-    | a=atom                                        {a}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
-    | e=arith_expr DOT field=VAR                    {EField(e, field)}
-    | e1=arith_expr aop=arith_op e2=arith_expr      {EBinOp(aop,e1,e2)}
-
-
-
-bool_exprs_list:
-    | OPEN_LIST es=separated_list(COMMA, bool_expr) CLOSE_LIST { es }
-
-bool_expr:
-    | e1=arith_expr cmp=cmp_op e2=arith_expr        {EBinOp(cmp,e1,e2)}    
-    | NOT e=bool_expr                               {EUnOp(Not,e)}
-    | e1=bool_expr OR e2=bool_expr                  {EBinOp(Or,e1,e2)}
-    | e1=bool_expr AND e2=bool_expr                 {EBinOp(And,e1,e2)}
-
+    | a=atom                                {a}
+    | e1=expr aop=arith_op e2=expr          {EBinOp(aop,e1,e2)}
+    | e= expr DOT field=VAR                 {EField(e, field)}
+    | e1=expr cmp=cmp_op e2=expr            {EBinOp(cmp,e1,e2)}    
+    | e1=expr AND e2=expr                   {EBinOp(And,e1,e2)}
+    | e1=expr OR e2=expr                    {EBinOp(Or,e1,e2)}
+    | NOT e=expr                            {EUnOp(Not,e)}
 
 
 
