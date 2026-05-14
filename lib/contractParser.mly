@@ -85,24 +85,10 @@ policies:
     | OPEN_LIST ps=separated_list(COMMA, policy) CLOSE_LIST {ps}
 
 policy:
-    | e=policy_bool     {QosFieldOp(e)}
-    | r=regex           {Regex(r)}
+    | SORTED OPEN_PAR id=VAR CLOSE_PAR                              {QosSorted(id)}
+    | a=num_aggregate OPEN_PAR id=VAR CLOSE_PAR cmp=cmp_op i=INT    {QosCmp(a, id, cmp, i)}
+    | r=regex                                                       {PolicyRegex(r)}
     
-
-policy_bool:
-    | SORTED OPEN_PAR id=VAR CLOSE_PAR              {PAgg(Sorted, id)}
-    | e1=policy_arith cmp=cmp_op e2=policy_arith    {PBinOp(cmp, e1, e2)}
-    | NOT e=policy_bool                             {PUnOp(Not, e)}
-    | OPEN_PAR e=policy_bool CLOSE_PAR              {e}
-
-policy_arith:
-    | n=INT                                         {PExpr(EInt n)}
-    | v=VAR                                         {PExpr(EVar v)}
-    | a=num_aggregate OPEN_PAR id=VAR CLOSE_PAR     {PAgg(a, id)}
-    | e1=policy_arith aop=arith_op  e2=policy_arith {PBinOp(aop, e1, e2)}
-    | OPEN_PAR e=policy_arith CLOSE_PAR             {e}
-
-
 regex:
     | OPEN_PAR e=regex CLOSE_PAR            {e}
     | s=VAR                                 {RService(s)}
