@@ -55,6 +55,8 @@ rule read = parse
 | "precond"         {PRECOND}
 | "ok-postcond"     {OK_POSTCOND}  
 | "err-postcond"    {ERR_POSTCOND}
+| "int"             {INT_TYPE}
+| "bool"            {BOOL_TYPE}
 
 | whitespace {read lexbuf}
 | integer {INT (int_of_string (Lexing.lexeme lexbuf))}

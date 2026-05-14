@@ -27,7 +27,7 @@ type regex =
 type policy =
   | BadPref of regex
   | MaxSum of qosfield * int (*maximum*)
-  | Thrust
+  | Trust
          
 type stmt =
   | Skip
@@ -41,5 +41,5 @@ type stmt =
   | AssignInvoke of string * string * aexpr list
                   
 type decl =
-  | Service of string (*name*) * string list (*parameters*) * stmt (*pre and post*) * int (*thrust*) * int (*maxcost*) * int (*maxlatency*)
+  | Service of string (*name*) * string list (*parameters*) * stmt (*pre and post*) * int (*trust*) * int (*maxcost*) * int (*maxlatency*)
   | Policy of policy * string list (*parameter names to partition the history, then check policy on each partition*)

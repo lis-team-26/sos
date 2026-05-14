@@ -49,8 +49,8 @@
                 succ = True,
                 verify(userId, password),
                 attempts(userId) = 0,
-                token := GetToken(userId, nonce)
-                budget := budget - aa
+                token = GetToken(userId, nonce),
+                budget = budget - aa
             ],
             err-postcond: [
                 succ = False,
@@ -92,9 +92,9 @@
                 productId: int
             ],
 
-            trusted: 7,
-
             returns: [price: int],
+
+            trusted: 7,
 
             precond: [
                 wellFormed(productId)

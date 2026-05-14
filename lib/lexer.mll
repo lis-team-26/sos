@@ -43,7 +43,7 @@ rule read = parse
   | "max" { MAX }
   | "cost" { COST }
   | "latency" { LATENCY }
-  | "thrust" { THRUST }
+  | "trust" { TRUST }
   | "maxsum" { MAXSUM }
   | "badprefix" { BADPREFIX }
   | ',' { COMMA }

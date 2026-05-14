@@ -10,7 +10,7 @@
 %token ADD SUB MUL DIV
 %token AND OR NOT
 %token EQ NEQ LT LE GT GE
-%token SERVICE POLICY BADPREFIX MAXSUM MAX COST LATENCY THRUST COLON
+%token SERVICE POLICY BADPREFIX MAXSUM MAX COST LATENCY TRUST COLON
 %token SKIP ASSIGN SEMICOLON IF THEN ELSE WHILE DO
 %token ASSUME ASSERT INVOKE
 %token COMMA LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK EOF
@@ -67,19 +67,19 @@ post: (* the postcondition can be expressed with assume and assignment*)
   | x = ID ; ASSIGN ; aexpr = aexpr ; SEMICOLON { Assign (x, aexpr) }
   | SKIP ; SEMICOLON { Skip }
 
-thrust:
-  | THRUST ; COLON ; t = INT { t }
+trust:
+  | TRUST ; COLON ; t = INT { t }
 
 mcost_mlat:
   | MAX ; COST ; COLON ; c = INT ; MAX ; LATENCY ; COLON ; l = INT { (c, l) }
   | MAX ; LATENCY ; COLON ; l = INT ; MAX ; COST ; COLON ; c = INT { (c, l) }
 
-mcost_mlat_thrust:
-  | m = mcost_mlat ; t = thrust { (m, t) }
-  | t = thrust ; m = mcost_mlat { (m, t) }
+mcost_mlat_trust:
+  | m = mcost_mlat ; t = trust { (m, t) }
+  | t = trust ; m = mcost_mlat { (m, t) }
 
 decl:
-  | SERVICE ; name = ID ; LPAREN ; l = separated_list(COMMA, ID) ; RPAREN ; d = mcost_mlat_thrust ; LBRACE ; pr = sequence(pre) ; RBRACE ; LBRACE ; po = sequence(post) ; RBRACE { Service (name, l, Seq (pr, po), fst(fst(d)), snd(fst(d)), snd(d)) }
+  | SERVICE ; name = ID ; LPAREN ; l = separated_list(COMMA, ID) ; RPAREN ; d = mcost_mlat_trust ; LBRACE ; pr = sequence(pre) ; RBRACE ; LBRACE ; po = sequence(post) ; RBRACE { Service (name, l, Seq (pr, po), fst(fst(d)), snd(fst(d)), snd(d)) }
   | POLICY ; p = policy ; LBRACK ; l = separated_list(COMMA, ID) ; RBRACK { Policy (p, l) }
 
 regex:
@@ -94,7 +94,7 @@ qos:
   | COST { Latency }
 
 policy:
-  | THRUST { Thrust }
+  | TRUST { Trust }
   | BADPREFIX ; r = regex { BadPref r }
   | MAXSUM ; f = qos ; n = INT { MaxSum (f, n) }
 
