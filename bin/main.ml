@@ -11,6 +11,17 @@ let lexer_with_history lexbuf =
   tok
 
 
+let parse src =
+  let lexbuf = Lexing.from_channel (open_in src) in
+  Lib.Parser.prog Lib.Lexer.read lexbuf
+
+let symb_run (_, stmt) ~mode =
+  stmt
+  |> Lib.SymbolicInterpreter.build_symb_process
+  |> Lib.SymbolicInterpreter.Symex.run ~mode
+
+
+  
 let () =
   if Array.length Sys.argv != 3 then Fmt.pr "Usage: %s <services_contract> <orchestrator_code>\n" Sys.argv.(0)
   else
@@ -28,7 +39,7 @@ let () =
       let ast = (Lib.ContractParser.prg lexer_with_history lexbuf) in
       Printf.printf "Parse successful\n";
       let fmt = Format.std_formatter in
-      Lib.ContractLang_pp.pp_program fmt ast;
+      Lib.ContractAST_pp.pp_program fmt ast;
       Format.pp_print_flush fmt ();
       close_in input_file
     with
@@ -50,8 +61,8 @@ let () =
   
 
     let src = Sys.argv.(2) in
-    let prog = Lib.parse src in
-    let final_states = Lib.symb_run prog ~mode in
+    let prog = parse src in
+    let final_states = symb_run prog ~mode in
     final_states
     |> List.mapi Lib.Utils.string_of_state
     |> String.concat "\n" |> print_endline

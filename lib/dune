@@ -1,20 +1,13 @@
-(ocamllex
- (modules lexer))
-
-(menhir
- (modules parser))
-
 (library
  (name lib)
- (modules
-  lib
-  ast
-  lexer
-  parser
-  symbolicInterpreter
-  utils)
  (modules_without_implementation ast)
  (libraries soteria)
  (preprocess
   (pps soteria.ppx))
  (flags :standard -open Soteria.Logs.Import))
+
+(ocamllex
+ (modules lexer contractLexer))
+
+(menhir
+ (modules parser contractParser))
