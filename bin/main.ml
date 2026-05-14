@@ -10,9 +10,6 @@ let lexer_with_history lexbuf =
   current_token := Lexing.lexeme lexbuf;
   tok
 
-
-
-
   
 let () =
   if Array.length Sys.argv != 3 then Fmt.pr "Usage: %s <services_contract> <orchestrator_code>\n" Sys.argv.(0)
@@ -53,8 +50,8 @@ let () =
   
 
     let src = Sys.argv.(2) in
-    let prog = parse src in
-    let final_states = symb_run prog ~mode in
+    let prog = Lib.parse src in
+    let final_states = Lib.symb_run prog ~mode in
     final_states
     |> List.mapi Lib.Utils.string_of_state
     |> String.concat "\n" |> print_endline
