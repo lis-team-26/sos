@@ -12,7 +12,6 @@
 
     QoS: [
         latency: int, 
-        min_latency: int,
         cost: int
     ], 
 
@@ -21,7 +20,8 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        write . write . write . write 
+        3 < 4,
+        write . write . write . write
     ],
 
     services: [
@@ -33,11 +33,7 @@
                 nonce: int
             ],
             returns: [token: int],
-            SLA: [
-                latency: 100,
-                cost: 50,
-                trust: 30
-            ],
+            trusted: 30,
             precond: [
                 wellFormed(userId),
                 wellFormed(password),
@@ -46,14 +42,15 @@
                 attempts(userId) < MAX_ATTEMPTS
             ],
             QoS: [
-                latency <= SLA.latency,
+                latency <= 10,
                 cost = AuthFee(userId)
             ],
             ok-postcond: [
                 succ = True,
                 verify(userId, password),
                 attempts(userId) = 0,
-                token = GetToken(userId, nonce)
+                token := GetToken(userId, nonce)
+                budget := budget - aa
             ],
             err-postcond: [
                 succ = False,
@@ -66,11 +63,9 @@
             params: [
                 amt: int
             ],
-            returns: [r: Outcome], 
-            SLA: [
-                latency: n3,
-                cost: n4
-            ],
+            returns: [r: bool], 
+            
+            trusted: 23,
 
             precond: [
                 amt > 0
@@ -97,21 +92,17 @@
                 productId: int
             ],
 
-            returns: [price: int],
+            trusted: 7,
 
-            SLA: [
-                latency: n5,
-                cost: n6,
-                trust: 7
-            ],
+            returns: [price: int],
 
             precond: [
                 wellFormed(productId)
             ],
 
             QoS: [
-                latency <= SLA.latency,
-                cost >= 0
+                latency <= 10,
+                cost <= 100
             ],
 
             ok-postcond: [

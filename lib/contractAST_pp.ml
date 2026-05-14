@@ -4,9 +4,6 @@ open ContractAST
 let rec pp_typ fmt = function
   | ContractAST.TInt -> fprintf fmt "int"
   | ContractAST.TBool -> fprintf fmt "bool"
-  | ContractAST.TOutcome -> fprintf fmt "outcome"
-  | ContractAST.TErr -> fprintf fmt "err"
-  | ContractAST.TCustom s -> fprintf fmt "%s" s
   | ContractAST.TArrow (args, ret) ->
       fprintf fmt "(";
       pp_typ_list fmt args;
@@ -87,8 +84,7 @@ let pp_ret fmt (id, ty) =
 
 let pp_condition fmt = pp_expr fmt
 
-let pp_sla fmt (id, e) =
-  fprintf fmt "%s = %a" id pp_expr e
+let pp_trust fmt tr = fprintf fmt "%d" tr
 
 let pp_funtype =
   let rec go fmt = function
@@ -147,6 +143,8 @@ let pp_policy fmt = function
 
   | ContractAST.Regex r ->
       pp_regex fmt r
+  | ContractAST.Sort id ->
+      fprintf fmt "sorted(%s)" id
     
 let pp_service fmt s =
   fprintf fmt "service %s {\n" s.name;
@@ -154,8 +152,8 @@ let pp_service fmt s =
   List.iter (fun p -> fprintf fmt "    %a\n" pp_param p) s.params;
   fprintf fmt "  returns:\n";
   List.iter (fun r -> fprintf fmt "    %a\n" pp_ret r) s.returns;
-  fprintf fmt "  sla:\n";
-  List.iter (fun sl -> fprintf fmt "    %a\n" pp_sla sl) s.sla;
+  fprintf fmt "  trusted:\n";
+  fprintf fmt "    %a\n" pp_trust s.trust;
   fprintf fmt "  precond:\n";
   List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.precond;
   fprintf fmt "  qos:\n";

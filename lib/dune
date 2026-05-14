@@ -1,5 +1,15 @@
 (library
  (name lib)
+ (modules
+  lib
+  ast
+  contractAST
+  contractLexer
+  contractParser
+  lexer
+  parser
+  symbolicInterpreter
+  utils)
  (modules_without_implementation ast)
  (libraries soteria)
  (preprocess

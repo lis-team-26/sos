@@ -1,10 +1,7 @@
 type typ = 
     | TInt
     | TBool
-    | TOutcome
-    | TErr
     | TArrow of typ list * typ
-    | TCustom of string
 
 
 type binop =
@@ -52,6 +49,7 @@ type regex =
 type policy = 
     | QosFieldOp of policy_expr
     | Regex of regex
+    | Sort of ident
 
 
 
@@ -61,7 +59,7 @@ type qos_def = (ident * typ) list
 type qos_constraint = expr list
 
 (* SLA *)
-type sla = (ident * expr) list
+type trust = int
 
 (* Parameters and returns *)
 type param = ident * typ
@@ -74,7 +72,7 @@ type service = {
     name : ident;
     params : param list;
     returns : ret list;
-    sla : sla;
+    trust : trust;
     precond : condition list;
     qos : qos_constraint;
     ok_post : condition list;

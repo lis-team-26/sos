@@ -51,7 +51,7 @@ rule read = parse
 | "name"            {NAME}
 | "params"          {PARAMS}
 | "returns"         {RETURNS}
-| "SLA"             {SLA}
+| "trusted"         {TRUST}
 | "precond"         {PRECOND}
 | "ok-postcond"     {OK_POSTCOND}  
 | "err-postcond"    {ERR_POSTCOND}
