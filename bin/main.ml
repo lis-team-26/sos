@@ -24,34 +24,36 @@ let () =
     
     let lexbuf = Lexing.from_channel input_file in
 
-    try
-      let ast = (Lib.ContractParser.prg lexer_with_history lexbuf) in
-      Printf.printf "Parse successful\n";
-      let fmt = Format.std_formatter in
-      Lib.ContractAST_pp.pp_program fmt ast;
-      Format.pp_print_flush fmt ();
-      close_in input_file
-    with
+    let contractAST =
+      try
+        let ast = (Lib.ContractParser.prg lexer_with_history lexbuf) in
+        Printf.printf "Parse successful\n";
+        let fmt = Format.std_formatter in
+        Lib.ContractAST_pp.pp_program fmt ast;
+        Format.pp_print_flush fmt ();
+        close_in input_file;
+        ast
+      with
       | Lib.ContractParser.Error ->
-          close_in input_file;
-          let pos = lexbuf.lex_curr_p in
-          let _token = Lexing.lexeme lexbuf in
-          Printf.eprintf 
-            "Parse error at line %d, column %d\n\
+         close_in input_file;
+         let pos = lexbuf.lex_curr_p in
+         let _token = Lexing.lexeme lexbuf in
+         Printf.eprintf 
+           "Parse error at line %d, column %d\n\
             previous token: '%s'\n\
             current token: '%s'\n"
-            pos.pos_lnum
-            (pos.pos_cnum - pos.pos_bol + 1)
-            !previous_token
-            !current_token;
-          exit 1
+           pos.pos_lnum
+           (pos.pos_cnum - pos.pos_bol + 1)
+           !previous_token
+           !current_token;
+         exit 1
 
-      | exn -> close_in input_file; Printf.eprintf "Unexpected error: %s\n" (Printexc.to_string exn);
+      | exn -> close_in input_file; Printf.eprintf "Unexpected error: %s\n" (Printexc.to_string exn); exit 1
   
-
+    in
     let src = Sys.argv.(2) in
-    let prog = Lib.parse src in
-    let final_states = Lib.symb_run prog ~mode in
+    let progAST = Lib.parse src in
+    let final_states = Lib.symb_run (contractAST, progAST) ~mode in
     final_states
     |> List.mapi Lib.Utils.string_of_state
     |> String.concat "\n" |> print_endline

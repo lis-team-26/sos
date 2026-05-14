@@ -14,21 +14,6 @@ type bexpr =
   | BOp of bexpr * bool_bin_op * bexpr
   | COp of aexpr * comp_bin_op * aexpr
 
-type qosfield =
-  | Cost
-  | Latency
-
-type regex =
-  | Service of string
-  | Concat of regex * regex
-  | Choice of regex * regex
-  | Star of regex
-
-type policy =
-  | BadPref of regex
-  | MaxSum of qosfield * int (*maximum*)
-  | Trust
-         
 type stmt =
   | Skip
   | Assign of string * aexpr
@@ -39,7 +24,3 @@ type stmt =
   | Assert of bexpr
   | Invoke of string * aexpr list
   | AssignInvoke of string * string * aexpr list
-                  
-type decl =
-  | Service of string (*name*) * string list (*parameters*) * stmt (*pre and post*) * int (*trust*) * int (*maxcost*) * int (*maxlatency*)
-  | Policy of policy * string list (*parameter names to partition the history, then check policy on each partition*)

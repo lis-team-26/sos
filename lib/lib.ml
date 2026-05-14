@@ -12,7 +12,7 @@ let parse src =
   let lexbuf = Lexing.from_channel (open_in src) in
   Parser.prog Lexer.read lexbuf
 
-let symb_run (_, stmt) ~mode =
-  stmt
+let symb_run (_, program) ~mode =
+  program
   |> SymbolicInterpreter.build_symb_process
   |> SymbolicInterpreter.Symex.run ~mode

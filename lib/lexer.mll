@@ -29,7 +29,6 @@ rule read = parse
   | "skip" { SKIP }
   | ":=" { ASSIGN }
   | ';' { SEMICOLON }
-  | ':' { COLON }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
@@ -38,22 +37,11 @@ rule read = parse
   | "assume" { ASSUME }
   | "assert" { ASSERT }
   | "invoke" { INVOKE }
-  | "service" { SERVICE }
-  | "policy" { POLICY }
-  | "max" { MAX }
-  | "cost" { COST }
-  | "latency" { LATENCY }
-  | "trust" { TRUST }
-  | "maxsum" { MAXSUM }
-  | "badprefix" { BADPREFIX }
   | ',' { COMMA }
-  | '.' { DOT }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
-  | '[' { LBRACK }
-  | ']' { RBRACK }
   | eof { EOF }
   | id as x { ID x }
   | _ { raise (LexerError ("Unexpected character " ^ Lexing.lexeme lexbuf)) }
