@@ -21,4 +21,5 @@
  (modules lexer contractLexer))
 
 (menhir
- (modules parser contractParser))
+ (modules parser contractParser)
+ (explain true))
