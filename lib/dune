@@ -4,6 +4,7 @@
   lib
   ast
   contractAST
+  contractAST_pp
   contractLexer
   contractParser
   lexer
