@@ -120,11 +120,11 @@ let rec pp_regex fmt = function
       fprintf fmt ")*"
 
 let pp_policy fmt = function
-  | ContractAST.QosFieldOp (cmp_op, agg_op, id, e) ->
+  | ContractAST.QosFieldOp (cmp_op, agg_op, id, i) ->
       pp_aggrop fmt agg_op;
       fprintf fmt "(%s)" id;
       pp_binop fmt cmp_op;
-      pp_expr fmt e
+      fprintf fmt "%d" i
 
   | ContractAST.Regex r ->
       pp_regex fmt r

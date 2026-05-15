@@ -39,7 +39,7 @@ type regex =
     | RStar of regex
 
 type policy = 
-    | QosFieldOp of binop * aggrop * string * expr
+    | QosFieldOp of binop * aggrop * string * int
     | Regex of regex
     | Sort of ident
 

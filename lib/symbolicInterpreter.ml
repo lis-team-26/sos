@@ -118,7 +118,7 @@ let rec symb_eval_stmt state = function
       Symex.Result.ok
         { env = SymbMap.add x ret_val state.env; hist = call :: state.hist }
 
-let build_symb_process stmt =
+let build_symb_process stmt _ _ =
   let initial_state = { env = SymbMap.empty; hist = [] } in
   let final_state =
     let++ final_ok_state = symb_eval_stmt initial_state stmt in

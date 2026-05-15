@@ -96,7 +96,7 @@ policies:
     | OPEN_LIST ps=separated_list(COMMA, policy) CLOSE_LIST {ps}
 
 policy:
-    | n=num_aggregate OPEN_PAR id=VAR CLOSE_PAR cmp=cmp_op e=expr {QosFieldOp(cmp, n, id, e)}
+    | n=num_aggregate OPEN_PAR id=VAR CLOSE_PAR cmp=cmp_op i=INT {QosFieldOp(cmp, n, id, i)}
     | r=regex                           {Regex(r)}
     | SORTED OPEN_PAR id=VAR CLOSE_PAR  {Sort(id)}
 
