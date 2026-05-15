@@ -26,6 +26,7 @@ rule read = parse
 | "&&"      {AND}
 | "||"      {OR}
 | "="       {EQ}
+| ":="      {ASSIGN}
 
 
 (* Aggregate operators *)
@@ -55,6 +56,8 @@ rule read = parse
 | "precond"         {PRECOND}
 | "ok-postcond"     {OK_POSTCOND}  
 | "err-postcond"    {ERR_POSTCOND}
+| "effects"         {EFFECTS}
+| "constraints"     {CONSTRAINTS}
 | "int"             {INT_TYPE}
 | "bool"            {BOOL_TYPE}
 
