@@ -13,11 +13,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y z3 bubblewrap
+
     - name: Set up OCaml
       uses: ocaml/setup-ocaml@v3
       with:
         ocaml-compiler: 5.x
-        dune-version: 3.x
 
     - name: Install dependencies
       run: |
