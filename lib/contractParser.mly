@@ -164,8 +164,9 @@ constraints:
     | CONSTRAINTS COLON OPEN_LIST c=separated_list(COMMA, constrnt) CLOSE_LIST { c }
 
 constrnt:
-    | id=VAR cmp=cmp_op e=expr {(cmp, LVar(id), e)}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR cmp=cmp_op e=expr {(cmp, LApp(id, args), e)}
+    | id=VAR cmp=cmp_op e=expr                                  {(cmp, LVar(id), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR cmp=cmp_op e=expr    {(cmp, LApp(id, args), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR                      {(Eq, LApp(id, args), EBool(true))} 
 
 behavior:
     | LBRACE eff=effects COMMA constr=constraints RBRACE {(eff, constr)}
