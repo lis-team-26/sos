@@ -120,9 +120,9 @@ service:
         RETURNS      COLON   rs=returns       COMMA
         TRUST        COLON   tr=INT           COMMA
         PRECOND      COLON   pre=expr_list    COMMA
-        QOS          COLON   qos=qos_constr   COMMA
-        OK_POSTCOND  COLON   ok=expr_list     COMMA
-        ERR_POSTCOND COLON   err=expr_list
+        QOS          COLON   qos=behavior     COMMA
+        OK_POSTCOND  COLON   ok=behavior      COMMA
+        ERR_POSTCOND COLON   err=behavior
       RBRACE
     
     {
@@ -153,12 +153,23 @@ return_item:
     | id=VAR COLON t=typ { (id, t) }
 
 
-(* ---------- QoS ---------- *)
-qos_constr:
-  | OPEN_LIST 
-        es=separated_list(COMMA, expr)
-    CLOSE_LIST
-    { es }
+effects:    
+    | EFFECTS COLON OPEN_LIST e=separated_list(COMMA, effct) CLOSE_LIST { e }
+
+effct:
+    | id=VAR ASSIGN e=expr {(LVar(id), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR ASSIGN e=expr {(LApp(id, args), e)}
+
+constraints:
+    | CONSTRAINTS COLON OPEN_LIST c=separated_list(COMMA, constrnt) CLOSE_LIST { c }
+
+constrnt:
+    | id=VAR cmp=cmp_op e=expr {(cmp, LVar(id), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR cmp=cmp_op e=expr {(cmp, LApp(id, args), e)}
+
+behavior:
+    | LBRACE eff=effects COMMA constr=constraints RBRACE {(eff, constr)}
+
 
 
 (* ---------- EXPRESSIONS (prefix style) ---------- *)

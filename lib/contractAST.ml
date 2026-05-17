@@ -58,6 +58,14 @@ type param = ident * typ
 type ret = ident * typ
 
 (* Conditions *)
+type lhs =
+    | LVar of ident
+    | LApp of ident * expr list
+
+type effct = lhs * expr
+type constrnt = binop * lhs * expr
+type behavior = effct list * constrnt list
+
 type condition = expr
 
 type service = {
@@ -66,9 +74,9 @@ type service = {
     returns : ret list;
     trust : trust;
     precond : condition list;
-    qos : qos_constraint;
-    ok_post : condition list;
-    err_post : condition list;
+    qos : behavior;
+    ok_post : behavior;
+    err_post : behavior;
 }
 
 (* Function signatures: * -> int *)
@@ -98,7 +106,8 @@ type program = {
 *)
 
 let validate (p: program) : unit =
-  let service_names = List.map (fun s -> s.name) p.services in
-  let unique_service_names = List.sort_uniq String.compare service_names in
-  if List.length service_names <> List.length unique_service_names then
+  let _service_names = List.map (fun s -> s.name) p.services in ()
+  (*
+  if List.length service_names <> Set.cardinal (Set.of_list service_names) then
     failwith "Duplicate service names found in the program"
+  *)

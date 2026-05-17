@@ -130,7 +130,27 @@ let pp_policy fmt = function
       pp_regex fmt r
   | ContractAST.Sort id ->
       fprintf fmt "sorted(%s)" id
-    
+
+      
+let pp_lhs fmt = function
+  | ContractAST.LVar id -> fprintf fmt "%s" id
+  | ContractAST.LApp (f, args) ->
+      fprintf fmt "%s(" f;
+      pp_expr_list fmt args;
+      fprintf fmt ")"
+
+let pp_effct fmt (id, e) =
+  fprintf fmt "%a := %a" pp_lhs id pp_expr e
+
+let pp_constrnt fmt (op, id, e) =
+  fprintf fmt "%a %a = %a" pp_binop op pp_lhs id pp_expr e
+
+let pp_behavior fmt (effs, constrs) =
+  fprintf fmt "effects:\n";
+  List.iter (fun e -> fprintf fmt "  %a\n" pp_effct e) effs;
+  fprintf fmt "constraints:\n";
+  List.iter (fun c -> fprintf fmt "  %a\n" pp_constrnt c) constrs
+
 let pp_service fmt s =
   fprintf fmt "service %s {\n" s.name;
   fprintf fmt "  params:\n";
@@ -142,11 +162,11 @@ let pp_service fmt s =
   fprintf fmt "  precond:\n";
   List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.precond;
   fprintf fmt "  qos:\n";
-  List.iter (fun q -> fprintf fmt "    %a\n" pp_expr q) s.qos;
+  pp_behavior fmt s.qos;
   fprintf fmt "  ok_post:\n";
-  List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.ok_post;
+  pp_behavior fmt s.ok_post;
   fprintf fmt "  err_post:\n";
-  List.iter (fun c -> fprintf fmt "    %a\n" pp_condition c) s.err_post;
+  pp_behavior fmt s.err_post;
   fprintf fmt "}\n"
 
 let pp_program fmt p =
