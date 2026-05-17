@@ -21,10 +21,11 @@
 
 %left OR
 %left AND
-%left PLUS
-%left TIMES
-%left DOT
+%left EQ LT LE GT GE
+%left PLUS MINUS
+%left TIMES DIV
 %right NOT
+%left DOT
 
 %start <ContractAST.program> prg
 
@@ -72,13 +73,13 @@ qos_decl:
 
 
 (* ---------- Operators ---------- *)
-arith_op:
+%inline arith_op:
     | PLUS  {Add}
     | MINUS {Sub}
     | TIMES {Mul}
     | DIV   {Div}
 
-cmp_op:
+%inline cmp_op:
     | LT {Lt}
     | LE {Le}
     | GT {Gt}
