@@ -26,6 +26,7 @@
 %left TIMES DIV
 %left DOT
 %right NOT
+%left DOT
 
 %start <ContractAST.program> prg
 
