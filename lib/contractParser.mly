@@ -19,11 +19,12 @@
 %token <bool> BOOL
 %token <string> VAR
 
+(*%left LT LE GT GE EQ*)
 %left OR
 %left AND
-%left EQ LT LE GT GE
 %left PLUS MINUS
 %left TIMES DIV
+%left DOT
 %right NOT
 %left DOT
 
@@ -73,13 +74,7 @@ qos_decl:
 
 
 (* ---------- Operators ---------- *)
-%inline arith_op:
-    | PLUS  {Add}
-    | MINUS {Sub}
-    | TIMES {Mul}
-    | DIV   {Div}
-
-%inline cmp_op:
+cmp_op:
     | LT {Lt}
     | LE {Le}
     | GT {Gt}
@@ -120,7 +115,7 @@ service:
         PARAMS       COLON   ps=params        COMMA
         RETURNS      COLON   rs=returns       COMMA
         TRUST        COLON   tr=INT           COMMA
-        PRECOND      COLON   pre=expr_list    COMMA
+        PRECOND      COLON   pre=bexpr_list   COMMA
         QOS          COLON   qos=behavior     COMMA
         OK_POSTCOND  COLON   ok=behavior      COMMA
         ERR_POSTCOND COLON   err=behavior
@@ -158,16 +153,16 @@ effects:
     | EFFECTS COLON OPEN_LIST e=separated_list(COMMA, effct) CLOSE_LIST { e }
 
 effct:
-    | id=VAR ASSIGN e=expr {(LVar(id), e)}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR ASSIGN e=expr {(LApp(id, args), e)}
+    | id=VAR ASSIGN e=arith_expr                                                            {(LVar(id), e)}
+    | id=VAR OPEN_PAR args=aexprs CLOSE_PAR ASSIGN e=arith_expr  {(LApp(id, args), e)}
 
 constraints:
     | CONSTRAINTS COLON OPEN_LIST c=separated_list(COMMA, constrnt) CLOSE_LIST { c }
 
 constrnt:
-    | id=VAR cmp=cmp_op e=expr                                  {(cmp, LVar(id), e)}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR cmp=cmp_op e=expr    {(cmp, LApp(id, args), e)}
-    | id=VAR OPEN_PAR args=exprs CLOSE_PAR                      {(Eq, LApp(id, args), EBool(true))} 
+    | id=VAR cmp=cmp_op e=arith_expr                                    {(cmp, LVar(id), e)}
+    | id=VAR OPEN_PAR args=aexprs CLOSE_PAR cmp=cmp_op e=arith_expr      {(cmp, LApp(id, args), e)}
+    | id=VAR OPEN_PAR args=aexprs CLOSE_PAR                              {(Eq, LApp(id, args), EBool(true))} 
 
 behavior:
     | LBRACE eff=effects COMMA constr=constraints RBRACE {(eff, constr)}
@@ -175,6 +170,7 @@ behavior:
 
 
 (* ---------- EXPRESSIONS (prefix style) ---------- *)
+(*
 expr_list:
     | OPEN_LIST es=exprs CLOSE_LIST { es }
 
@@ -189,18 +185,59 @@ atom:
     | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
     | OPEN_PAR e=expr CLOSE_PAR                     {e}
     | b=BOOL                                        {EBool(b)}
+    | id=VAR DOT field=VAR                          {EField(EVar(id), field)}
 
 expr:
     | a=atom                                        {a}
     | e1=expr aop=arith_op e2=expr                  {EBinOp(aop,e1,e2)}
-    | e= expr DOT field=VAR                         {EField(e, field)}
     | e1=expr cmp=cmp_op e2=expr                    {EBinOp(cmp,e1,e2)}    
     | e1=expr AND e2=expr                           {EBinOp(And,e1,e2)}
     | e1=expr OR e2=expr                            {EBinOp(Or,e1,e2)}
     | NOT e=expr                                    {EUnOp(Not,e)}
+*)
 
 
 
 typ:
     | INT_TYPE     {TInt}
     | BOOL_TYPE    {TBool}
+
+
+
+(* ---------- Expr v2 ---------- *)
+atom:
+    | v=VAR                                         {EVar(v)}
+    | id=VAR OPEN_PAR args=aexprs CLOSE_PAR         {EApp(id, args)}
+    | n=INT                                         {EInt(n)}
+
+
+(*
+arith_atom:
+    | a=atom                                        {a}
+    | n=INT                                         {EInt(n)}
+*)
+
+
+arith_expr:
+    | a=atom                                  {a}
+    | e1=arith_expr PLUS e2=arith_expr              {EBinOp(Add,e1,e2)}
+    | e1=arith_expr MINUS e2=arith_expr             {EBinOp(Sub,e1,e2)}
+    | e1=arith_expr TIMES e2=arith_expr             {EBinOp(Mul,e1,e2)}
+    | e1=arith_expr DIV e2=arith_expr               {EBinOp(Div,e1,e2)}
+    | OPEN_PAR e=arith_expr CLOSE_PAR               {e}
+
+aexprs:
+    |  es=separated_list(COMMA, arith_expr)  { es }
+
+
+bool_expr:
+    | b=BOOL                                        {EBool(b)}
+    | id=VAR OPEN_PAR args=aexprs CLOSE_PAR         {EApp(id, args)}
+    | e1=arith_expr cmp=cmp_op e2=arith_expr        {EBinOp(cmp,e1,e2)}    
+    | e1=bool_expr AND e2=bool_expr                 {EBinOp(And,e1,e2)}
+    | e1=bool_expr OR e2=bool_expr                  {EBinOp(Or,e1,e2)}
+    | NOT e=bool_expr                               {EUnOp(Not,e)}
+    | OPEN_PAR e=bool_expr CLOSE_PAR                {e}
+
+bexpr_list:
+    | OPEN_LIST es=separated_list(COMMA, bool_expr) CLOSE_LIST {es}
