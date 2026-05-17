@@ -23,4 +23,5 @@
 
 (menhir
  (modules parser contractParser)
+ (flags --strict)
  (explain true))
