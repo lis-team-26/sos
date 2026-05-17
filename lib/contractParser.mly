@@ -8,11 +8,11 @@
 %}
 
 (* tokens *)
-%token COLON ARROW DOT EQ COMMA EOF 
+%token COLON ARROW DOT EQ ASSIGN COMMA EOF 
 %token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
 %token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
-%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND 
+%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND EFFECTS CONSTRAINTS 
 %token INT_TYPE BOOL_TYPE
 
 %token <int> INT
@@ -120,9 +120,9 @@ service:
         RETURNS      COLON   rs=returns       COMMA
         TRUST        COLON   tr=INT           COMMA
         PRECOND      COLON   pre=expr_list    COMMA
-        QOS          COLON   qos=qos_constr   COMMA
-        OK_POSTCOND  COLON   ok=expr_list     COMMA
-        ERR_POSTCOND COLON   err=expr_list
+        QOS          COLON   qos=behavior     COMMA
+        OK_POSTCOND  COLON   ok=behavior      COMMA
+        ERR_POSTCOND COLON   err=behavior
       RBRACE
     
     {
@@ -153,12 +153,24 @@ return_item:
     | id=VAR COLON t=typ { (id, t) }
 
 
-(* ---------- QoS ---------- *)
-qos_constr:
-  | OPEN_LIST 
-        es=separated_list(COMMA, expr)
-    CLOSE_LIST
-    { es }
+effects:    
+    | EFFECTS COLON OPEN_LIST e=separated_list(COMMA, effct) CLOSE_LIST { e }
+
+effct:
+    | id=VAR ASSIGN e=expr {(LVar(id), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR ASSIGN e=expr {(LApp(id, args), e)}
+
+constraints:
+    | CONSTRAINTS COLON OPEN_LIST c=separated_list(COMMA, constrnt) CLOSE_LIST { c }
+
+constrnt:
+    | id=VAR cmp=cmp_op e=expr                                  {(cmp, LVar(id), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR cmp=cmp_op e=expr    {(cmp, LApp(id, args), e)}
+    | id=VAR OPEN_PAR args=exprs CLOSE_PAR                      {(Eq, LApp(id, args), EBool(true))} 
+
+behavior:
+    | LBRACE eff=effects COMMA constr=constraints RBRACE {(eff, constr)}
+
 
 
 (* ---------- EXPRESSIONS (prefix style) ---------- *)
@@ -171,20 +183,20 @@ exprs:
 
 
 atom:
-    | n=INT                         {EInt(n)}
-    | v=VAR                         {EVar(v)}
+    | n=INT                                         {EInt(n)}
+    | v=VAR                                         {EVar(v)}
     | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
-    | OPEN_PAR e=expr CLOSE_PAR     {e}
+    | OPEN_PAR e=expr CLOSE_PAR                     {e}
     | b=BOOL                                        {EBool(b)}
 
 expr:
-    | a=atom                                {a}
-    | e1=expr aop=arith_op e2=expr          {EBinOp(aop,e1,e2)}
-    | e= expr DOT field=VAR                 {EField(e, field)}
-    | e1=expr cmp=cmp_op e2=expr            {EBinOp(cmp,e1,e2)}    
-    | e1=expr AND e2=expr                   {EBinOp(And,e1,e2)}
-    | e1=expr OR e2=expr                    {EBinOp(Or,e1,e2)}
-    | NOT e=expr                            {EUnOp(Not,e)}
+    | a=atom                                        {a}
+    | e1=expr aop=arith_op e2=expr                  {EBinOp(aop,e1,e2)}
+    | e= expr DOT field=VAR                         {EField(e, field)}
+    | e1=expr cmp=cmp_op e2=expr                    {EBinOp(cmp,e1,e2)}    
+    | e1=expr AND e2=expr                           {EBinOp(And,e1,e2)}
+    | e1=expr OR e2=expr                            {EBinOp(Or,e1,e2)}
+    | NOT e=expr                                    {EUnOp(Not,e)}
 
 
 

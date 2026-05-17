@@ -40,21 +40,33 @@
                 !locked(userId),
                 attempts(userId) < MAX_ATTEMPTS
             ],
-            QoS: [
-                latency <= 10,
-                cost = AuthFee(userId)
-            ],
-            ok-postcond: [
-                succ = True,
-                verify(userId, password),
-                attempts(userId) = 0,
-                token = GetToken(userId, nonce),
-                budget = budget - aa
-            ],
-            err-postcond: [
-                succ = False,
-                token = err
-            ]
+            QoS: {
+                effects: [
+                    cost := AuthFee(userId)
+                ],
+                constraints: [
+                    latency <= 10
+                ]
+            },
+            ok-postcond: {
+                effects: [
+                    token := GetToken(userId, nonce),
+                    attempts := 0,
+                    budget := budget - 10
+                ],
+                constraints: [
+                    succ = True,
+                    verify(userId, password)
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    token := err
+                ],
+                constraints: [
+                    succ = False
+                ]
+            }
         },
 
         {
@@ -70,19 +82,29 @@
                 amt > 0
             ],
 
-            QoS: [
-                latency > 0,
-                cost = PayFee(amt)
-            ],
+            QoS: {
+                effects: [
+                    cost := PayFee(amt)
+                ],
+                constraints: [
+                    latency > 0
+                ]
+            },
 
-            ok-postcond: [
-                succ = True,
-                r = ok
-            ],
-            err-postcond: [
-                succ = False,
-                r = err
-            ]
+            ok-postcond: {
+                effects: [],
+                constraints: [
+                    succ = True,
+                    r = ok
+                ]
+            },
+            err-postcond: {
+                effects: [],
+                constraints: [
+                    succ = False,
+                    r = err
+                ]
+            }
         },
 
         {
@@ -99,20 +121,29 @@
                 wellFormed(productId)
             ],
 
-            QoS: [
-                latency <= 10,
-                cost <= 100
-            ],
+            QoS: {
+                effects: [],
+                constraints: [
+                    latency <= 10,
+                    cost <= 100
+                ]
+            },
 
-            ok-postcond: [
-                succ = True,
-                price > 0
-            ],
+            ok-postcond: {
+                effects: [],
+                constraints: [
+                    succ = True,
+                    price > 0
+                ]
+            },
 
-            err-postcond: [
-                succ = False,
-                price = err
-            ]
+            err-postcond: {
+                effects: [],
+                constraints: [
+                    succ = False,
+                    price = err
+                ]
+            }
         }
     ]
 }
