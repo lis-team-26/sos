@@ -171,20 +171,20 @@ exprs:
 
 
 atom:
-    | n=INT                         {EInt(n)}
-    | v=VAR                         {EVar(v)}
+    | n=INT                                         {EInt(n)}
+    | v=VAR                                         {EVar(v)}
     | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
-    | OPEN_PAR e=expr CLOSE_PAR     {e}
+    | OPEN_PAR e=expr CLOSE_PAR                     {e}
     | b=BOOL                                        {EBool(b)}
 
 expr:
-    | a=atom                                {a}
-    | e1=expr aop=arith_op e2=expr          {EBinOp(aop,e1,e2)}
-    | e= expr DOT field=VAR                 {EField(e, field)}
-    | e1=expr cmp=cmp_op e2=expr            {EBinOp(cmp,e1,e2)}    
-    | e1=expr AND e2=expr                   {EBinOp(And,e1,e2)}
-    | e1=expr OR e2=expr                    {EBinOp(Or,e1,e2)}
-    | NOT e=expr                            {EUnOp(Not,e)}
+    | a=atom                                        {a}
+    | e1=expr aop=arith_op e2=expr                  {EBinOp(aop,e1,e2)}
+    | e= expr DOT field=VAR                         {EField(e, field)}
+    | e1=expr cmp=cmp_op e2=expr                    {EBinOp(cmp,e1,e2)}    
+    | e1=expr AND e2=expr                           {EBinOp(And,e1,e2)}
+    | e1=expr OR e2=expr                            {EBinOp(Or,e1,e2)}
+    | NOT e=expr                                    {EUnOp(Not,e)}
 
 
 
