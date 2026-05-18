@@ -1,27 +1,41 @@
+(ocamllex
+ (modules orchestratorLexer))
+
+(ocamllex
+ (modules contractLexer))
+
+(menhir
+ (modules orchestratorParser))
+
+(menhir
+ (modules contractParser))
+
 (library
- (name lib)
+ (name contract)
+ (modules contract contractAST contractAST_pp contractLexer contractParser)
+ (libraries utils))
+
+(library
+ (name orchestrator)
  (modules
-  lib
-  ast
-  contractAST
-  contractAST_pp
-  contractLexer
-  contractParser
-  lexer
-  parser
+  orchestrator
+  orchestratorAST
+  orchestratorAST_pp
+  orchestratorLexer
+  orchestratorParser
   symbolicInterpreter
-  utils
-  policyChecker)
- (modules_without_implementation ast)
- (libraries soteria)
+  orchestratorUtils)
+ (modules_without_implementation orchestratorAST)
+ (libraries soteria contract policyChecker utils)
  (preprocess
   (pps soteria.ppx))
  (flags :standard -open Soteria.Logs.Import))
 
-(ocamllex
- (modules lexer contractLexer))
+(library
+ (name policyChecker)
+ (modules policyChecker)
+ (libraries contract))
 
-(menhir
- (modules parser contractParser)
- (flags --strict)
- (explain true))
+(library
+ (name utils)
+ (modules utils))

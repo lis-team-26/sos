@@ -1,5 +1,5 @@
 {
-  open Parser
+  open OrchestratorParser
   exception LexerError of string
 }
 

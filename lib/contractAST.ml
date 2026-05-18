@@ -1,50 +1,31 @@
-type typ = 
-    | TInt
-    | TBool
-    | TArrow of typ list * typ
-
-
-type binop =
-    | Add | Sub | Mul | Div
-    | Lt | Le | Gt | Ge | Eq | Neq
-    | Or | And
-
-type unop =
-    | Not
-
-type aggrop =
-    | Sum
-    | Avg
-    | Min
-    | Max
-
+type typ = TInt | TBool | TArrow of typ list * typ
+type binop = Add | Sub | Mul | Div | Lt | Le | Gt | Ge | Eq | Neq | Or | And
+type unop = Not
+type aggrop = Sum | Avg | Min | Max
 type ident = string
 
-type expr = 
-    | EInt of int
-    | EBool of bool
-    | EVar of ident
-    | ESla
-    | EField of expr * ident
-    | EApp of ident * expr list
-    | EBinOp of binop * expr * expr
-    | EUnOp of unop * expr
+type expr =
+  | EInt of int
+  | EBool of bool
+  | EVar of ident
+  | ESla
+  | EField of expr * ident
+  | EApp of ident * expr list
+  | EBinOp of binop * expr * expr
+  | EUnOp of unop * expr
 
 type global = ident * typ
 
 type regex =
-    | RService of ident
-    | RConcat of regex * regex
-    | RChoice of regex * regex
-    | RStar of regex
+  | RService of ident
+  | RConcat of regex * regex
+  | RChoice of regex * regex
+  | RStar of regex
 
-type policy = 
-    | QosFieldOp of binop * aggrop * string * int
-    | Regex of regex
-    | Sort of ident
-
-
-
+type policy =
+  | QosFieldOp of binop * aggrop * string * int
+  | Regex of regex
+  | Sort of ident
 
 (* QoS *)
 type qos_def = (ident * typ) list
@@ -58,45 +39,34 @@ type param = ident * typ
 type ret = ident * typ
 
 (* Conditions *)
-type lhs =
-    | LVar of ident
-    | LApp of ident * expr list
-
+type lhs = LVar of ident | LApp of ident * expr list
 type effct = lhs * expr
 type constrnt = binop * lhs * expr
 type behavior = effct list * constrnt list
-
 type condition = expr
 
 type service = {
-    name : ident;
-    params : param list;
-    returns : ret list;
-    trust : trust;
-    precond : condition list;
-    qos : behavior;
-    ok_post : behavior;
-    err_post : behavior;
+  name : ident;
+  params : param list;
+  returns : ret list;
+  trust : trust;
+  precond : condition list;
+  qos : behavior;
+  ok_post : behavior;
+  err_post : behavior;
 }
 
 (* Function signatures: * -> int *)
-type funtype = 
-    | TArrow of typ * funtype
-    | TBase of typ
+type funtype = TArrow of typ * funtype | TBase of typ
+type func_sig = { fname : ident; ty : funtype }
 
-type func_sig = {
-    fname : ident;
-    ty : funtype;
+type contract = {
+  globals : global list;
+  functions : func_sig list;
+  policies : policy list;
+  qos : qos_def;
+  services : service list;
 }
-
-type program = {
-    globals: global list;
-    functions: func_sig list;
-    policies: policy list;
-    qos: qos_def;
-    services: service list;
-}
-
 
 (* TODO: enforce invariants for contracts: 
 - no duplicate service names
@@ -105,9 +75,10 @@ type program = {
 - QoS constraints for each field of QoS vector
 *)
 
-let validate (p: program) : unit =
-  let _service_names = List.map (fun s -> s.name) p.services in ()
-  (*
+let validate contract =
+  let _service_names = List.map (fun s -> s.name) contract.services in
+  ()
+(*
   if List.length service_names <> Set.cardinal (Set.of_list service_names) then
     failwith "Duplicate service names found in the program"
   *)

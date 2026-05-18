@@ -1,5 +1,5 @@
-open Ast
-open ContractAST
+open OrchestratorAST
+open Contract.AST
 open PolicyChecker
 module Symex : Soteria.Symex.S
 module SymbMap : Soteria.Soteria_std.Map.S with type key = string
@@ -13,4 +13,8 @@ type hist = call list
 type ok_state = { env : env; hist : hist }
 type err_state = { msg : string; hist : hist }
 
-val build_symb_process : stmt -> pChecker list -> service Map.Make(String).t -> (ok_state, err_state, 'a) Symex.Result.t
+val build_symb_process :
+  stmt ->
+  pChecker list ->
+  service Map.Make(String).t ->
+  (ok_state, err_state, 'a) Symex.Result.t

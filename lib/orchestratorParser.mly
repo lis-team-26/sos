@@ -1,5 +1,5 @@
 %{
-  open Ast
+  open OrchestratorAST
 %}
 
 %token <int> INT
@@ -13,7 +13,7 @@
 %token ASSUME ASSERT INVOKE
 %token COMMA LPAREN RPAREN LBRACE RBRACE EOF
 
-%start <stmt> prog
+%start <stmt> program
 
 %left OR
 %left AND
@@ -23,7 +23,11 @@
 
 %%
 
-prog:
+sequence(X):
+  | x = X ; y = sequence(X) { Seq (x, y) }
+  | x = X { x }
+
+program:
   | s = sequence(stmt) EOF { s }
 
 aexpr:
@@ -48,10 +52,6 @@ bexpr:
   | aexpr1 = aexpr ; GT ; aexpr2 = aexpr { COp (aexpr1, Gt, aexpr2) }
   | aexpr1 = aexpr ; GE ; aexpr2 = aexpr { COp (aexpr1, Ge, aexpr2) }
   | LPAREN ; bexpr = bexpr ; RPAREN { bexpr }
-
-sequence(X):
-  | x = X ; y = sequence(X) { Seq(x, y) }
-  | x = X { x }
 
 stmt:
   | atom_stmt = atom_stmt { atom_stmt }

@@ -1,6 +1,6 @@
 (executable
  (public_name run)
  (name main)
- (libraries lib)
+ (libraries contract orchestrator policyChecker)
  (preprocess
   (pps soteria.ppx)))

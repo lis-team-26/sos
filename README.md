@@ -23,5 +23,5 @@ dune build
 - Run the symbolic interpreter on a sample program
 
 ```bash
-dune exec -- run services.contract test/examples/division_by_zero.example
+dune exec -- run test/contract_examples/ecommerce.contract test/orchestrator_examples/ecommerce.example
 ```

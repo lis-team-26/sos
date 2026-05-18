@@ -2,19 +2,16 @@
     globals: [
         MAX_ATTEMPTS: int
     ],
-
     functions: [
         attempts: int -> int,
         AuthFee: int -> int,
         GetToken: int -> int -> int,
         PayFee: int -> int
     ],
-
     QoS: [
         latency: int, 
         cost: int
     ], 
-
     policies: [
         sum(cost) < 100,
         avg(latency) < 50,
@@ -22,7 +19,6 @@
         min(trust) > 10,
         write . write . write . write
     ],
-
     services: [
         {
             name: Auth,
@@ -34,10 +30,10 @@
             returns: [token: int],
             trusted: 30,
             precond: [
-                wellFormed(userId),
-                wellFormed(password),
-                fresh(nonce),
-                !locked(userId),
+                wellFormed(userId) = 1,
+                wellFormed(password) = 1,
+                fresh(nonce) = 1,
+                locked(userId) = 0,
                 attempts(userId) < MAX_ATTEMPTS
             ],
             QoS: {
@@ -56,7 +52,7 @@
                 ],
                 constraints: [
                     succ = True,
-                    verify(userId, password)
+                    verify(userId, password) = 1
                 ]
             },
             err-postcond: {
@@ -68,20 +64,16 @@
                 ]
             }
         },
-
         {
             name: Pay,
             params: [
                 amt: int
             ],
-            returns: [r: bool], 
-            
+            returns: [r: bool],
             trusted: 23,
-
             precond: [
                 amt > 0
             ],
-
             QoS: {
                 effects: [
                     cost := PayFee(amt)
@@ -90,7 +82,6 @@
                     latency > 0
                 ]
             },
-
             ok-postcond: {
                 effects: [],
                 constraints: [
@@ -106,21 +97,16 @@
                 ]
             }
         },
-
         {
             name: GetPrice,
             params: [
                 productId: int
             ],
-
             returns: [price: int],
-
             trusted: 7,
-
             precond: [
-                wellFormed(productId)
+                wellFormed(productId) = 1
             ],
-
             QoS: {
                 effects: [],
                 constraints: [
@@ -128,7 +114,6 @@
                     cost <= 100
                 ]
             },
-
             ok-postcond: {
                 effects: [],
                 constraints: [
@@ -136,7 +121,6 @@
                     price > 0
                 ]
             },
-
             err-postcond: {
                 effects: [],
                 constraints: [

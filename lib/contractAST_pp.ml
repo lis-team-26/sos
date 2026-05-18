@@ -1,53 +1,51 @@
 open Format
 open ContractAST
 
-let rec pp_typ fmt = function
+let rec pp_type fmt = function
   | ContractAST.TInt -> fprintf fmt "int"
   | ContractAST.TBool -> fprintf fmt "bool"
   | ContractAST.TArrow (args, ret) ->
       fprintf fmt "(";
-      pp_typ_list fmt args;
+      pp_type_list fmt args;
       fprintf fmt ") -> ";
-      pp_typ fmt ret
+      pp_type fmt ret
 
-and pp_typ_list fmt = function
+and pp_type_list fmt = function
   | [] -> ()
-  | [t] -> pp_typ fmt t
+  | [ t ] -> pp_type fmt t
   | t :: ts ->
-      pp_typ fmt t;
+      pp_type fmt t;
       fprintf fmt ", ";
-      pp_typ_list fmt ts
+      pp_type_list fmt ts
 
-let pp_binop fmt = function
+let pp_bin_op fmt = function
   | ContractAST.Add -> fprintf fmt "+"
   | ContractAST.Sub -> fprintf fmt "-"
   | ContractAST.Mul -> fprintf fmt "*"
   | ContractAST.Div -> fprintf fmt "/"
-  | ContractAST.Lt  -> fprintf fmt "<"
-  | ContractAST.Le  -> fprintf fmt "<="
-  | ContractAST.Gt  -> fprintf fmt ">"
-  | ContractAST.Ge  -> fprintf fmt ">="
-  | ContractAST.Eq  -> fprintf fmt "=="
+  | ContractAST.Lt -> fprintf fmt "<"
+  | ContractAST.Le -> fprintf fmt "<="
+  | ContractAST.Gt -> fprintf fmt ">"
+  | ContractAST.Ge -> fprintf fmt ">="
+  | ContractAST.Eq -> fprintf fmt "=="
   | ContractAST.Neq -> fprintf fmt "!="
-  | ContractAST.Or  -> fprintf fmt "||"
+  | ContractAST.Or -> fprintf fmt "||"
   | ContractAST.And -> fprintf fmt "&&"
 
-let pp_unop fmt = function
-  | ContractAST.Not -> fprintf fmt "!"
+let pp_un_op fmt = function ContractAST.Not -> fprintf fmt "!"
 
-let pp_aggrop fmt = function
-  | ContractAST.Sum    -> fprintf fmt "sum"
-  | ContractAST.Avg    -> fprintf fmt "avg"
-  | ContractAST.Min    -> fprintf fmt "min"
-  | ContractAST.Max    -> fprintf fmt "max"
+let pp_aggr_op fmt = function
+  | ContractAST.Sum -> fprintf fmt "sum"
+  | ContractAST.Avg -> fprintf fmt "avg"
+  | ContractAST.Min -> fprintf fmt "min"
+  | ContractAST.Max -> fprintf fmt "max"
 
 let rec pp_expr fmt = function
   | ContractAST.EInt i -> fprintf fmt "%d" i
   | ContractAST.EBool b -> fprintf fmt "%b" b
   | ContractAST.EVar v -> fprintf fmt "%s" v
   | ContractAST.ESla -> fprintf fmt "<sla>"
-  | ContractAST.EField (e, id) ->
-      fprintf fmt "%a.%s" pp_expr e id
+  | ContractAST.EField (e, id) -> fprintf fmt "%a.%s" pp_expr e id
   | ContractAST.EApp (f, args) ->
       fprintf fmt "%s(" f;
       pp_expr_list fmt args;
@@ -55,65 +53,49 @@ let rec pp_expr fmt = function
   | ContractAST.EBinOp (op, a, b) ->
       fprintf fmt "(";
       pp_expr fmt a;
-      fprintf fmt " %a " pp_binop op;
+      fprintf fmt " %a " pp_bin_op op;
       pp_expr fmt b;
       fprintf fmt ")"
-  | ContractAST.EUnOp (op, e) ->
-      fprintf fmt "(%a%a)" pp_unop op pp_expr e
+  | ContractAST.EUnOp (op, e) -> fprintf fmt "(%a%a)" pp_un_op op pp_expr e
 
 and pp_expr_list fmt = function
   | [] -> ()
-  | [e] -> pp_expr fmt e
+  | [ e ] -> pp_expr fmt e
   | e :: es ->
       pp_expr fmt e;
       fprintf fmt ", ";
       pp_expr_list fmt es
 
-let pp_global fmt (id, ty) =
-  fprintf fmt "%s : %a" id pp_typ ty
-
-let pp_qos_def fmt (id, ty) =
-  fprintf fmt "%s : %a" id pp_typ ty
-
-let pp_param fmt (id, ty) =
-  fprintf fmt "%s : %a" id pp_typ ty
-
-let pp_ret fmt (id, ty) =
-  fprintf fmt "%s : %a" id pp_typ ty
-
+let pp_global fmt (id, ty) = fprintf fmt "%s : %a" id pp_type ty
+let pp_qos_def fmt (id, ty) = fprintf fmt "%s : %a" id pp_type ty
+let pp_param fmt (id, ty) = fprintf fmt "%s : %a" id pp_type ty
+let pp_ret fmt (id, ty) = fprintf fmt "%s : %a" id pp_type ty
 let pp_condition fmt = pp_expr fmt
-
 let pp_trust fmt tr = fprintf fmt "%d" tr
 
-let pp_funtype =
+let pp_fun_type =
   let rec go fmt = function
-    | ContractAST.TBase t -> pp_typ fmt t
-    | ContractAST.TArrow (t, rest) ->
-        fprintf fmt "%a -> %a" pp_typ t go rest
+    | ContractAST.TBase t -> pp_type fmt t
+    | ContractAST.TArrow (t, rest) -> fprintf fmt "%a -> %a" pp_type t go rest
   in
   go
 
-let pp_func_sig fmt f =
-  fprintf fmt "function %s : %a" f.fname pp_funtype f.ty
+let pp_func_sig fmt f = fprintf fmt "function %s : %a" f.fname pp_fun_type f.ty
 
 let rec pp_regex fmt = function
-  | ContractAST.RService s ->
-      fprintf fmt "%s" s
-
+  | ContractAST.RService s -> fprintf fmt "%s" s
   | ContractAST.RConcat (r1, r2) ->
       fprintf fmt "(";
       pp_regex fmt r1;
       fprintf fmt " . ";
       pp_regex fmt r2;
       fprintf fmt ")"
-
   | ContractAST.RChoice (r1, r2) ->
       fprintf fmt "(";
       pp_regex fmt r1;
       fprintf fmt " + ";
       pp_regex fmt r2;
       fprintf fmt ")"
-
   | ContractAST.RStar r ->
       fprintf fmt "(";
       pp_regex fmt r;
@@ -121,17 +103,13 @@ let rec pp_regex fmt = function
 
 let pp_policy fmt = function
   | ContractAST.QosFieldOp (cmp_op, agg_op, id, i) ->
-      pp_aggrop fmt agg_op;
+      pp_aggr_op fmt agg_op;
       fprintf fmt "(%s)" id;
-      pp_binop fmt cmp_op;
+      pp_bin_op fmt cmp_op;
       fprintf fmt "%d" i
+  | ContractAST.Regex r -> pp_regex fmt r
+  | ContractAST.Sort id -> fprintf fmt "sorted(%s)" id
 
-  | ContractAST.Regex r ->
-      pp_regex fmt r
-  | ContractAST.Sort id ->
-      fprintf fmt "sorted(%s)" id
-
-      
 let pp_lhs fmt = function
   | ContractAST.LVar id -> fprintf fmt "%s" id
   | ContractAST.LApp (f, args) ->
@@ -139,11 +117,10 @@ let pp_lhs fmt = function
       pp_expr_list fmt args;
       fprintf fmt ")"
 
-let pp_effct fmt (id, e) =
-  fprintf fmt "%a := %a" pp_lhs id pp_expr e
+let pp_effct fmt (id, e) = fprintf fmt "%a := %a" pp_lhs id pp_expr e
 
 let pp_constrnt fmt (op, id, e) =
-  fprintf fmt "%a %a = %a" pp_binop op pp_lhs id pp_expr e
+  fprintf fmt "%a %a = %a" pp_bin_op op pp_lhs id pp_expr e
 
 let pp_behavior fmt (effs, constrs) =
   fprintf fmt "effects:\n";
@@ -169,7 +146,7 @@ let pp_service fmt s =
   pp_behavior fmt s.err_post;
   fprintf fmt "}\n"
 
-let pp_program fmt p =
+let pp_contract fmt p =
   fprintf fmt "globals:\n";
   List.iter (fun g -> fprintf fmt "  %a\n" pp_global g) p.globals;
 
