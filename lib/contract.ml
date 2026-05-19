@@ -20,14 +20,14 @@ let parse src =
 
 (* TODO: enforce invariants for contracts: 
 (v) no duplicate service names
-- regex use services that are defined in the program
-- policies only use services / QOS fields defined in the program
+(v) regex use services that are defined in the program
+(v) policies only use services / QOS fields defined in the program
 - QoS constraints for each field of QoS vector
 *)
 
 module StringSet = Set.Make(String)
 
-let rec validate_regex regex service_names_set =
+let rec validate_regex (regex: AST.regex) (service_names_set: StringSet.t) =
   match regex with
   | AST.RService s -> StringSet.mem s service_names_set
   | AST.RConcat(r1, r2) | AST.RChoice (r1, r2) ->
@@ -44,11 +44,16 @@ let validate_contract (contract: AST.contract) =
   if List.length service_names <> StringSet.cardinal service_names_set then
     failwith "Duplicate service names found in the contract";
 
-  (* bad prefix regex use services that are defined in the program*)
   List.iter (fun (policy_type, _) ->
     match policy_type with
+    (* bad prefix regex use services that are defined in the program*)
     | AST.Regex regex -> 
         if not (validate_regex regex service_names_set) then
           failwith "Regex in policy uses undefined service names"
-    | _ -> ()
+    (* policies only use services / QOS fields defined in the program *)      
+    | AST.QosFieldOp (_, _, field, _) ->
+        let qos_fields = "trust" :: (List.map fst contract.qos) in
+        if not (List.mem field qos_fields) then
+          failwith ("QoS policy uses undefined QoS field: " ^ field) 
+    | AST.Sort _ -> ()
   ) contract.policies
