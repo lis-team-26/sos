@@ -7,6 +7,7 @@ let () =
     let contract_file = Sys.argv.(1) in
     let orchestrator_file = Sys.argv.(2) in
     let contract_ast = Contract.parse contract_file in
+    Contract.validate_contract contract_ast;
     let orchestrator_ast = Orchestrator.parse orchestrator_file in
     let final_states =
       Orchestrator.symb_run (contract_ast, orchestrator_ast) ~mode
