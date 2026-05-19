@@ -29,7 +29,7 @@ let symb_run ((contract : Contract.AST.contract), program) ~mode =
   in
   (*initialize each policy checker*)
   let policyInitStates =
-    List.map (PolicyChecker.init_policy serviceMap) contract.policies
+    List.map PolicyChecker.init_policy contract.policies
   in
   SymbolicInterpreter.build_symb_process program policyInitStates serviceMap
   |> SymbolicInterpreter.Symex.run ~mode

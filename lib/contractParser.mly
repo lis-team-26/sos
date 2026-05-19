@@ -20,7 +20,7 @@ TODO:
 %token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
 %token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
-%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND EFFECTS CONSTRAINTS 
+%token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND EFFECTS CONSTRAINTS GROUPBY
 %token INT_TYPE BOOL_TYPE
 
 (*%left LT LE GT GE EQ*)
@@ -126,6 +126,10 @@ policies:
   | policies = delimited_comma_separeted_list(policy) { policies }
 
 policy:
+  | t = policy_type { (t, None) }
+  | t = policy_type GROUPBY s = VAR { (t, Some s) }
+
+policy_type:
   | r = regex { Regex r }
   | SORTED ; OPEN_PAR id = VAR CLOSE_PAR { Sort id }
   | n = aggr_op ; OPEN_PAR id = VAR CLOSE_PAR ; cmp = cmp_op ; i = INT { QosFieldOp (cmp, n, id, i) }

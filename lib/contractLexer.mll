@@ -46,6 +46,7 @@ rule read = parse
   | "functions" { FUNCTIONS }  
   | "QoS" { QOS }
   | "policies" { POLICIES }
+  | "group-by" { GROUPBY }
   | "services" { SERVICES }  
   | "name" { NAME }
   | "params" { PARAMS }

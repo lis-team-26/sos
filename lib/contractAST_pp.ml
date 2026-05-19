@@ -101,7 +101,7 @@ let rec pp_regex fmt = function
       pp_regex fmt r;
       fprintf fmt ")*"
 
-let pp_policy fmt = function
+let pp_policy_type fmt = function
   | ContractAST.QosFieldOp (cmp_op, agg_op, id, i) ->
       pp_aggr_op fmt agg_op;
       fprintf fmt "(%s)" id;
@@ -109,6 +109,10 @@ let pp_policy fmt = function
       fprintf fmt "%d" i
   | ContractAST.Regex r -> pp_regex fmt r
   | ContractAST.Sort id -> fprintf fmt "sorted(%s)" id
+
+let pp_policy fmt (policy, groupBy) =
+  pp_policy_type fmt policy;
+  if Option.is_some groupBy then fprintf fmt " group by %s" (Option.get groupBy)
 
 let pp_lhs fmt = function
   | ContractAST.LVar id -> fprintf fmt "%s" id

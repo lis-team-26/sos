@@ -22,10 +22,12 @@ type regex =
   | RChoice of regex * regex
   | RStar of regex
 
-type policy =
+type policy_type =
   | QosFieldOp of binop * aggrop * string * int
   | Regex of regex
   | Sort of ident
+
+type policy = policy_type * string option
 
 (* QoS *)
 type qos_def = (ident * typ) list
