@@ -17,7 +17,7 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        write . write . write . write
+        Auth . Auth . Auth
     ],
     services: [
         {
