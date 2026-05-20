@@ -26,7 +26,7 @@ jobs:
         opam install . --deps-only --with-test --with-dev-setup
         
     - name: Build
-      run: opam exec -- dune build
+      run: opam exec -- dune build --release
 
     - name: Test
       run: opam exec -- dune exec -- run test/contract_examples/ecommerce.contract test/orchestrator_examples/ecommerce.example
