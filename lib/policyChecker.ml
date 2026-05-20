@@ -15,10 +15,11 @@ type 'a checkerState =
   | Grouped of string * 'a ValMap.t
              
 type pChecker =
-  | QosAggregate of symb_int checkerState * Contract.AST.binop * Contract.AST.aggrop * string * int
+  | QosAggregate of symb_int checkerState * Contract.AST.binop (*to modify to cmp*) * Contract.AST.aggrop * string * int
   | QosAvg of (symb_int * int) checkerState * Contract.AST.binop * string * int
   | Dfa of int checkerState * (int -> string -> int) * int list
-  | Sorted of int checkerState * string (*Only works with constants, like thrust*)
+  | Ascending of symb_int checkerState * string (*Only works with constants, like thrust*)
+  | Descending of symb_int checkerState * string (*Only works with constants, like thrust*)
             
 (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
 let init_policy (policyType, _ (*for now, assume groupBy == None*)) =
@@ -40,4 +41,8 @@ let init_policy (policyType, _ (*for now, assume groupBy == None*)) =
               (fun state service -> state),
               [] (*list of final states*)
             )
-       | Contract.AST.Sort fieldName -> Sorted ((Ungrouped 0), fieldName))
+       | Contract.AST.Sort fieldName -> Ascending ((Ungrouped (Typed.int 0)), fieldName))
+
+(*Warning: some policy may not be satisfied, but can be satisfied later.
+  Ex: avg(cost) < 30, may not be satisfied when the costs are 35,30, but if the
+  next invoke has cost = 3 it becomes satisfied. This also applies to sum(latency) > 50*)
