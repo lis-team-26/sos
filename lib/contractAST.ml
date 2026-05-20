@@ -69,18 +69,3 @@ type contract = {
   qos : qos_def;
   services : service list;
 }
-
-(* TODO: enforce invariants for contracts: 
-- no duplicate service names
-- regex use services that are defined in the program
-- policies only use services / QOS fields defined in the program
-- QoS constraints for each field of QoS vector
-*)
-
-let validate contract =
-  let _service_names = List.map (fun s -> s.name) contract.services in
-  ()
-(*
-  if List.length service_names <> Set.cardinal (Set.of_list service_names) then
-    failwith "Duplicate service names found in the program"
-  *)
