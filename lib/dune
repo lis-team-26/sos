@@ -19,6 +19,7 @@
 (library
  (name contract)
  (modules contract contractAST contractAST_pp contractLexer contractParser)
+ (modules_without_implementation contractAST)
  (libraries utils))
 
 (library
