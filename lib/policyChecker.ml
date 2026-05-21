@@ -81,12 +81,12 @@ let map_state initial f (c:call) (service:Contract.AST.service) = function
         | Some i ->
            let arg = List.nth c.args i
            in
-           let* (_, s) = ValMap.find_opt arg symMap
+           let* (k, s) = ValMap.find_opt arg symMap
            in
            let** next = match s with
              | None -> (f initial)
              | Some state -> (f state)
-           in Symex.Result.ok (Grouped (field, (ValMap.syntactic_add arg next symMap)))
+           in Symex.Result.ok (Grouped (field, (ValMap.syntactic_add k next symMap)))
               
 let update_policy servMap (c:call) policy =
   let s = StrMap.find c.serv_name servMap
