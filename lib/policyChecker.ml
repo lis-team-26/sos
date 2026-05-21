@@ -1,6 +1,14 @@
 module Typed = Soteria.Tiny_values.Typed
 type symb_int = Typed.T.sint Typed.t
 module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
+
+open Symex.Syntax
+open Typed.Infix
+open Typed.Syntax
+module StrMap = Map.Make (String)
+type qos = symb_int StrMap.t
+type call = { serv_name : string; args : symb_int list; qos : qos }
+
 module Key = struct
   type t = Typed.T.sint Typed.t
 
@@ -20,12 +28,6 @@ module ValMap = Soteria.Data.S_map.Make (Symex) (Key)
 the parameter, has been assigned the same symbolic value (skip all invoked services
  that do not have p as a parameter, group by p for the remaining services)
  For 2), the group_by must be aware of the path-condition, so Soteria.Data.Map is used.*)
-open Symex.Syntax
-open Typed.Infix
-open Typed.Syntax
-module StrMap = Map.Make (String)
-type qos = symb_int StrMap.t
-type call = { serv_name : string; args : symb_int list; qos : qos }
               
 type 'a checkerState =
   | Ungrouped of 'a
@@ -59,7 +61,7 @@ let init_policy (policyType, groupBy) =
    | Contract.AST.Regex reg ->
       Dfa
         ( (initial 0), (*current state*)
-          (*placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
+          (*TODO: placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
           (fun state service -> state),
           [] (*list of final states*)
         )
@@ -91,8 +93,8 @@ let map_state initial f (c:call) (service:Contract.AST.service) = function
 let update_policy servMap (c:call) policy =
   let s = StrMap.find c.serv_name servMap
   in match policy with
-     | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) -> Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
-     | QosAvg (sint_count, cmp, avgField, cmpInt) -> Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
+     | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) -> (*TODO*) Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
+     | QosAvg (sint_count, cmp, avgField, cmpInt) -> (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
      | Dfa (curState, transition, finalStates) ->
         let** result =
           map_state 0 (fun cur ->
@@ -102,5 +104,5 @@ let update_policy servMap (c:call) policy =
                 Symex.Result.error "regex policy violation"
               else Symex.Result.ok nextState) c s curState
         in Symex.Result.ok (Dfa (result, transition, finalStates))
-     | Ascending (maximum, field) -> Symex.Result.ok (Ascending (maximum, field))
-     | Descending (minimum, field) -> Symex.Result.ok (Descending (minimum, field))
+     | Ascending (maximum, field) -> (*TODO*) Symex.Result.ok (Ascending (maximum, field))
+     | Descending (minimum, field) -> (*TODO*) Symex.Result.ok (Descending (minimum, field))
