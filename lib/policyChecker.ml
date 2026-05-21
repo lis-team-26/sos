@@ -20,6 +20,12 @@ module ValMap = Soteria.Data.S_map.Make (Symex) (Key)
 the parameter, has been assigned the same symbolic value (skip all invoked services
  that do not have p as a parameter, group by p for the remaining services)
  For 2), the group_by must be aware of the path-condition, so Soteria.Data.Map is used.*)
+open Symex.Syntax
+open Typed.Infix
+open Typed.Syntax
+module StrMap = Map.Make (String)
+type qos = symb_int StrMap.t
+type call = { serv_name : string; args : symb_int list; qos : qos }
               
 type 'a checkerState =
   | Ungrouped of 'a
@@ -33,7 +39,7 @@ type pChecker =
   | Descending of symb_int checkerState * string
             
 (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
-let init_policy (policyType, _ (*for now, assume groupBy == None*)) =
+let init_policy (policyType, groupBy) =
       (match policyType with
        | Contract.AST.QosFieldOp (operator, Contract.AST.Avg, fieldName, i) ->
           QosAvg ((Ungrouped ((Typed.int 0), 0)), operator, fieldName, i)
@@ -58,12 +64,6 @@ let init_policy (policyType, _ (*for now, assume groupBy == None*)) =
   Ex: avg(cost) < 30, may not be satisfied when the costs are 35,30, but if the
   next invoke has cost = 3 it becomes satisfied. This also applies to sum(latency) > 50*)
 
-open Symex.Syntax
-open Typed.Infix
-open Typed.Syntax
-module StrMap = Map.Make (String)
-type qos = StrMap (* -> sym_int*)
-type call = { serv_name : string; args : symb_int list; qos : qos }
 
 let map_state initial f (c:call) (service:Contract.AST.service) = function
   | Ungrouped s ->
@@ -76,7 +76,7 @@ let map_state initial f (c:call) (service:Contract.AST.service) = function
         | Some i ->
            let arg = List.nth c.args i
            in
-           let* (k, s) = ValMap.find_opt arg symMap
+           let* (_, s) = ValMap.find_opt arg symMap
            in
            let** next = match s with
              | None -> (f initial)
@@ -94,7 +94,7 @@ let update_policy servMap (c:call) policy =
               let nextState = transition cur c.serv_name
               in
               if List.mem nextState finalStates then
-                Symex.Result.error "policy violation"
+                Symex.Result.error "regex policy violation"
               else Symex.Result.ok nextState) c s curState
         in Symex.Result.ok (Dfa (result, transition, finalStates))
      | Ascending (maximum, field) -> Symex.Result.ok (Ascending (maximum, field))

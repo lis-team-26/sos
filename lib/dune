@@ -1,8 +1,7 @@
 (env
-    (release
-        (menhir
-        (flags :standard --strict)
-)))
+ (release
+  (menhir
+   (flags :standard --strict))))
 
 (ocamllex
  (modules orchestratorLexer))
