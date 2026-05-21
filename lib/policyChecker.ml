@@ -40,25 +40,30 @@ type pChecker =
             
 (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
 let init_policy (policyType, groupBy) =
-      (match policyType with
-       | Contract.AST.QosFieldOp (operator, Contract.AST.Avg, fieldName, i) ->
-          QosAvg ((Ungrouped ((Typed.int 0), 0)), operator, fieldName, i)
-       | Contract.AST.QosFieldOp (operator, aggregator, fieldName, i) ->
-          (* meaning: <aggregator>(<fieldname>) <operator> i *)
-          QosAggregate (
-              (Ungrouped (Typed.int (match aggregator with
-                         | Contract.AST.Sum | Contract.AST.Avg -> 0
-                         | Contract.AST.Min -> Int.max_int
-                         | Contract.AST.Max -> Int.min_int))),
-              operator, aggregator, fieldName, i)
-       | Contract.AST.Regex reg ->
-          Dfa
-            ( (Ungrouped 0), (*current state*)
-              (*placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
-              (fun state service -> state),
-              [] (*list of final states*)
-            )
-       | Contract.AST.Sort fieldName -> Ascending ((Ungrouped (Typed.int 0)), fieldName))
+  let initial state =
+    (match groupBy with
+     | None -> Ungrouped state
+     | Some param -> Grouped (param, ValMap.empty))
+  in
+  (match policyType with
+   | Contract.AST.QosFieldOp (operator, Contract.AST.Avg, fieldName, i) ->
+      QosAvg ((initial ((Typed.int 0), 0)), operator, fieldName, i)
+   | Contract.AST.QosFieldOp (operator, aggregator, fieldName, i) ->
+      (* meaning: <aggregator>(<fieldname>) <operator> i *)
+      QosAggregate (
+          (initial (Typed.int (match aggregator with
+                                 | Contract.AST.Sum | Contract.AST.Avg -> 0
+                                 | Contract.AST.Min -> Int.max_int
+                                 | Contract.AST.Max -> Int.min_int))),
+          operator, aggregator, fieldName, i)
+   | Contract.AST.Regex reg ->
+      Dfa
+        ( (initial 0), (*current state*)
+          (*placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
+          (fun state service -> state),
+          [] (*list of final states*)
+        )
+   | Contract.AST.Sort fieldName -> Ascending ((initial (Typed.int 0)), fieldName))
 
 (*Warning: some policy may not be satisfied, but can be satisfied later.
   Ex: avg(cost) < 30, may not be satisfied when the costs are 35,30, but if the
