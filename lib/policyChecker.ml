@@ -64,7 +64,7 @@ open Typed.Syntax
 module StrMap = Map.Make (String)
 type qos = StrMap (* -> sym_int*)
 type call = { serv_name : string; args : symb_int list; qos : qos }
-(*
+
 let map_state initial f (c:call) (service:Contract.AST.service) = function
   | Ungrouped s ->
      let++ next = f s
@@ -76,26 +76,26 @@ let map_state initial f (c:call) (service:Contract.AST.service) = function
         | Some i ->
            let arg = List.nth c.args i
            in
-           let** s = ValMap.find_opt arg symMap
+           let* (k, s) = ValMap.find_opt arg symMap
            in
-           let++ next = match s with
-             | None -> initial
+           let** next = match s with
+             | None -> (f initial)
              | Some state -> (f state)
-           in Grouped (field, (ValMap.add arg next symMap))
-              *)
+           in Symex.Result.ok (Grouped (field, (ValMap.syntactic_add arg next symMap)))
+              
 let update_policy servMap (c:call) policy =
-  (*let s = StrMap.find c.serv_name servMap
-  in*) match policy with
+  let s = StrMap.find c.serv_name servMap
+  in match policy with
      | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) -> Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
      | QosAvg (sint_count, cmp, avgField, cmpInt) -> Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
-     | Dfa (curState, transition, finalStates) -> Symex.Result.ok (Dfa (curState, transition, finalStates))
-        (*let** result =
+     | Dfa (curState, transition, finalStates) ->
+        let** result =
           map_state 0 (fun cur ->
-              let** nextState = transition cur c.serv_name
+              let nextState = transition cur c.serv_name
               in
               if List.mem nextState finalStates then
-                Symex.Result.err "policy violation"
+                Symex.Result.error "policy violation"
               else Symex.Result.ok nextState) c s curState
-        in Symex.Result.ok (Dfa (result, transition, finalStates))*)
+        in Symex.Result.ok (Dfa (result, transition, finalStates))
      | Ascending (maximum, field) -> Symex.Result.ok (Ascending (maximum, field))
      | Descending (minimum, field) -> Symex.Result.ok (Descending (minimum, field))
