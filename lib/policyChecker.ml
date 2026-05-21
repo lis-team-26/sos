@@ -21,24 +21,25 @@ module Key = struct
 end
 
 module ValMap = Soteria.Data.S_map.Make (Symex) (Key)
-(*module ValMap = Map.Make (Soteria.Soteria_std.Int)*)
 (* Each policy can specify to be checked only for portions of the history:
  1) when group_by is None, check for the whole history
  2) when it is Some p, check for all sub-sequences of the history where p,
 the parameter, has been assigned the same symbolic value (skip all invoked services
  that do not have p as a parameter, group by p for the remaining services)
- For 2), the group_by must be aware of the path-condition, so Soteria.Data.Map is used.*)
+ For 2), the group_by must be aware of the path-condition, so Soteria.Data.Map is used
+to remember the state of the policy verification for each symbolic value that has been
+assigned to p in every service invocation.*)
               
 type 'a checkerState =
-  | Ungrouped of 'a
-  | Grouped of string * 'a ValMap.t
+  | Ungrouped of 'a (*whole history*)
+  | Grouped of string (*=p*) * 'a ValMap.t (*only those services that have p as parameter, invocations grouped by p*)
              
 type pChecker =
-  | QosAggregate of symb_int checkerState * Contract.AST.binop (*to modify to cmp*) * Contract.AST.aggrop * string * int
-  | QosAvg of (symb_int * int) checkerState * Contract.AST.binop * string * int
-  | Dfa of int checkerState * (int -> string -> int) * int list
-  | Ascending of symb_int checkerState * string
-  | Descending of symb_int checkerState * string
+  | QosAggregate of symb_int (*can be many things, depending on the aggregate operation*) checkerState * Contract.AST.binop (*comparison*) * Contract.AST.aggrop (*sum, max, ...*) * string (*the Qos field to aggregate*) * int (*the integer to compare to the result of the aggregation*)
+  | QosAvg of (symb_int (*sum on the Qos field*) * int (*count of service invocations seen so far*)) checkerState * Contract.AST.binop (*comparison*) * string (*the Qos field to sum*) * int (*the integer to compare to the result of the sum divided by invoke count*)
+  | Dfa of int (*state of the dfa, initially 0*) checkerState * (int -> string -> int) (*transition relation*) * int list (*list of final states*)
+  | Ascending of symb_int (*max value of the Qos field seen so far*) checkerState * string (*the Qos field*)
+  | Descending of symb_int (*min value of the Qos field seen so far*) checkerState * string (*the Qos field*)
             
 (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
 let init_policy (policyType, groupBy) =
@@ -79,11 +80,11 @@ let map_state initial f (c:call) (service:Contract.AST.service) = function
   | Grouped (field, symMap) ->
      let idx = List.find_index (fun x -> x == field) (List.map fst service.params)
      in match idx with
-        | None -> Symex.Result.ok (Grouped (field, symMap))
-        | Some i ->
-           let arg = List.nth c.args i
+        | None -> Symex.Result.ok (Grouped (field, symMap)) (*if the service doesn't have that parameter, then skip the invoke*)
+        | Some i -> (*otherwise*)
+           let arg = List.nth c.args i (*get the symbolic value of the argument assigned to p*)
            in
-           let* (k, s) = ValMap.find_opt arg symMap
+           let* (k, s) = ValMap.find_opt arg symMap (*match it with previous argument assigned to p, if any*)
            in
            let** next = match s with
              | None -> (f initial)
