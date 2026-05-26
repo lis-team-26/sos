@@ -138,8 +138,16 @@ let update_policy servMap (c : call) policy =
       let apply_aggregator acc =
         match aggrOp with
         | Contract.AST.Sum -> Typed.add acc current_val
-        | Contract.AST.Max -> Typed.max acc current_val     (*TODO: Typed.max doesn't exist*)
-        | Contract.AST.Min -> Typed.min acc current_val     (*TODO: Typed.min doesn't exist*)
+        | Contract.AST.Max -> 
+            Typed.ite
+              (Typed.gt current_val acc)
+              current_val
+              acc
+        | Contract.AST.Min -> 
+            Typed.ite
+              (Typed.lt current_val acc)
+              current_val
+              acc
         | Contract.AST.Avg -> failwith "Avg should be handled separately"
         | _ -> failwith "Unknown aggregator"
       in
