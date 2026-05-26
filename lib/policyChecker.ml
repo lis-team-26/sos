@@ -133,7 +133,44 @@ let update_policy servMap (c : call) policy =
   let s = StrMap.find c.serv_name servMap in
   match policy with
   | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) ->
-      (*TODO*)
+      let current_val = StrMap.find aggrField c.qos in
+
+      let apply_aggregator acc =
+        match aggrOp with
+        | Contract.AST.Sum -> Typed.add acc current_val
+        | Contract.AST.Max -> Typed.max acc current_val     (*TODO: Typed.max doesn't exist*)
+        | Contract.AST.Min -> Typed.min acc current_val     (*TODO: Typed.min doesn't exist*)
+        | Contract.AST.Avg -> failwith "Avg should be handled separately"
+        | _ -> failwith "Unknown aggregator"
+      in
+
+      let compare lhs rhs =
+        match cmp with
+        | Expr.AST.Lt -> Typed.lt lhs rhs
+        | Expr.AST.Le -> Typed.le lhs rhs
+        | Expr.AST.Gt -> Typed.gt lhs rhs
+        | Expr.AST.Ge -> Typed.ge lhs rhs
+        | Expr.AST.Eq -> Typed.eq lhs rhs
+        | Expr.AST.Neq -> Typed.neq lhs rhs
+        | _ -> failwith "Unknown comparison operator"
+      in
+
+      let** next =
+        map_state (
+          match aggrOp with 
+          | Contract.AST.Sum -> Typed.int 0 
+          | Contract.AST.Min -> Typed.int Int.max_int
+          | Contract.AST.Max -> Typed.int Int.min_int
+          | Contract.AST.Avg -> assert false )
+          (fun aggregate ->
+             let new_aggregate = apply_aggregator aggregate in
+             let violation = compare new_aggregate (Typed.int cmpInt) in
+             Symex.branch_on violation 
+              ~then_: (fun () -> Symex.Result.error "aggregate policy violation")
+              ~else_: (fun () -> Symex.Result.ok new_aggregate) )
+          c s sint
+
+      in 
       Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
       (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
