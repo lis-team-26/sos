@@ -9,7 +9,7 @@ let empty_or_add_newline str =
 
 let string_of_env ~indent_level env =
   let indent = build_indent_string indent_level in
-  env |> SymbMap.bindings
+  env |> StringMap.bindings
   |> List.map (fun (x, v) -> Fmt.str "%s%s -> %a" indent x Typed.ppa v)
   |> String.concat "\n"
 

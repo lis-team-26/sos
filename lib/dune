@@ -10,16 +10,24 @@
  (modules contractLexer))
 
 (menhir
- (modules orchestratorParser))
+ (modules orchestratorParser exprParser)
+ (merge_into orchestratorParser))
 
 (menhir
- (modules contractParser))
+ (modules contractParser exprParser)
+ (merge_into contractParser)
+ (flags --unused-token NONDET))
+
+(library
+ (name expr)
+ (modules expr exprAST expr_pp)
+ (modules_without_implementation exprAST))
 
 (library
  (name contract)
  (modules contract contractAST contractAST_pp contractLexer contractParser)
  (modules_without_implementation contractAST)
- (libraries utils))
+ (libraries expr utils))
 
 (library
  (name orchestrator)
@@ -32,7 +40,7 @@
   symbolicInterpreter
   orchestratorUtils)
  (modules_without_implementation orchestratorAST)
- (libraries soteria contract policyChecker utils)
+ (libraries soteria expr contract policyChecker utils)
  (preprocess
   (pps soteria.ppx))
  (flags :standard -open Soteria.Logs.Import))

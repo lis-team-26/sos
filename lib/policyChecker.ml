@@ -42,15 +42,15 @@ type pChecker =
       symb_int
       (*can be many things, depending on the aggregate operation*)
       checkerState
-      * Contract.AST.binop (*comparison*)
-      * Contract.AST.aggrop (*sum, max, ...*)
+      * Expr.AST.bin_op (*comparison*)
+      * Contract.AST.aggr_op (*sum, max, ...*)
       * string (*the Qos field to aggregate*)
       * int (*the integer to compare to the result of the aggregation*)
   | QosAvg of
       (symb_int (*sum on the Qos field*)
       * int (*count of service invocations seen so far*))
       checkerState
-      * Contract.AST.binop (*comparison*)
+      * Expr.AST.bin_op (*comparison*)
       * string (*the Qos field to sum*)
       * int
     (*the integer to compare to the result of the sum divided by invoke count*)
@@ -74,9 +74,9 @@ let init_policy (policyType, groupBy) =
     | Some param -> Grouped (param, ValMap.empty)
   in
   match policyType with
-  | Contract.AST.QosFieldOp (operator, Contract.AST.Avg, fieldName, i) ->
+  | Contract.AST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
       QosAvg (initial (Typed.int 0, 0), operator, fieldName, i)
-  | Contract.AST.QosFieldOp (operator, aggregator, fieldName, i) ->
+  | Contract.AST.QosFieldOp (aggregator, fieldName, operator, i) ->
       (* meaning: <aggregator>(<fieldname>) <operator> i *)
       QosAggregate
         ( initial
