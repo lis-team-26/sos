@@ -149,6 +149,28 @@ let update_policy servMap (c : call) policy =
       in
       Symex.Result.ok (Dfa (result, transition, finalStates))
   | Ascending (maximum, field) ->
-      (*TODO*) Symex.Result.ok (Ascending (maximum, field))
+      let current_val = StrMap.find field c.qos in
+      let** next =
+        map_state (Typed.int Int.min_int)
+          (fun current_max ->
+            let violation = Typed.lt current_val current_max in
+            Symex.branch_on violation 
+              ~then_: (fun () -> Symex.Result.error "ascending policy violation: value decreased")
+              ~else_: (fun () -> Symex.Result.ok current_val)
+            )
+          c s maximum
+      in
+      Symex.Result.ok (Ascending (next, field))
   | Descending (minimum, field) ->
-      (*TODO*) Symex.Result.ok (Descending (minimum, field))
+      let current_val = StrMap.find field c.qos in
+      let** next =
+        map_state (Typed.int Int.max_int)
+          (fun current_min ->
+            let violation = Typed.gt current_val current_min in
+            Symex.branch_on violation 
+              ~then_: (fun () -> Symex.Result.error "descending policy violation: value increased")
+              ~else_: (fun () -> Symex.Result.ok current_val)
+            )
+          c s minimum
+      in
+      Symex.Result.ok (Descending (next, field))
