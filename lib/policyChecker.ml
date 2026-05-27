@@ -127,52 +127,44 @@ let update_policy servMap (c : call) policy =
   let s = StringMap.find c.serv_name servMap in
   match policy with
   | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) ->
-      let current_val = StrMap.find aggrField c.qos in
+      let current_val = StringMap.find aggrField c.qos in
 
       let apply_aggregator acc =
         match aggrOp with
         | Contract.AST.Sum -> Typed.add acc current_val
-        | Contract.AST.Max -> 
-            Typed.ite
-              (Typed.gt current_val acc)
-              current_val
-              acc
-        | Contract.AST.Min -> 
-            Typed.ite
-              (Typed.lt current_val acc)
-              current_val
-              acc
+        | Contract.AST.Max ->
+            Typed.ite (Typed.gt current_val acc) current_val acc
+        | Contract.AST.Min ->
+            Typed.ite (Typed.lt current_val acc) current_val acc
         | Contract.AST.Avg -> failwith "Avg should be handled separately"
-        | _ -> failwith "Unknown aggregator"
       in
 
       let compare lhs rhs =
         match cmp with
         | Expr.AST.Lt -> Typed.lt lhs rhs
-        | Expr.AST.Le -> Typed.le lhs rhs
+        | Expr.AST.Le -> Typed.leq lhs rhs
         | Expr.AST.Gt -> Typed.gt lhs rhs
-        | Expr.AST.Ge -> Typed.ge lhs rhs
-        | Expr.AST.Eq -> Typed.eq lhs rhs
-        | Expr.AST.Neq -> Typed.neq lhs rhs
+        | Expr.AST.Ge -> Typed.geq lhs rhs
+        | Expr.AST.Eq -> Typed.sem_eq lhs rhs
+        | Expr.AST.Neq -> Typed.not (Typed.sem_eq lhs rhs)
         | _ -> failwith "Unknown comparison operator"
       in
 
       let** next =
-        map_state (
-          match aggrOp with 
-          | Contract.AST.Sum -> Typed.int 0 
+        map_state
+          (match aggrOp with
+          | Contract.AST.Sum -> Typed.int 0
           | Contract.AST.Min -> Typed.int Int.max_int
           | Contract.AST.Max -> Typed.int Int.min_int
-          | Contract.AST.Avg -> assert false )
+          | Contract.AST.Avg -> assert false)
           (fun aggregate ->
-             let new_aggregate = apply_aggregator aggregate in
-             let violation = compare new_aggregate (Typed.int cmpInt) in
-             Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "aggregate policy violation")
-              ~else_: (fun () -> Symex.Result.ok new_aggregate) )
+            let new_aggregate = apply_aggregator aggregate in
+            let violation = compare new_aggregate (Typed.int cmpInt) in
+            Symex.branch_on violation
+              ~then_:(fun () -> Symex.Result.error "aggregate policy violation")
+              ~else_:(fun () -> Symex.Result.ok new_aggregate))
           c s sint
-
-      in 
+      in
       Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
       (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
@@ -188,28 +180,29 @@ let update_policy servMap (c : call) policy =
       in
       Symex.Result.ok (Dfa (result, transition, finalStates))
   | Ascending (maximum, field) ->
-      let current_val = StrMap.find field c.qos in
+      let current_val = StringMap.find field c.qos in
       let** next =
         map_state (Typed.int Int.min_int)
           (fun current_max ->
             let violation = Typed.lt current_val current_max in
-            Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "ascending policy violation: value decreased")
-              ~else_: (fun () -> Symex.Result.ok current_val)
-            )
+            Symex.branch_on violation
+              ~then_:(fun () ->
+                Symex.Result.error "ascending policy violation: value decreased")
+              ~else_:(fun () -> Symex.Result.ok current_val))
           c s maximum
       in
       Symex.Result.ok (Ascending (next, field))
   | Descending (minimum, field) ->
-      let current_val = StrMap.find field c.qos in
+      let current_val = StringMap.find field c.qos in
       let** next =
         map_state (Typed.int Int.max_int)
           (fun current_min ->
             let violation = Typed.gt current_val current_min in
-            Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "descending policy violation: value increased")
-              ~else_: (fun () -> Symex.Result.ok current_val)
-            )
+            Symex.branch_on violation
+              ~then_:(fun () ->
+                Symex.Result.error
+                  "descending policy violation: value increased")
+              ~else_:(fun () -> Symex.Result.ok current_val))
           c s minimum
       in
       Symex.Result.ok (Descending (next, field))
