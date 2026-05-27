@@ -1,11 +1,3 @@
-(*
-TODO: 
-  - unify SLA and QoS per service
-  - trust as keyword    
-  - fix conflict between arithmetic and boolean function calls
-    (either allow only arithmetic function call or unify both NT)
-*)
-
 %{
   open ContractAST    
 %}
@@ -68,10 +60,8 @@ atom_type:
   | BOOL_TYPE { TBool }
 
 fun_type:
-  | t = atom_type ; ARROW ; ret = atom_type
-      { TFun ([ t ], ret) }
-  | t = atom_type ; ARROW ; tt = fun_type
-      { let TFun (ts, ret) = tt in TFun (t :: ts, ret) }
+  | t = atom_type ; ARROW ; ret = atom_type { TFun ([ t ], ret) }
+  | t = atom_type ; ARROW ; tt = fun_type { let TFun (ts, ret) = tt in TFun (t :: ts, ret) }
 
 (* Policies *)
 
@@ -102,11 +92,20 @@ policy_type:
   | aggr_op = aggr_op ; LPAREN ; v = VAR ; RPAREN ; cmp_op = cmp_op ; i = INT { QosFieldOp (aggr_op, v, cmp_op, i) }
 
 regex:
+  | r = regex_choice { r }
+
+regex_choice:
+  | r1 = regex_choice ; PLUS ; r2 = regex_concat { RChoice (r1, r2) }
+  | r = regex_concat { r }
+
+regex_concat:
+  | r1 = regex_concat ; DOT ; r2 = regex_atom { RConcat (r1, r2) }
+  | r = regex_atom { r }
+
+regex_atom:
+  | s = VAR { RService s }
+  | r = regex_atom ; TIMES { RStar r }
   | LPAREN ; e = regex ; RPAREN { e }
-  | s = VAR { RService s}
-  | r1 = regex ; PLUS ; r2 = regex { RChoice (r1, r2) }
-  | r1 = regex ; DOT ; r2 = regex { RConcat (r1, r2) }
-  | r = regex ; TIMES { RStar r }
 
 (* Services *)
 
@@ -120,8 +119,8 @@ service:
       RETURNS ; COLON ; returns = items ; COMMA ;
       PRECOND ; COLON ; precond = delimited_comma_separeted_list(contract_expr) ; COMMA ;
       QOS_POSTCOND ; COLON ; qos_postcond = postcond ; COMMA ;
-      OK_POSTCOND ; COLON ; ok_postcond = postcond ; COMMA ;
-      ERR_POSTCOND ; COLON ; err_postcond = postcond ;
+      OK_POSTCOND ; COLON ; ok_postcond = postcond ; 
+      err_postcond = option(COMMA ; ERR_POSTCOND ; COLON ; err_postcond = postcond { err_postcond }) ;
     RBRACE
   {
     { name; params; returns; precond; qos_postcond; ok_postcond; err_postcond }

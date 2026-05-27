@@ -10,4 +10,5 @@ type stmt =
   | Assume of expr
   | Assert of expr
   | Invoke of ident * expr list
+  | DeclareInvoke of var_type * ident * ident * expr list
   | AssignInvoke of ident * ident * expr list

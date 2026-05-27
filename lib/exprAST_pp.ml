@@ -27,21 +27,11 @@ let rec pp_expr fmt = function
   | EVar v -> fprintf fmt "%s" v
   | ENonDet -> fprintf fmt "?"
   | EUnOp (op, e) -> fprintf fmt "(%a%a)" pp_un_op op pp_expr e
-  | EApp (f, args) ->
-      fprintf fmt "%s(" f;
-      pp_expr_list fmt args;
-      fprintf fmt ")"
+  | EApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
   | EBinOp (e1, op, e2) ->
-      fprintf fmt "(";
-      pp_expr fmt e1;
-      fprintf fmt " %a " pp_bin_op op;
-      pp_expr fmt e2;
-      fprintf fmt ")"
+      fprintf fmt "(%a %a %a)" pp_expr e1 pp_bin_op op pp_expr e2
 
 and pp_expr_list fmt = function
   | [] -> ()
   | [ e ] -> pp_expr fmt e
-  | e :: es ->
-      pp_expr fmt e;
-      fprintf fmt ", ";
-      pp_expr_list fmt es
+  | e :: es -> fprintf fmt "%a, %a" pp_expr e pp_expr_list es

@@ -1,14 +1,8 @@
-module Typed = Soteria.Tiny_values.Typed
+open Symbolic.Data
+open Symbolic.Runtime
+open Utils.Data
 
-type symb_int = Typed.T.sint Typed.t
-
-module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
-open Symex.Syntax
-open Typed.Infix
-open Typed.Syntax
-module StrMap = Map.Make (String)
-
-type qos = symb_int StrMap.t
+type qos = symb_int StringMap.t
 type call = { serv_name : string; args : symb_int list; qos : qos }
 
 module Key = struct
@@ -130,7 +124,7 @@ let map_state initial f (c : call) (service : Contract.AST.service) = function
           Symex.Result.ok (Grouped (field, ValMap.syntactic_add k next symMap)))
 
 let update_policy servMap (c : call) policy =
-  let s = StrMap.find c.serv_name servMap in
+  let s = StringMap.find c.serv_name servMap in
   match policy with
   | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) ->
       (*TODO*)

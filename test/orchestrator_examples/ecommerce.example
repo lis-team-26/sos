@@ -1,16 +1,16 @@
-user := ?;
-pass := ?;
-tok := invoke Auth(user, pass, 0);
-operations := ?;
+int user := ?;
+int pass := ?;
+int tok := invoke Auth(user, pass, 0);
+int operations := ?;
 assume operations > 0 && operations < 4;
 
-get := 1;
-pay := 2;
-prodId := 0;
-price := 0;
+int get := 1;
+int pay := 2;
+int prodId := 0;
+int price := 0;
 
 while operations > 0 do {
-  op := ?;
+  int op := ?;
   assume op == get || op == pay;
   if op == get then {
     prodId := ?;

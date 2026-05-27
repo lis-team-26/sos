@@ -32,7 +32,7 @@ type service = {
   precond : expr list;
   qos_postcond : postcond;
   ok_postcond : postcond;
-  err_postcond : postcond;
+  err_postcond : postcond option;
 }
 
 type contract = {

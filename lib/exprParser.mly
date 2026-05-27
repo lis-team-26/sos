@@ -12,10 +12,10 @@
 %token AND OR NOT
 %token LPAREN RPAREN COMMA
 
-%left LT LE GT GE EQ NEQ
 %left OR
 %left AND
 %nonassoc NOT
+%left LT LE GT GE EQ NEQ
 %left PLUS MINUS
 %left TIMES DIV
 

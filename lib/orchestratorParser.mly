@@ -43,6 +43,8 @@ atom_stmt:
   | ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert e }
   | INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
     { Invoke (f, args) }
+  | t = var_type ; x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
+    { DeclareInvoke (t, x, f, args) }
   | x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
     { AssignInvoke (x, f, args) }
 

@@ -1,10 +1,13 @@
+open ContractAST
+open Utils.Parser
+open Utils.Data
 module AST = ContractAST
 module AST_pp = ContractAST_pp
 module Lexer = ContractLexer
 module Parser = ContractParser
 
 let parse src =
-  let module Wrapper = Utils.MakeParser (struct
+  let module Wrapper = MakeParser (struct
     type ast = AST.contract
     type token = Parser.token
 
@@ -21,10 +24,18 @@ let parse src =
 (v) no duplicate service names
 (v) regex use services that are defined in the program
 (v) policies only use services / QOS fields defined in the program
-- QoS constraints for each field of QoS vector
+- (???) QoS constraints for each field of QoS vector
+- type-check precondition (they can only mention globals, functions and parameters of the service)
+- type check postcondtion:
+  - qos_postcond:
+    - effects: qos_field := expr (mentioning only globals, functions and parameters of the service)
+    - constraints: expr (mentioning only qos fields, globals, functions and parameters of the service)
+  - ok_postcond and err_postcond:
+    - effects:
+      - var (global or return variable) := expr (mentioning only globals, functions and parameters of the service)
+      - function application ???
+    - constraints: expr (mentioning only return variable, globals, functions and parameters of the service)
 *)
-
-module StringSet = Set.Make (String)
 
 let rec validate_regex (regex : AST.regex) (service_names_set : StringSet.t) =
   match regex with
@@ -70,35 +81,28 @@ let validate_contract (contract : AST.contract) =
   - \forall service: \forall qos_field: \exists constraint
   *)
   List.iter
-    (fun (service : AST.service) ->
-      let effect_vars =
+    (fun service ->
+      let effct_vars =
         List.fold_left
           (fun acc (lhs, _) ->
             match lhs with
             | AST.LVar v -> StringSet.add v acc
-            | AST.LApp (f, args) ->
-                List.fold_left
-                  (fun acc arg ->
-                    match arg with
-                    | Expr.AST.EVar v -> StringSet.add v acc
-                    | _ -> acc)
-                  acc args)
+            | AST.LApp (f, args) -> acc)
           StringSet.empty (fst service.qos_postcond)
       in
-      let constrnt_fields =
+      let constrnt_vars =
         List.fold_left
-          (fun acc arg ->
-            match arg with Expr.AST.EVar v -> StringSet.add v acc | _ -> acc)
+          (fun acc arg -> StringSet.union acc (Expr.free_vars arg))
           StringSet.empty (snd service.qos_postcond)
       in
-      let qos_constraints = StringSet.union effect_vars constrnt_fields in
-      if not (StringSet.equal qos_constraints qos_fields_set) then
-        let missing_fields = StringSet.diff qos_fields_set qos_constraints in
+      let defined_qos_fields = StringSet.union effct_vars constrnt_vars in
+      if not (StringSet.equal defined_qos_fields qos_fields_set) then
+        let missing_fields = StringSet.diff qos_fields_set defined_qos_fields in
         let missing_fields_str =
           String.concat ", " (StringSet.elements missing_fields)
         in
         failwith
           ("Service " ^ service.name
-         ^ " is missing QoS constraints:for the field(s): " ^ missing_fields_str
+         ^ " is missing QoS constraints for the field(s): " ^ missing_fields_str
           ))
     contract.services
