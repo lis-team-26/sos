@@ -16,15 +16,11 @@ type expr =
 
 type global = ident * typ
 
-type regex =
-  | RService of ident
-  | RConcat of regex * regex
-  | RChoice of regex * regex
-  | RStar of regex
-
+type serv2letter = (string * char) list
+            
 type policy_type =
   | QosFieldOp of binop * aggrop * string * int
-  | Regex of regex
+  | Regex of serv2letter (*map from service to letter*) * string (*regex using those letters*)
   | Sort of ident
 
 type policy = policy_type * string option

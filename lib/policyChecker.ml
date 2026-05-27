@@ -89,7 +89,7 @@ let init_policy (policyType, groupBy) =
           aggregator,
           fieldName,
           i )
-  | Contract.AST.Regex reg ->
+  | Contract.AST.Regex (serv2chr, reg) ->
       Dfa
         ( initial 0,
           (*current state*)

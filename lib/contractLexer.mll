@@ -8,12 +8,12 @@ let whitespace = [' ' '\t']+ | '\r' | '\n' | "\r\n"
 let integer = '-'?['0' - '9']['0' - '9']*
 let bool = "true" | "false"
 let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let regex = '"'(['a'-'z' 'A'-'Z' '0'-'9' '|' '(' ')' '[' ']' '*' '-' '^' '.' '?' '+']+)'"'
 
 rule read = parse
   (* Symbols and operators *)
   | ":" { COLON }
   | "," { COMMA }
-  | "." { DOT }
   | "->" { ARROW }
   | "+" { PLUS }
   | "-" { MINUS }
@@ -64,6 +64,7 @@ rule read = parse
   | integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | id { VAR (Lexing.lexeme lexbuf) }
+  | regex { REG (Lexing.lexeme lexbuf) }
   | eof { EOF }
   | _ as c {
       raise (LexerError (Printf.sprintf "Unexpected character '%c' at position %d" c (Lexing.lexeme_start lexbuf)))

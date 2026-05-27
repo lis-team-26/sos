@@ -17,7 +17,7 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        Auth . Auth . Auth
+        {Auth -> a, Pay -> p, GetPrice -> g} "a(gp)*|p"
     ],
     services: [
         {

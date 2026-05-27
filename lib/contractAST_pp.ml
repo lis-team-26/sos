@@ -82,24 +82,10 @@ let pp_fun_type =
 
 let pp_func_sig fmt f = fprintf fmt "function %s : %a" f.fname pp_fun_type f.ty
 
-let rec pp_regex fmt = function
-  | ContractAST.RService s -> fprintf fmt "%s" s
-  | ContractAST.RConcat (r1, r2) ->
-      fprintf fmt "(";
-      pp_regex fmt r1;
-      fprintf fmt " . ";
-      pp_regex fmt r2;
-      fprintf fmt ")"
-  | ContractAST.RChoice (r1, r2) ->
-      fprintf fmt "(";
-      pp_regex fmt r1;
-      fprintf fmt " + ";
-      pp_regex fmt r2;
-      fprintf fmt ")"
-  | ContractAST.RStar r ->
-      fprintf fmt "(";
-      pp_regex fmt r;
-      fprintf fmt ")*"
+let rec pp_regex fmt (s2letter, regex) =
+  fprintf fmt "[";
+  List.iter (fun (s,l) -> fprintf fmt " %s -> %c" s l) s2letter;
+  fprintf fmt " ] %s" regex
 
 let pp_policy_type fmt = function
   | ContractAST.QosFieldOp (cmp_op, agg_op, id, i) ->
@@ -107,7 +93,7 @@ let pp_policy_type fmt = function
       fprintf fmt "(%s)" id;
       pp_bin_op fmt cmp_op;
       fprintf fmt "%d" i
-  | ContractAST.Regex r -> pp_regex fmt r
+  | ContractAST.Regex (l,r) -> pp_regex fmt (l,r)
   | ContractAST.Sort id -> fprintf fmt "sorted(%s)" id
 
 let pp_policy fmt (policy, groupBy) =

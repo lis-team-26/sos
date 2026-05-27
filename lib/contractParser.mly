@@ -15,8 +15,9 @@ TODO:
 %token <int> INT
 %token <bool> BOOL
 %token <string> VAR
+%token <string> REG
 
-%token COLON ARROW DOT EQ ASSIGN COMMA EOF 
+%token COLON ARROW EQ ASSIGN COMMA EOF 
 %token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
 %token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
@@ -28,14 +29,13 @@ TODO:
 %left AND
 %left PLUS MINUS
 %left TIMES DIV
-%left DOT
 %right NOT
 
 %start <contract> contract
 
 %%
 
-delimited_comma_separeted_list(X):
+delimited_comma_separated_list(X):
   | OPEN_LIST ; l = separated_list(COMMA, X) ; CLOSE_LIST { l }
 
 contract:
@@ -99,7 +99,7 @@ bool_expr:
 (* Functions and types *)
 
 functions:
-  | funcs = delimited_comma_separeted_list(func_item) { funcs }
+  | funcs = delimited_comma_separated_list(func_item) { funcs }
 
 func_item:
   | fname = VAR ; COLON ; ty = fun_type { { fname; ty } }
@@ -115,7 +115,7 @@ fun_type:
 (* Generic items definition *)
 
 items_definition:
-  | items = delimited_comma_separeted_list(item_definition) { items }
+  | items = delimited_comma_separated_list(item_definition) { items }
 
 item_definition:
   | id = VAR ; COLON ; t = typ { (id, t) }
@@ -123,28 +123,24 @@ item_definition:
 (* Policies *)
 
 policies:
-  | policies = delimited_comma_separeted_list(policy) { policies }
+  | policies = delimited_comma_separated_list(policy) { policies }
 
 policy:
   | t = policy_type { (t, None) }
   | t = policy_type GROUPBY s = VAR { (t, Some s) }
 
-policy_type:
-  | r = regex { Regex r }
-  | SORTED ; OPEN_PAR id = VAR CLOSE_PAR { Sort id }
-  | n = aggr_op ; OPEN_PAR id = VAR CLOSE_PAR ; cmp = cmp_op ; i = INT { QosFieldOp (cmp, n, id, i) }
+service_char:
+  | s = VAR ; ARROW ; c = VAR {(s, (String.get c 0))}
 
-regex:
-  | OPEN_PAR ; e = regex ; CLOSE_PAR { e }
-  | s = VAR { RService s}
-  | r1 = regex ; PLUS ; r2 = regex { RChoice (r1, r2) }
-  | r1 = regex ; DOT ; r2 = regex { RConcat (r1, r2) }
-  | r = regex ; TIMES { RStar r }
+policy_type:
+  | LBRACE ; m = separated_list(COMMA, service_char) ; RBRACE ; r = REG { Regex (m,r) }
+  | SORTED ; OPEN_PAR ; id = VAR ; CLOSE_PAR { Sort id }
+  | n = aggr_op ; OPEN_PAR ; id = VAR ; CLOSE_PAR ; cmp = cmp_op ; i = INT { QosFieldOp (cmp, n, id, i) }
 
 (* Services *)
 
 services:
-  | services = delimited_comma_separeted_list(service) { services }
+  | services = delimited_comma_separated_list(service) { services }
 
 service:
   | LBRACE ;
@@ -152,7 +148,7 @@ service:
       PARAMS ; COLON ; params = items_definition ; COMMA ;
       RETURNS ; COLON ; returns = items_definition ; COMMA ;
       TRUST ; COLON ; trust = INT ; COMMA ;
-      PRECOND ; COLON ; precond = delimited_comma_separeted_list(bool_expr) ; COMMA ;
+      PRECOND ; COLON ; precond = delimited_comma_separated_list(bool_expr) ; COMMA ;
       QOS ; COLON ; qos = behavior ; COMMA ;
       OK_POSTCOND ; COLON ; ok_post = behavior ; COMMA ;
       ERR_POSTCOND ; COLON ; err_post = behavior ;
@@ -162,14 +158,14 @@ service:
   }
 
 effects:    
-  | EFFECTS ; COLON ; effects = delimited_comma_separeted_list(effct) { effects }
+  | EFFECTS ; COLON ; effects = delimited_comma_separated_list(effct) { effects }
 
 effct:
   | id = VAR ; ASSIGN ; e = arith_expr { (LVar id, e) }
   | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR ; ASSIGN ; e = arith_expr { (LApp (id, args), e) }
 
 constraints:
-  | CONSTRAINTS ; COLON ; constraints = delimited_comma_separeted_list(constrnt) { constraints }
+  | CONSTRAINTS ; COLON ; constraints = delimited_comma_separated_list(constrnt) { constraints }
 
 constrnt:
   | id = VAR ; cmp = cmp_op ; e = arith_expr { (cmp, LVar id, e) }

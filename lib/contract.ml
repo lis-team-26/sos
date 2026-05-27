@@ -27,14 +27,8 @@ let parse src =
 
 module StringSet = Set.Make(String)
 
-let rec validate_regex (regex: AST.regex) (service_names_set: StringSet.t) =
-  match regex with
-  | AST.RService s -> StringSet.mem s service_names_set
-  | AST.RConcat(r1, r2) | AST.RChoice (r1, r2) ->
-      validate_regex r1 service_names_set && validate_regex r2 service_names_set
-  | AST.RStar r -> validate_regex r service_names_set
-
-
+let rec validate_regex (s2letter: AST.serv2letter) (service_names_set: StringSet.t) =
+  List.for_all (fun (s,_) -> StringSet.mem s service_names_set) s2letter
 
 let validate_contract (contract: AST.contract) =
   
@@ -55,8 +49,8 @@ let validate_contract (contract: AST.contract) =
   List.iter (fun (policy_type, _) ->
     match policy_type with
     (* bad prefix regex use services that are defined in the program*)
-    | AST.Regex regex -> 
-        if not (validate_regex regex service_names_set) then
+    | AST.Regex (s2letter, regex) -> 
+        if not (validate_regex s2letter service_names_set) then
           failwith "Regex in policy uses undefined service names"
     (* policies only use services / QOS fields defined in the program *)      
     | AST.QosFieldOp (_, _, field, _) ->
