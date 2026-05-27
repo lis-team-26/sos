@@ -74,9 +74,9 @@ let init_policy (policyType, groupBy) =
     | Some param -> Grouped (param, ValMap.empty)
   in
   match policyType with
-  | Contract.AST.QosFieldOp (operator, Contract.AST.Avg, fieldName, i) ->
+  | Contract.AST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
       QosAvg (initial (Typed.int 0, 0), operator, fieldName, i)
-  | Contract.AST.QosFieldOp (operator, aggregator, fieldName, i) ->
+  | Contract.AST.QosFieldOp (aggregator, fieldName, operator, i) ->
       (* meaning: <aggregator>(<fieldname>) <operator> i *)
       QosAggregate
         ( initial

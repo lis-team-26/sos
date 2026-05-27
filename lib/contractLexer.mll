@@ -35,8 +35,8 @@ rule read = parse
   | "max" { MAX }
   | "sorted" { SORTED }
   (* Delimiters *)
-  | "(" { OPEN_PAR }
-  | ")" { CLOSE_PAR }
+  | "(" { LPAREN }
+  | ")" { RPAREN }
   | "[" { OPEN_LIST }
   | "]" { CLOSE_LIST }
   | "{" { LBRACE }

@@ -53,7 +53,7 @@ let validate_contract (contract: AST.contract) =
         if not (validate_regex s2letter service_names_set) then
           failwith "Regex in policy uses undefined service names"
     (* policies only use services / QOS fields defined in the program *)      
-    | AST.QosFieldOp (_, _, field, _) ->
+    | AST.QosFieldOp (_, field, _, _) ->
         let qos_fields = "trust" :: (List.map fst contract.qos) in
         if not (List.mem field qos_fields) then
           failwith ("QoS policy uses undefined QoS field: " ^ field) 

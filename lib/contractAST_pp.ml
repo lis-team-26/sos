@@ -88,7 +88,7 @@ let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt " ] %s" regex
 
 let pp_policy_type fmt = function
-  | ContractAST.QosFieldOp (cmp_op, agg_op, id, i) ->
+  | ContractAST.QosFieldOp (agg_op, id, cmp_op, i) ->
       pp_aggr_op fmt agg_op;
       fprintf fmt "(%s)" id;
       pp_bin_op fmt cmp_op;

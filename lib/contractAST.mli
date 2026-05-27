@@ -19,7 +19,7 @@ type global = ident * typ
 type serv2letter = (string * char) list
             
 type policy_type =
-  | QosFieldOp of binop * aggrop * string * int
+  | QosFieldOp of aggrop * string * binop * int
   | Regex of serv2letter (*map from service to letter*) * string (*regex using those letters*)
   | Sort of ident
 

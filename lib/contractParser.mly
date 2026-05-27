@@ -20,7 +20,7 @@ TODO:
 %token COLON ARROW EQ ASSIGN COMMA EOF 
 %token PLUS MINUS TIMES DIV LE LT GE GT NOT OR AND
 %token SUM AVG MIN MAX SORTED
-%token OPEN_PAR CLOSE_PAR OPEN_LIST CLOSE_LIST LBRACE RBRACE
+%token LPAREN RPAREN OPEN_LIST CLOSE_LIST LBRACE RBRACE
 %token GLOBALS FUNCTIONS QOS POLICIES SERVICES NAME PARAMS RETURNS TRUST PRECOND OK_POSTCOND ERR_POSTCOND EFFECTS CONSTRAINTS GROUPBY
 %token INT_TYPE BOOL_TYPE
 
@@ -77,24 +77,24 @@ aggr_op:
 
 arith_expr:
   | a = arith_atom { a }
-  | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR { EApp (id, args) }
+  | id = VAR ; LPAREN ; args = arith_exprs ; RPAREN { EApp (id, args) }
   | e1 = arith_expr ; op = PLUS ; e2 = arith_expr { EBinOp (Add, e1, e2) }
   | e1 = arith_expr ; op = MINUS ; e2 = arith_expr { EBinOp (Sub, e1, e2) }
   | e1 = arith_expr ; op = TIMES ; e2 = arith_expr { EBinOp (Mul, e1, e2) }
   | e1 = arith_expr ; op = DIV ; e2 = arith_expr { EBinOp (Div, e1, e2) }
-  | OPEN_PAR ; e = arith_expr ; CLOSE_PAR { e }
+  | LPAREN ; e = arith_expr ; RPAREN { e }
 
 arith_exprs:
   | es = separated_list(COMMA, arith_expr) { es }
 
 bool_expr:
   | b = BOOL { EBool b }
-  (* | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR { EApp (id, args) } *)
+  (* | id = VAR ; LPAREN ; args = arith_exprs ; RPAREN { EApp (id, args) } *)
   | e1 = arith_expr ; cmp = cmp_op ; e2 = arith_expr { EBinOp (cmp, e1, e2) }
   | e1 = bool_expr ; AND ; e2 = bool_expr { EBinOp (And, e1, e2) }
   | e1 = bool_expr ; OR ; e2 = bool_expr { EBinOp (Or, e1, e2) }
   | NOT ; e = bool_expr { EUnOp (Not, e) }
-  | OPEN_PAR ; e = bool_expr ; CLOSE_PAR { e }
+  | LPAREN ; e = bool_expr ; RPAREN { e }
 
 (* Functions and types *)
 
@@ -134,8 +134,9 @@ service_char:
 
 policy_type:
   | LBRACE ; m = separated_list(COMMA, service_char) ; RBRACE ; r = REG { Regex (m,r) }
-  | SORTED ; OPEN_PAR ; id = VAR ; CLOSE_PAR { Sort id }
-  | n = aggr_op ; OPEN_PAR ; id = VAR ; CLOSE_PAR ; cmp = cmp_op ; i = INT { QosFieldOp (cmp, n, id, i) }
+  | SORTED ; LPAREN ; v = VAR ; RPAREN { Sort v }
+  | aggr_op = aggr_op ; LPAREN ; v = VAR ; RPAREN ; cmp_op = cmp_op ; i = INT { QosFieldOp (aggr_op, v, cmp_op, i) }
+
 
 (* Services *)
 
@@ -162,15 +163,15 @@ effects:
 
 effct:
   | id = VAR ; ASSIGN ; e = arith_expr { (LVar id, e) }
-  | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR ; ASSIGN ; e = arith_expr { (LApp (id, args), e) }
+  | id = VAR ; LPAREN ; args = arith_exprs ; RPAREN ; ASSIGN ; e = arith_expr { (LApp (id, args), e) }
 
 constraints:
   | CONSTRAINTS ; COLON ; constraints = delimited_comma_separated_list(constrnt) { constraints }
 
 constrnt:
   | id = VAR ; cmp = cmp_op ; e = arith_expr { (cmp, LVar id, e) }
-  | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR ; cmp = cmp_op ; e = arith_expr { (cmp, LApp (id, args), e) }
-  | id = VAR ; OPEN_PAR ; args = arith_exprs ; CLOSE_PAR { (Eq, LApp (id, args), EBool true)}  
+  | id = VAR ; LPAREN ; args = arith_exprs ; RPAREN ; cmp = cmp_op ; e = arith_expr { (cmp, LApp (id, args), e) }
+  | id = VAR ; LPAREN ; args = arith_exprs ; RPAREN { (Eq, LApp (id, args), EBool true)}  
 
 behavior:
   | LBRACE eff = effects ; COMMA ; constr = constraints ; RBRACE { (eff, constr) }
@@ -186,8 +187,8 @@ exprs:
 atom:
   | n=INT                                         {EInt(n)}
   | v=VAR                                         {EVar(v)}
-  | id=VAR OPEN_PAR args=exprs CLOSE_PAR          {EApp(id, args)}
-  | OPEN_PAR e=expr CLOSE_PAR                     {e}
+  | id=VAR LPAREN args=exprs RPAREN          {EApp(id, args)}
+  | LPAREN e=expr RPAREN                     {e}
   | b=BOOL                                        {EBool(b)}
   | id=VAR DOT field=VAR                          {EField(EVar(id), field)}
 
