@@ -56,7 +56,8 @@ type pChecker =
     (*the integer to compare to the result of the sum divided by invoke count*)
   | Dfa of
       int (*state of the dfa, initially 0*) checkerState
-      * (int -> string -> int)
+      * char StrMap.t
+      * (int -> char -> int)
       * (*transition relation*)
       int list (*list of final states*)
   | Ascending of
@@ -91,10 +92,10 @@ let init_policy (policyType, groupBy) =
           i )
   | Contract.AST.Regex (serv2chr, reg) ->
       Dfa
-        ( initial 0,
-          (*current state*)
+        ( initial 0, (*current state*)
+          StrMap.of_seq @@ List.to_seq serv2chr, (*mapping from service name -> char*)
           (*TODO: placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
-          (fun state service -> state),
+          (fun state c -> state),
           [] (*list of final states*) )
   | Contract.AST.Sort fieldName -> Ascending (initial (Typed.int 0), fieldName)
 
@@ -200,17 +201,22 @@ let update_policy servMap (c : call) policy =
       Symex.Result.ok (QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
       (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
-  | Dfa (curState, transition, finalStates) ->
+  | Dfa (curState, servMap, transition, finalStates) ->
       let** result =
         map_state 0
           (fun cur ->
-            let nextState = transition cur c.serv_name in
-            if List.mem nextState finalStates then
-              Symex.Result.error "regex policy violation"
-            else Symex.Result.ok nextState)
+            let chr_opt = StrMap.find_opt c.serv_name servMap
+            in
+            match chr_opt with
+            | None -> Symex.Result.error "regex policy: no such service"
+            | Some chr ->
+               let nextState = transition cur chr in
+               if List.mem nextState finalStates then
+                 Symex.Result.error "regex policy violation"
+               else Symex.Result.ok nextState)
           c s curState
       in
-      Symex.Result.ok (Dfa (result, transition, finalStates))
+      Symex.Result.ok (Dfa (result, servMap, transition, finalStates))
   | Ascending (maximum, field) ->
       let current_val = StrMap.find field c.qos in
       let** next =
