@@ -42,9 +42,9 @@ type pChecker =
       symb_int
       (*can be many things, depending on the aggregate operation*)
       checkerState
-      * Contract.AST.binop (*comparison*)
       * Contract.AST.aggrop (*sum, max, ...*)
       * string (*the Qos field to aggregate*)
+      * Contract.AST.binop (*comparison*)
       * int (*the integer to compare to the result of the aggregation*)
   | QosAvg of
       (symb_int (*sum on the Qos field*)
@@ -85,9 +85,9 @@ let init_policy (policyType, groupBy) =
                | Contract.AST.Sum | Contract.AST.Avg -> 0
                | Contract.AST.Min -> Int.max_int
                | Contract.AST.Max -> Int.min_int)),
-          operator,
           aggregator,
           fieldName,
+          operator,
           i )
   | Contract.AST.Regex (serv2chr, reg) ->
       Dfa
@@ -100,7 +100,23 @@ let init_policy (policyType, groupBy) =
 
 (*Warning: some policy may not be satisfied, but can be satisfied later.
   Ex: avg(cost) < 30, may not be satisfied when the costs are 35,30, but if the
-  next invoke has cost = 3 it becomes satisfied. This also applies to sum(latency) > 50*)
+  next invoke has cost = 3 it becomes satisfied. This also applies to sum(latency) > 50.
+ The distinction must be made between these two kind of policies: at each update, some
+ of them can be verified now, other can only be verified at the end*)
+let verify_now aggrOp cmp =
+    let ascending = function
+      | Contract.AST.Min -> false
+      | _ -> true
+    in
+    let less = function
+      | Contract.AST.Lt | Contract.AST.Le -> true
+      | _ -> false
+    in
+    (ascending aggrOp) == (less cmp) && (
+      match (aggrOp, cmp) with
+      | (Contract.AST.Avg, _) | (_, Contract.AST.Eq) | (_, Contract.AST.Neq) -> false
+      | _ -> true
+    )
 
 let map_state initial f (c : call) (service : Contract.AST.service) = function
   | Ungrouped s ->
@@ -132,7 +148,7 @@ let map_state initial f (c : call) (service : Contract.AST.service) = function
 let update_policy servMap (c : call) policy =
   let s = StrMap.find c.serv_name servMap in
   match policy with
-  | QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt) ->
+  | QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt) ->
       let current_val = StrMap.find aggrField c.qos in
 
       let apply_aggregator acc =
@@ -171,15 +187,17 @@ let update_policy servMap (c : call) policy =
           | Contract.AST.Max -> Typed.int Int.min_int
           | Contract.AST.Avg -> assert false )
           (fun aggregate ->
-             let new_aggregate = apply_aggregator aggregate in
-             let violation = compare new_aggregate (Typed.int cmpInt) in
-             Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "aggregate policy violation")
-              ~else_: (fun () -> Symex.Result.ok new_aggregate) )
+            let new_aggregate = apply_aggregator aggregate in
+            if (verify_now aggrOp cmp) then
+              let violation = compare new_aggregate (Typed.int cmpInt) in
+              Symex.branch_on violation 
+                ~then_: (fun () -> Symex.Result.error "aggregate policy violation")
+                ~else_: (fun () -> Symex.Result.ok new_aggregate)
+            else Symex.Result.ok new_aggregate)
           c s sint
 
       in 
-      Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
+      Symex.Result.ok (QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
       (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
   | Dfa (curState, transition, finalStates) ->
