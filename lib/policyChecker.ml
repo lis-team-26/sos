@@ -51,7 +51,7 @@ type pChecker =
       (symb_int (*sum on the Qos field*)
       * int (*count of service invocations seen so far*))
       checkerState
-      * Contract.AST.binop (*comparison*)
+      * (Typed.T.sint Typed.t -> Typed.T.sint Typed.t -> Typed.sbool Typed.t ) (*comparison*)
       * string (*the Qos field to sum*)
       * int
     (*the integer to compare to the result of the sum divided by invoke count*)
@@ -88,6 +88,15 @@ let verify_now aggrOp cmp =
       | _ -> true
     )
 
+let cmp_function = function
+  | Contract.AST.Lt -> Typed.lt
+  | Contract.AST.Le -> Typed.leq
+  | Contract.AST.Gt -> Typed.gt
+  | Contract.AST.Ge -> Typed.geq
+  | Contract.AST.Eq -> Typed.sem_eq
+  | Contract.AST.Neq -> (fun l r -> Typed.not @@ Typed.sem_eq l r)
+  | _ -> failwith "Unknown comparison operator"
+
     (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
 let init_policy (policyType, groupBy) =
   let initial state =
@@ -97,7 +106,7 @@ let init_policy (policyType, groupBy) =
   in
   match policyType with
   | Contract.AST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
-      QosAvg (initial (Typed.int 0, 0), operator, fieldName, i)
+      QosAvg (initial (Typed.int 0, 0), (cmp_function operator), fieldName, i)
   | Contract.AST.QosFieldOp (aggregator, fieldName, operator, i) ->
       (* meaning: <aggregator>(<fieldname>) <operator> i *)
       QosAggregate
@@ -109,16 +118,9 @@ let init_policy (policyType, groupBy) =
                | Contract.AST.Max -> Int.min_int)),
           aggregator,
           fieldName,
-          (match operator with
-           | Contract.AST.Lt -> Typed.lt
-           | Contract.AST.Le -> Typed.leq
-           | Contract.AST.Gt -> Typed.gt
-           | Contract.AST.Ge -> Typed.geq
-           | Contract.AST.Eq -> Typed.sem_eq
-           | Contract.AST.Neq -> (fun l r -> Typed.not @@ Typed.sem_eq l r)
-           | _ -> failwith "Unknown comparison operator"
-          ),
-          i, (verify_now aggregator operator))
+          (cmp_function operator),
+          i,
+          (verify_now aggregator operator))
   | Contract.AST.Regex (serv2chr, reg) ->
       Dfa
         ( initial 0, (*current state*)
