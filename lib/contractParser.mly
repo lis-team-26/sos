@@ -116,7 +116,7 @@ service:
   | LBRACE ;
       NAME ; COLON ; name = VAR ; COMMA ;
       PARAMS ; COLON ; params = items ; COMMA ;
-      RETURNS ; COLON ; returns = items ; COMMA ;
+      RETURNS ; COLON ; LBRACE ; returns = item ; RBRACE ; COMMA ;
       PRECOND ; COLON ; precond = delimited_comma_separeted_list(contract_expr) ; COMMA ;
       QOS_POSTCOND ; COLON ; qos_postcond = postcond ; COMMA ;
       OK_POSTCOND ; COLON ; ok_postcond = postcond ; 

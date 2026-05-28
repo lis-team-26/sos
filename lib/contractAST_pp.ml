@@ -56,7 +56,7 @@ let pp_postcond fmt (es, cs) =
 let pp_service fmt s =
   fprintf fmt "service %s {@,@[<v 2>  " s.name;
   fprintf fmt "params:@,@[<v 2>  %a@]@," (pp_list pp_typed_var) s.params;
-  fprintf fmt "returns:@,@[<v 2>  %a@]@," (pp_list pp_typed_var) s.returns;
+  fprintf fmt "returns:@,@[<v 2>  %a@]@," pp_typed_var s.returns;
   fprintf fmt "precond:@,@[<v 2>  %a@]@," (pp_list pp_expr) s.precond;
   fprintf fmt "qos_postcond:@,@[<v 2>  %a@]@," pp_postcond s.qos_postcond;
   fprintf fmt "ok_postcond:@,@[<v 2>  %a@]@," pp_postcond s.ok_postcond;

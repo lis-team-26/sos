@@ -28,7 +28,7 @@ type postcond = effct list * expr list
 type service = {
   name : ident;
   params : typed_var list;
-  returns : typed_var list;
+  returns : typed_var;
   precond : expr list;
   qos_postcond : postcond;
   ok_postcond : postcond;

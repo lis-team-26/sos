@@ -27,7 +27,7 @@
                 password: int,
                 nonce: int
             ],
-            returns: [token: int],
+            returns: { token: int },
             precond: [
                 wellFormed(userId) = 1,
                 wellFormed(password) = 1,
@@ -68,7 +68,7 @@
             params: [
                 amt: int
             ],
-            returns: [r: bool],
+            returns: { r: bool },
             precond: [
                 amt > 0
             ],
@@ -100,7 +100,7 @@
             params: [
                 productId: int
             ],
-            returns: [price: int],
+            returns: { price: int },
             precond: [
                 wellFormed(productId) = 1
             ],
