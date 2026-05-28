@@ -181,7 +181,26 @@ let update_policy servMap (c : call) policy =
       in 
       Symex.Result.ok (QosAggregate (sint, cmp, aggrOp, aggrField, cmpInt))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
-      (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
+    let current_val = StrMap.find avgField c.qos in
+    let compare lhs rhs =
+        (match cmp with
+        | Contract.AST.Lt -> Typed.lt lhs rhs
+        | Contract.AST.Le -> Typed.leq lhs rhs
+        | Contract.AST.Gt -> Typed.gt lhs rhs
+        | Contract.AST.Ge -> Typed.geq lhs rhs
+        | Contract.AST.Eq -> Typed.geq lhs rhs
+        | Contract.AST.Neq -> Typed.geq lhs rhs
+        | _ -> failwith "Unknown comparison operator")
+      in  
+    let** result = map_state (Typed.int 0, 0)
+    ( fun value -> let new_cnt = (snd value) + 1 in 
+      let new_val = Typed.div (Typed.add (fst value) current_val) (Typed.nonzero new_cnt) in 
+      let violated = compare new_val (Typed.int cmpInt) in
+      Symex.branch_on violated 
+              ~then_: (fun () -> Symex.Result.error "average policy violation")
+              ~else_: (fun () -> Symex.Result.ok (new_val,new_cnt))
+      ) c s sint_count in
+      Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
   | Dfa (curState, transition, finalStates) ->
       let** result =
         map_state 0
