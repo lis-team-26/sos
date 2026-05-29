@@ -5,7 +5,7 @@
 
 let int = ['0'-'9']['0'-'9']*
 let bool = "true" | "false"
-let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let var = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 let white = [' ' '\t' '\n' '\r']+ | "\r\n"
 
 rule read = parse
@@ -13,9 +13,9 @@ rule read = parse
   | int as n { INT (int_of_string n) }
   | bool as b { BOOL (b = "true") }
   | '?' { NONDET }
-  | '+' { ADD }
-  | '-' { SUB }
-  | '*' { MUL }
+  | '+' { PLUS }
+  | '-' { MINUS }
+  | '*' { TIMES }
   | '/' { DIV }
   | "&&" { AND }
   | "||" { OR }
@@ -37,11 +37,13 @@ rule read = parse
   | "assume" { ASSUME }
   | "assert" { ASSERT }
   | "invoke" { INVOKE }
+  | "int" { INT_TYPE }
+  | "bool" { BOOL_TYPE }
   | ',' { COMMA }
   | '(' { LPAREN }
   | ')' { RPAREN }
   | '{' { LBRACE }
   | '}' { RBRACE }
   | eof { EOF }
-  | id as x { ID x }
+  | var as x { VAR x }
   | _ { raise (LexerError ("Unexpected character " ^ Lexing.lexeme lexbuf)) }

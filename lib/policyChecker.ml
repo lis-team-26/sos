@@ -1,14 +1,8 @@
-module Typed = Soteria.Tiny_values.Typed
+open Symbolic.Data
+open Symbolic.Runtime
+open Utils.Data
 
-type symb_int = Typed.T.sint Typed.t
-
-module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
-open Symex.Syntax
-open Typed.Infix
-open Typed.Syntax
-module StrMap = Map.Make (String)
-
-type qos = symb_int StrMap.t
+type qos = symb_int StringMap.t
 type call = { serv_name : string; args : symb_int list; qos : qos }
 
 module Key = struct
@@ -42,7 +36,7 @@ type pChecker =
       symb_int
       (*can be many things, depending on the aggregate operation*)
       checkerState
-      * Contract.AST.aggrop (*sum, max, ...*)
+      * Contract.AST.aggr_op (*sum, max, ...*)
       * string (*the Qos field to aggregate*)
       * (Typed.T.sint Typed.t -> Typed.T.sint Typed.t -> Typed.sbool Typed.t ) (*comparison*)
       * int (*the integer to compare to the result of the aggregation*)
@@ -57,7 +51,7 @@ type pChecker =
     (*the integer to compare to the result of the sum divided by invoke count*)
   | Dfa of
       int (*state of the dfa, initially 0*) checkerState
-      * char StrMap.t
+      * char StringMap.t
       * (int -> char -> int)
       * (*transition relation*)
       int list (*list of final states*)
@@ -79,22 +73,22 @@ let verify_now aggrOp cmp =
       | _ -> true
     in
     let less = function
-      | Contract.AST.Lt | Contract.AST.Le -> true
+      | Expr.AST.Lt | Expr.AST.Le -> true
       | _ -> false
     in
     (ascending aggrOp) == (less cmp) && (
       match (aggrOp, cmp) with
-      | (Contract.AST.Avg, _) | (_, Contract.AST.Eq) | (_, Contract.AST.Neq) -> false
+      | (Contract.AST.Avg, _) | (_, Expr.AST.Eq) | (_, Expr.AST.Neq) -> false
       | _ -> true
     )
 
 let cmp_function = function
-  | Contract.AST.Lt -> Typed.lt
-  | Contract.AST.Le -> Typed.leq
-  | Contract.AST.Gt -> Typed.gt
-  | Contract.AST.Ge -> Typed.geq
-  | Contract.AST.Eq -> Typed.sem_eq
-  | Contract.AST.Neq -> (fun l r -> Typed.not @@ Typed.sem_eq l r)
+  | Expr.AST.Lt -> Typed.lt
+  | Expr.AST.Le -> Typed.leq
+  | Expr.AST.Gt -> Typed.gt
+  | Expr.AST.Ge -> Typed.geq
+  | Expr.AST.Eq -> Typed.sem_eq
+  | Expr.AST.Neq -> (fun l r -> Typed.not @@ Typed.sem_eq l r)
   | _ -> failwith "Unknown comparison operator"
 
     (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
@@ -124,7 +118,7 @@ let init_policy (policyType, groupBy) =
   | Contract.AST.Regex (serv2chr, reg) ->
       Dfa
         ( initial 0, (*current state*)
-          StrMap.of_seq @@ List.to_seq serv2chr, (*mapping from service name -> char*)
+          StringMap.of_seq @@ List.to_seq serv2chr, (*mapping from service name -> char*)
           (*TODO: placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
           (fun state c -> state),
           [] (*list of final states*) )
@@ -159,24 +153,18 @@ let map_state initial f (c : call) (service : Contract.AST.service) = function
           Symex.Result.ok (Grouped (field, ValMap.syntactic_add k next symMap)))
 
 let update_policy servMap (c : call) policy =
-  let s = StrMap.find c.serv_name servMap in
+  let s = StringMap.find c.serv_name servMap in
   match policy with
   | QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow) ->
-      let current_val = StrMap.find aggrField c.qos in
+      let current_val = StringMap.find aggrField c.qos in
 
       let apply_aggregator acc =
         match aggrOp with
         | Contract.AST.Sum -> Typed.add acc current_val
         | Contract.AST.Max -> 
-            Typed.ite
-              (Typed.gt current_val acc)
-              current_val
-              acc
+            Typed.ite (Typed.gt current_val acc) current_val acc
         | Contract.AST.Min -> 
-            Typed.ite
-              (Typed.lt current_val acc)
-              current_val
-              acc
+            Typed.ite (Typed.lt current_val acc) current_val acc
         | Contract.AST.Avg -> failwith "Avg should be handled separately"
                                        (*| _ -> failwith "Unknown aggregator"*)
       in
@@ -206,7 +194,7 @@ let update_policy servMap (c : call) policy =
       let** result =
         map_state 0
           (fun cur ->
-            let chr_opt = StrMap.find_opt c.serv_name servMap
+            let chr_opt = StringMap.find_opt c.serv_name servMap
             in
             match chr_opt with
             | None -> Symex.Result.error "regex policy: no such service"
@@ -219,28 +207,31 @@ let update_policy servMap (c : call) policy =
       in
       Symex.Result.ok (Dfa (result, servMap, transition, finalStates))
   | Ascending (maximum, field) ->
-      let current_val = StrMap.find field c.qos in
+      let current_val = StringMap.find field c.qos in
       let** next =
         map_state (Typed.int Int.min_int)
           (fun current_max ->
             let violation = Typed.lt current_val current_max in
-            Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "ascending policy violation: value decreased")
-              ~else_: (fun () -> Symex.Result.ok current_val)
-            )
+
+            Symex.branch_on violation
+              ~then_:(fun () ->
+                Symex.Result.error
+                  "ascending policy violation: value decreased")
+              ~else_:(fun () -> Symex.Result.ok current_val))
           c s maximum
       in
       Symex.Result.ok (Ascending (next, field))
   | Descending (minimum, field) ->
-      let current_val = StrMap.find field c.qos in
+      let current_val = StringMap.find field c.qos in
       let** next =
         map_state (Typed.int Int.max_int)
           (fun current_min ->
             let violation = Typed.gt current_val current_min in
-            Symex.branch_on violation 
-              ~then_: (fun () -> Symex.Result.error "descending policy violation: value increased")
-              ~else_: (fun () -> Symex.Result.ok current_val)
-            )
+            Symex.branch_on violation
+              ~then_:(fun () ->
+                Symex.Result.error
+                  "descending policy violation: value increased")
+              ~else_:(fun () -> Symex.Result.ok current_val))
           c s minimum
       in
       Symex.Result.ok (Descending (next, field))

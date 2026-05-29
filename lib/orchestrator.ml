@@ -1,10 +1,13 @@
+open Contract.AST
+open Utils.Parser
 module AST = OrchestratorAST
 module AST_pp = OrchestratorAST_pp
 module Lexer = OrchestratorLexer
 module Parser = OrchestratorParser
+module Interpreter = OrchestratorInterpreter
 
 let parse src =
-  let module Wrapper = Utils.MakeParser (struct
+  let module Wrapper = MakeParser (struct
     type ast = AST.stmt
     type token = Parser.token
 
@@ -17,19 +20,10 @@ let parse src =
   end) in
   Wrapper.parse src
 
-module Utils = OrchestratorUtils
-
-let symb_run ((contract : Contract.AST.contract), program) ~mode =
-  let module StrMap = Map.Make (String) in
-  (*create a map (name -> service)*)
-  let serviceMap =
-    List.fold_left
-      (fun m (s : Contract.AST.service) -> StrMap.add s.name s m)
-      StrMap.empty contract.services
-  in
-  (*initialize each policy checker*)
-  let policyInitStates =
+let symb_run (contract, program) ~mode =
+  (* initialize each policy checker *)
+  let policy_init_states =
     List.map PolicyChecker.init_policy contract.policies
   in
-  SymbolicInterpreter.build_symb_process program policyInitStates serviceMap
-  |> SymbolicInterpreter.Symex.run ~mode
+  OrchestratorInterpreter.build_symb_process program contract policy_init_states
+  |> Symbolic.Runtime.Symex.run ~mode

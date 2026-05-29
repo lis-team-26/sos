@@ -37,22 +37,22 @@ rule read = parse
   (* Delimiters *)
   | "(" { LPAREN }
   | ")" { RPAREN }
-  | "[" { OPEN_LIST }
-  | "]" { CLOSE_LIST }
+  | "[" { LSQUARE }
+  | "]" { RSQUARE }
   | "{" { LBRACE }
   | "}" { RBRACE }
   (* Keywords *)
   | "globals" { GLOBALS }
   | "functions" { FUNCTIONS }  
-  | "QoS" { QOS }
+  | "qos" | "QoS" { QOS }
   | "policies" { POLICIES }
   | "group-by" { GROUPBY }
   | "services" { SERVICES }  
   | "name" { NAME }
   | "params" { PARAMS }
   | "returns" { RETURNS }
-  | "trusted" { TRUST }
   | "precond" { PRECOND }
+  | ("qos" | "QoS") "-postcond" { QOS_POSTCOND }
   | "ok-postcond" { OK_POSTCOND }  
   | "err-postcond" { ERR_POSTCOND }
   | "effects" { EFFECTS }

@@ -27,8 +27,7 @@
                 password: int,
                 nonce: int
             ],
-            returns: [token: int],
-            trusted: 30,
+            returns: { token: int },
             precond: [
                 wellFormed(userId) = 1,
                 wellFormed(password) = 1,
@@ -36,7 +35,7 @@
                 locked(userId) = 0,
                 attempts(userId) < MAX_ATTEMPTS
             ],
-            QoS: {
+            QoS-postcond: {
                 effects: [
                     cost := AuthFee(userId)
                 ],
@@ -69,12 +68,11 @@
             params: [
                 amt: int
             ],
-            returns: [r: bool],
-            trusted: 23,
+            returns: { r: bool },
             precond: [
                 amt > 0
             ],
-            QoS: {
+            QoS-postcond: {
                 effects: [
                     cost := PayFee(amt)
                 ],
@@ -102,12 +100,11 @@
             params: [
                 productId: int
             ],
-            returns: [price: int],
-            trusted: 7,
+            returns: { price: int },
             precond: [
                 wellFormed(productId) = 1
             ],
-            QoS: {
+            QoS-postcond: {
                 effects: [],
                 constraints: [
                     latency <= 10,
