@@ -27,13 +27,13 @@ let pp_typed_fun fmt (f, t) = fprintf fmt "%s: %a" f pp_fun_type t
 
 let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt "[";
-  List.iter (fun (s,l) -> fprintf fmt " %s -> %c" s l) s2letter;
+  List.iter (fun (s, l) -> fprintf fmt " %s -> %c" s l) s2letter;
   fprintf fmt " ] %s" regex
 
 let pp_policy_type fmt = function
   | ContractAST.QosFieldOp (agg_op, v, cmp_op, i) ->
       fprintf fmt "%a(%s) %a %d" pp_aggr_op agg_op v pp_bin_op cmp_op i
-  | ContractAST.Regex (l,r) -> pp_regex fmt (l,r)
+  | ContractAST.Regex (l, r) -> pp_regex fmt (l, r)
   | ContractAST.Sort id -> fprintf fmt "sorted(%s)" id
 
 let pp_policy fmt (p, group_by) =

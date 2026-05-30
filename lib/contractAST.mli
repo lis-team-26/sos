@@ -3,13 +3,14 @@ open Expr.AST
 type fun_type = TFun of var_type list * var_type
 type typed_var = ident * var_type
 type typed_fun = ident * fun_type
-
 type aggr_op = Sum | Avg | Min | Max
 type serv2letter = (string * char) list
-            
+
 type policy_type =
   | QosFieldOp of aggr_op * string * bin_op * int
-  | Regex of serv2letter (*map from service to letter*) * string (*regex using those letters*)
+  | Regex of
+      serv2letter (*map from service to letter*)
+      * string (*regex using those letters*)
   | Sort of ident
 
 type policy = policy_type * string option
