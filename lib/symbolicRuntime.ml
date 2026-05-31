@@ -55,13 +55,14 @@ type invocation = {
   qos : symbolic_value env;
 }
 
+type function_map = (fun_type * symbolic_value symbolic_list_env) env
 type stack = invocation list
 
 type ok_monad_state = {
   private_env : symbolic_value env;
   public_env : symbolic_value env;
   service_map : service env;
-  function_map : (fun_type * symbolic_value symbolic_list_env) env;
+  function_map : function_map;
   stack : stack;
 }
 

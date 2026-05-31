@@ -1,6 +1,7 @@
 open OrchestratorAST
 open Symbolic.Data
 open Symbolic.Runtime
+open FunctionalStateMonad.FSM
 open Expr.AST
 open Contract.AST
 open Utils.Data
@@ -75,56 +76,52 @@ let symb_eval_cmp_op v1 op v2 =
   | Neq -> Symex.Result.ok (Typed.not (v1 ==@ v2))
   | _ -> init_error "Type error in comparison operation"
 
-let rec symb_eval_expr env function_map = function
-  | EInt n -> Symex.Result.ok (Typed.int n, function_map)
-  | EBool b -> Symex.Result.ok (Typed.of_bool b, function_map)
+let rec symb_eval_expr env = function
+  | EInt n -> return (Typed.int n)
+  | EBool b -> return (Typed.of_bool b)
   | EVar x ->
-      let++ value =
+      let&+ value =
         match StringMap.find_opt x env with
         | Some (SymbInt i) -> Symex.Result.ok (Typed.cast i)
         | Some (SymbBool b) -> Symex.Result.ok (Typed.cast b)
         | None -> init_error (Fmt.str "Variable %s not found" x)
       in
-      (value, function_map)
+      value
   | ENonDet ->
-      let* v = Symex.nondet Typed.t_int in
-      Symex.Result.ok (v, function_map)
+      let&* v = Symex.nondet Typed.t_int in
+      return (Typed.cast v)
   | EApp (f, args) -> (
+      let& function_map = get_function_map in
       match StringMap.find_opt f function_map with
-      | None -> init_error (Fmt.str "Function %s not found" f)
+      | None -> failwith (Fmt.str "Function %s not found" f)
       | Some (TFun (typed_vars, ret_type), _) -> (
           let typed_args = List.combine typed_vars args in
-          let** actual_args, function_map =
-            Symex.Result.fold_list typed_args ~init:([], function_map)
-              ~f:(fun (acc_args, acc_function_map) (t, x) ->
+          let& actual_args =
+            fold_list typed_args ~init:[] ~f:(fun acc_args (t, x) ->
                 match t with
                 | TInt ->
-                    let** v, new_function_map =
-                      symb_eval_aexpr env acc_function_map x
-                    in
-                    Symex.Result.ok (Typed.cast v :: acc_args, new_function_map)
+                    let& v = symb_eval_aexpr env x in
+                    return (Typed.cast v :: acc_args)
                 | TBool ->
-                    let** v, new_function_map =
-                      symb_eval_bexpr env acc_function_map x
-                    in
-                    Symex.Result.ok (Typed.cast v :: acc_args, new_function_map))
+                    let& v = symb_eval_bexpr env x in
+                    return (Typed.cast v :: acc_args))
           in
           let actual_args = List.rev actual_args in
+          let& function_map = get_function_map in
           match StringMap.find_opt f function_map with
-          | None -> init_error (Fmt.str "Function %s not found" f)
+          | None -> failwith (Fmt.str "Function %s not found" f)
           | Some (TFun (_, _), fun_invoke) -> (
-              let* _, return_value_opt =
+              let&* _, return_value_opt =
                 SymbolicListMap.find_opt actual_args fun_invoke
               in
               match return_value_opt with
-              | Some (SymbInt i) -> Symex.Result.ok (Typed.cast i, function_map)
-              | Some (SymbBool b) -> Symex.Result.ok (Typed.cast b, function_map)
+              | Some (SymbInt i) -> return (Typed.cast i)
+              | Some (SymbBool b) -> return (Typed.cast b)
               | None ->
-                  let* return_value =
-                    Symex.nondet
-                      (match ret_type with
-                      | TInt -> Typed.t_int
-                      | TBool -> Typed.t_bool)
+                  let&* return_value =
+                    match ret_type with
+                    | TInt -> Symex.nondet Typed.t_int
+                    | TBool -> Symex.nondet Typed.t_bool
                   in
                   let symb_ret_value =
                     match ret_type with
@@ -135,20 +132,20 @@ let rec symb_eval_expr env function_map = function
                     SymbolicListMap.syntactic_add actual_args symb_ret_value
                       fun_invoke
                   in
-                  let new_function_map =
-                    StringMap.add f
-                      (TFun (typed_vars, ret_type), new_fun_invoke)
-                      function_map
+                  let& () =
+                    modify_function_map
+                      (StringMap.add f
+                         (TFun (typed_vars, ret_type), new_fun_invoke))
                   in
-                  Symex.Result.ok (return_value, new_function_map))))
+                  return return_value)))
   | EUnOp (op, e) ->
-      let** v, new_function_map = symb_eval_expr env function_map e in
-      let++ v = symb_eval_bool_un_op op v in
-      (Typed.cast v, new_function_map)
+      let& v = symb_eval_expr env e in
+      let&+ v = symb_eval_bool_un_op op v in
+      Typed.cast v
   | EBinOp (e1, op, e2) ->
-      let** v1, new_function_map = symb_eval_expr env function_map e1 in
-      let** v2, new_function_map = symb_eval_expr env new_function_map e2 in
-      let++ result =
+      let& v1 = symb_eval_expr env e1 in
+      let& v2 = symb_eval_expr env e2 in
+      let&+ result =
         match op with
         | Add | Sub | Mul | Div -> symb_eval_arithm_op v1 op v2
         | And | Or -> symb_eval_bool_bin_op v1 op v2
@@ -156,17 +153,17 @@ let rec symb_eval_expr env function_map = function
             let++ comp_result = symb_eval_cmp_op v1 op v2 in
             Typed.cast comp_result
       in
-      (Typed.cast result, new_function_map)
+      Typed.cast result
 
-and symb_eval_aexpr env function_map e =
-  let** v, new_function_map = symb_eval_expr env function_map e in
-  let++ i = cast_to_int v in
-  (i, new_function_map)
+and symb_eval_aexpr env e =
+  let& v = symb_eval_expr env e in
+  let&+ i = cast_to_int v in
+  i
 
-and symb_eval_bexpr env function_map e =
-  let** v, new_function_map = symb_eval_expr env function_map e in
-  let++ b = cast_to_bool v in
-  (b, new_function_map)
+and symb_eval_bexpr env e =
+  let& v = symb_eval_expr env e in
+  let&+ b = cast_to_bool v in
+  b
 
 let rec symb_eval_stmt state = function
   | Seq (s1, s2) ->
@@ -174,14 +171,14 @@ let rec symb_eval_stmt state = function
       symb_eval_stmt state s2
   | If (e, then_s, else_s) ->
       let** b, function_map =
-        symb_eval_bexpr (total_env state) state.function_map e
+        symb_eval_bexpr (total_env state) e state.function_map
         |> seal_error state
       in
       let state = { state with function_map } in
       if%sat b then symb_eval_stmt state then_s else symb_eval_stmt state else_s
   | While (e, s) ->
       let** b, function_map =
-        symb_eval_bexpr (total_env state) state.function_map e
+        symb_eval_bexpr (total_env state) e state.function_map
         |> seal_error state
       in
       let state = { state with function_map } in
@@ -197,14 +194,14 @@ and symb_eval_simple_stmt state = function
       match t with
       | TInt ->
           let** v, function_map =
-            symb_eval_aexpr (total_env state) state.function_map e
+            symb_eval_aexpr (total_env state) e state.function_map
           in
           (* Is it really necessay a checked insert? *)
           let++ private_env = checked_update_env state.private_env t x v in
           { state with private_env; function_map }
       | TBool ->
           let** v, function_map =
-            symb_eval_bexpr (total_env state) state.function_map e
+            symb_eval_bexpr (total_env state) e state.function_map
           in
           (* Is it really necessay a checked insert? *)
           let++ private_env = checked_update_env state.private_env t x v in
@@ -218,21 +215,21 @@ and symb_eval_simple_stmt state = function
       in
       let** v, function_map =
         match t with
-        | TInt -> symb_eval_aexpr (total_env state) state.function_map e
-        | TBool -> symb_eval_bexpr (total_env state) state.function_map e
+        | TInt -> symb_eval_aexpr (total_env state) e state.function_map
+        | TBool -> symb_eval_bexpr (total_env state) e state.function_map
       in
       (* Is it really necessay a checked insert? *)
       let++ private_env = checked_update_env state.private_env t x v in
       { state with private_env; function_map }
   | Assume e ->
       let** b, function_map =
-        symb_eval_bexpr (total_env state) state.function_map e
+        symb_eval_bexpr (total_env state) e state.function_map
       in
       let* () = Symex.assume [ b ] in
       Symex.Result.ok { state with function_map }
   | Assert e ->
       let** b, function_map =
-        symb_eval_bexpr (total_env state) state.function_map e
+        symb_eval_bexpr (total_env state) e state.function_map
       in
       let++ () =
         Symex.assert_or_error b
@@ -253,12 +250,12 @@ and symb_eval_simple_stmt state = function
             match t with
             | TInt ->
                 let++ arg, function_map =
-                  symb_eval_aexpr (total_env state) acc_function_map e
+                  symb_eval_aexpr (total_env state) e state.function_map
                 in
                 (StringMap.add x (SymbInt arg) acc_args_env, function_map)
             | TBool ->
                 let++ arg, function_map =
-                  symb_eval_bexpr (total_env state) acc_function_map e
+                  symb_eval_bexpr (total_env state) e state.function_map
                 in
                 (StringMap.add x (SymbBool arg) acc_args_env, function_map))
       in
@@ -271,7 +268,7 @@ and symb_eval_simple_stmt state = function
           ~init:(Typed.v_true, function_map)
           ~f:(fun (acc_precond, acc_function_map) e ->
             let++ b, function_map =
-              symb_eval_bexpr precond_env acc_function_map e
+              symb_eval_bexpr precond_env e acc_function_map
             in
             (acc_precond &&@ b, function_map))
       in
