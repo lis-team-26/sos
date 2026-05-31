@@ -40,7 +40,7 @@
 (library
  (name policyChecker)
  (modules policyChecker)
- (libraries contract soteria))
+ (libraries contract soteria reg2dfa))
 
 (library
  (name utils)
