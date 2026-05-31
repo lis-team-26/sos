@@ -1,3 +1,0 @@
-(library 
- (name reg2dfa)
- (modules Dfa Nfa Regex))

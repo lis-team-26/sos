@@ -7,7 +7,6 @@ open Symex.Syntax
 open Typed.Infix
 open Typed.Syntax
 module StrMap = Map.Make (String)
-module CharSet = Set.Make(Char)
 
 type qos = symb_int StrMap.t
 type call = { serv_name : string; args : symb_int list; qos : qos }
@@ -57,12 +56,11 @@ type pChecker =
       * int
     (*the integer to compare to the result of the sum divided by invoke count*)
   | Dfa of
-      int32 (*initial state of the dfa*)
-      * int32 option (*current state of the policy checker*) checkerState
+      int (*state of the dfa, initially 0*) checkerState
       * char StrMap.t
-      * (int32 option -> char -> int32 option)
+      * (int -> char -> int)
       * (*transition relation*)
-      int32 list (*list of final states*)
+      int list (*list of final states*)
   | Ascending of
       symb_int (*max value of the Qos field seen so far*) checkerState
       * string (*the Qos field*)
@@ -124,23 +122,12 @@ let init_policy (policyType, groupBy) =
           i,
           (verify_now aggregator operator))
   | Contract.AST.Regex (serv2chr, reg) ->
-      let open Reg2dfa in
-      let domain = CharSet.of_list @@ List.map snd serv2chr in
-      let serv2chr =  StrMap.of_seq @@ List.to_seq serv2chr in
-      (*NOTE: this throws an exception if reg is malformed*)
-      let dfa = Reg2dfa.Regex.reg2dfa ~domain reg in
-      let step_if_in_domain = 
-        fun maybe_cur ch ->
-            if not @@ CharSet.mem ch domain then maybe_cur 
-            else
-              Dfa.step dfa maybe_cur ch
-      in
       Dfa
-        ( dfa.start,
-          initial (Some dfa.start), (*current state*)
-          serv2chr, (*mapping from service name -> char*)
-          step_if_in_domain,
-          Nfa.StateSet.to_list dfa.finals)
+        ( initial 0, (*current state*)
+          StrMap.of_seq @@ List.to_seq serv2chr, (*mapping from service name -> char*)
+          (*TODO: placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
+          (fun state c -> state),
+          [] (*list of final states*) )
   | Contract.AST.Sort fieldName -> Ascending (initial (Typed.int 0), fieldName)
 
 
@@ -224,9 +211,9 @@ let update_policy servMap (c : call) policy =
               ~else_: (fun () -> Symex.Result.ok (new_val,new_cnt))
       ) c s sint_count in
       Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
-  | Dfa (start,curState, servMap, transition, finalStates) ->
+  | Dfa (curState, servMap, transition, finalStates) ->
       let** result =
-        map_state (Some start)
+        map_state 0
           (fun cur ->
             let chr_opt = StrMap.find_opt c.serv_name servMap
             in
@@ -234,16 +221,12 @@ let update_policy servMap (c : call) policy =
             | None -> Symex.Result.error "regex policy: no such service"
             | Some chr ->
                let nextState = transition cur chr in
-               match nextState with
-               (*Ended up in sink state*)
-               | None -> Symex.Result.ok nextState
-               | Some nextState -> 
-                if List.mem nextState finalStates then
+               if List.mem nextState finalStates then
                  Symex.Result.error "regex policy violation"
-                else Symex.Result.ok (Some nextState))
+               else Symex.Result.ok nextState)
           c s curState
       in
-      Symex.Result.ok (Dfa (start,result, servMap, transition, finalStates))
+      Symex.Result.ok (Dfa (result, servMap, transition, finalStates))
   | Ascending (maximum, field) ->
       let current_val = StrMap.find field c.qos in
       let** next =
