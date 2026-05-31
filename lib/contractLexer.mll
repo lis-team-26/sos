@@ -64,7 +64,7 @@ rule read = parse
   | integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | id { VAR (Lexing.lexeme lexbuf) }
-  | regex { REG (Lexing.lexeme lexbuf) }
+  | regex { REG (let s = Lexing.lexeme lexbuf in String.sub s 1 ((String.length s) - 2)) }
   | eof { EOF }
   | _ as c {
       raise (LexerError (Printf.sprintf "Unexpected character '%c' at position %d" c (Lexing.lexeme_start lexbuf)))
