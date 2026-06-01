@@ -270,3 +270,25 @@ let update_policy servMap (c : call) policy =
           c s minimum
       in
       Symex.Result.ok (Descending (next, field))
+
+    (* Verify the final state of a policy checker without updating it.
+   Called at the end of symbolic execution for policies that cannot be
+   checked eagerly (i.e. QosAggregate with verNow = false, and QosAvg).
+   Returns Symex.Result.ok () if the policy is satisfied,
+   Symex.Result.error msg otherwise. *)
+ 
+(* Helper: apply a check function to every group's accumulated state.
+   For Ungrouped, applies f once to the single accumulated state.
+   For Grouped, iterates over all groups using ValMap.fold. *)
+let check_each_group f = function
+  | Ungrouped s -> f s
+  | Grouped (_, symMap) ->
+      let* () =
+        ValMap.fold
+          (fun () (_, s) ->
+            let** () = f s in
+            Symex.Result.ok ())
+          ()
+          (Some symMap)
+      in
+      Symex.Result.ok ()
