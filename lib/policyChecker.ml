@@ -271,15 +271,16 @@ let update_policy servMap (c : call) policy =
       in
       Symex.Result.ok (Descending (next, field))
 
-    (* Verify the final state of a policy checker without updating it.
-   Called at the end of symbolic execution for policies that cannot be
-   checked eagerly (i.e. QosAggregate with verNow = false, and QosAvg).
-   Returns Symex.Result.ok () if the policy is satisfied,
-   Symex.Result.error msg otherwise. *)
- 
+(* Verify the final state of a policy checker without updating it.
+Called at the end of symbolic execution for policies that cannot be
+checked eagerly (i.e. QosAggregate with verNow = false, and QosAvg).
+Returns Symex.Result.ok () if the policy is satisfied,
+Symex.Result.error msg otherwise. *)
+
 (* Helper: apply a check function to every group's accumulated state.
-   For Ungrouped, applies f once to the single accumulated state.
-   For Grouped, iterates over all groups using ValMap.fold. *)
+For Ungrouped, applies f once to the single accumulated state.
+For Grouped, iterates over all groups using ValMap.fold. *)
+
 let check_each_group f = function
   | Ungrouped s -> f s
   | Grouped (_, symMap) ->
@@ -292,3 +293,29 @@ let check_each_group f = function
           (Some symMap)
       in
       Symex.Result.ok ()
+
+let verify_policy = function
+  | QosAggregate (sint, _, _, cmp, cmpInt, verNow) ->
+      (* Already verified eagerly at each step when verNow = true *)
+      if verNow then Symex.Result.ok ()
+      else
+        check_each_group (fun aggregate ->
+          let violation = cmp aggregate (Typed.int cmpInt) in
+          Symex.branch_on violation
+            ~then_:(fun () -> Symex.Result.error "aggregate policy violation")
+            ~else_:(fun () -> Symex.Result.ok ()))
+          sint
+  | QosAvg (sint_count, cmp, _, cmpInt) ->
+      (* QosAvg is never verified eagerly (avg can recover across invocations) *)
+      check_each_group (fun (sum, count) ->
+        if count = 0 then Symex.Result.ok ()
+        else
+          let avg = Typed.div sum (Typed.nonzero count) in
+          let violation = cmp avg (Typed.int cmpInt) in
+          Symex.branch_on violation
+            ~then_:(fun () -> Symex.Result.error "average policy violation")
+            ~else_:(fun () -> Symex.Result.ok ()))
+        sint_count
+  (* Dfa, Ascending, Descending: violations are monotone.
+     If no violation occurred at any step, the final state is valid. *)
+  | Dfa _ | Ascending _ | Descending _ -> Symex.Result.ok ()
