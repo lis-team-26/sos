@@ -284,15 +284,11 @@ For Grouped, iterates over all groups using ValMap.fold. *)
 let check_each_group f = function
   | Ungrouped s -> f s
   | Grouped (_, symMap) ->
-      let* () =
-        ValMap.fold
-          (fun () (_, s) ->
-            let** () = f s in
-            Symex.Result.ok ())
-          ()
-          (Some symMap)
-      in
-      Symex.Result.ok ()
+      let* key = Symex.nondet Typed.t_int in
+      let* _, s = ValMap.find_opt key symMap in
+      (match s with
+      | None -> Symex.Result.ok ()   (* no invocations in this group *)
+      | Some state -> f state)
 
 let verify_policy = function
   | QosAggregate (sint, _, _, cmp, cmpInt, verNow) ->
