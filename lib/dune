@@ -67,14 +67,6 @@
 (library
  (name policyChecker)
  (modules policyChecker)
-<<<<<<< HEAD
  (libraries contract symbolic reg2dfa)
  (preprocess
   (pps soteria.ppx)))
-=======
- (libraries contract soteria reg2dfa))
-
-(library
- (name utils)
- (modules utils))
->>>>>>> main

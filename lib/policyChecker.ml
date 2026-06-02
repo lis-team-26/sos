@@ -57,7 +57,6 @@ type pChecker =
       * int
     (*the integer to compare to the result of the sum divided by invoke count*)
   | Dfa of
-<<<<<<< HEAD
       Reg2dfa.Nfa.state (*initial state of the dfa*)
       * Reg2dfa.Nfa.state option (*current state of the policy checker*)
         checkerState
@@ -65,14 +64,6 @@ type pChecker =
       * (Reg2dfa.Nfa.state option -> char -> Reg2dfa.Nfa.state option)
       * (*transition relation*)
       Reg2dfa.Nfa.state list (*list of final states*)
-=======
-      int32 (*initial state of the dfa*)
-      * int32 option (*current state of the policy checker*) checkerState
-      * char StrMap.t
-      * (int32 option -> char -> int32 option)
-      * (*transition relation*)
-      int32 list (*list of final states*)
->>>>>>> main
   | Ascending of
       symb_int (*max value of the Qos field seen so far*) checkerState
       * string (*the Qos field*)
