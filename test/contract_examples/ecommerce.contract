@@ -18,7 +18,7 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        {Auth -> a, Pay -> p, GetPrice -> g} "a(gp)*p|p"
+        {Auth -> a, Pay -> p, GetPrice -> g} "[^a]|a[apg]*pp"
     ],
     services: [
         {
