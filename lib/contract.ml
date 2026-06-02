@@ -104,4 +104,26 @@ let validate_contract (contract : AST.contract) =
           ("Service " ^ service.name
          ^ " is missing QoS constraints for the field(s): " ^ missing_fields_str
           ))
-    contract.services
+    contract.services;
+
+    let globals_vars = StringSet.of_list (List.map fst contract.globals) in
+    let func_names = StringSet.of_list (List.map fst contract.functions) in
+    let allowed_vars = StringSet.union globals_vars func_names in
+    
+    (*type-check precondition (they can only mention globals, functions and parameters of the service)*)
+    List.iter (
+      fun service -> 
+        let service_params = StringSet.of_list(List.map fst service.params) in
+        let precond_vars = 
+          List.fold_left 
+            (fun acc e -> StringSet.union acc (Expr.free_vars e))
+            StringSet.empty 
+            service.precond
+        in
+        
+        let serv_allowed_vars = StringSet.union allowed_vars service_params in
+        if not (StringSet.subset precond_vars serv_allowed_vars) then
+          let disallowed_vars = StringSet.diff precond_vars serv_allowed_vars in
+          let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
+          failwith ("Service " ^ service.name ^ " has precondition with undefined variables: " ^ disallowed_vars_str)
+    ) contract.services
