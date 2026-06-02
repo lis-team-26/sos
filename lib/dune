@@ -45,8 +45,8 @@
  (libraries expr utils))
 
 (library
- (name functionalStateMonad)
- (modules functionalStateMonad)
+ (name stateMonad)
+ (modules stateMonad)
  (libraries symbolic))
 
 (library
@@ -59,7 +59,7 @@
   orchestratorParser
   orchestratorInterpreter)
  (modules_without_implementation orchestratorAST)
- (libraries expr contract symbolic functionalStateMonad policyChecker utils)
+ (libraries expr contract symbolic stateMonad policyChecker utils)
  (preprocess
   (pps soteria.ppx))
  (flags :standard -open Soteria.Logs.Import))

@@ -1,7 +1,19 @@
 open OrchestratorAST
 open Symbolic.Data
 open Symbolic.Runtime
-open FunctionalStateMonad.FSM
+
+module FM = StateMonad.Make (struct
+  type ok = function_map
+  type err = ok_monad_state -> err_monad_state
+end)
+
+module SM = StateMonad.Make (struct
+  type ok = ok_monad_state
+  type err = err_monad_state
+end)
+
+open FM.Syntax
+open SM.Syntax
 open Expr.AST
 open Contract.AST
 open Utils.Data
@@ -77,10 +89,10 @@ let symb_eval_cmp_op v1 op v2 =
   | _ -> init_error "Type error in comparison operation"
 
 let rec symb_eval_expr env = function
-  | EInt n -> return (Typed.int n)
-  | EBool b -> return (Typed.of_bool b)
+  | EInt n -> FM.return (Typed.int n)
+  | EBool b -> FM.return (Typed.of_bool b)
   | EVar x ->
-      let&+ value =
+      let&&* value =
         match StringMap.find_opt x env with
         | Some (SymbInt i) -> Symex.Result.ok (Typed.cast i)
         | Some (SymbBool b) -> Symex.Result.ok (Typed.cast b)
@@ -88,37 +100,36 @@ let rec symb_eval_expr env = function
       in
       value
   | ENonDet ->
-      let&* v = Symex.nondet Typed.t_int in
-      return (Typed.cast v)
+      let&&+ v = Symex.nondet Typed.t_int in
+      Typed.cast v
   | EApp (f, args) -> (
-      let& function_map = get_function_map in
+      let& function_map = FM.get in
       match StringMap.find_opt f function_map with
       | None -> failwith (Fmt.str "Function %s not found" f)
       | Some (TFun (typed_vars, ret_type), _) -> (
           let typed_args = List.combine typed_vars args in
           let& actual_args =
-            fold_list typed_args ~init:[] ~f:(fun acc_args (t, x) ->
+            FM.map_list typed_args ~f:(fun (t, x) ->
                 match t with
                 | TInt ->
                     let& v = symb_eval_aexpr env x in
-                    return (Typed.cast v :: acc_args)
+                    FM.return (Typed.cast v)
                 | TBool ->
                     let& v = symb_eval_bexpr env x in
-                    return (Typed.cast v :: acc_args))
+                    FM.return (Typed.cast v))
           in
-          let actual_args = List.rev actual_args in
-          let& function_map = get_function_map in
+          let& function_map = FM.get in
           match StringMap.find_opt f function_map with
           | None -> failwith (Fmt.str "Function %s not found" f)
           | Some (TFun (_, _), fun_invoke) -> (
-              let&* _, return_value_opt =
+              let&+ _, return_value_opt =
                 SymbolicListMap.find_opt actual_args fun_invoke
               in
               match return_value_opt with
-              | Some (SymbInt i) -> return (Typed.cast i)
-              | Some (SymbBool b) -> return (Typed.cast b)
+              | Some (SymbInt i) -> FM.return (Typed.cast i)
+              | Some (SymbBool b) -> FM.return (Typed.cast b)
               | None ->
-                  let&* return_value =
+                  let&+ return_value =
                     match ret_type with
                     | TInt -> Symex.nondet Typed.t_int
                     | TBool -> Symex.nondet Typed.t_bool
@@ -133,19 +144,19 @@ let rec symb_eval_expr env = function
                       fun_invoke
                   in
                   let& () =
-                    modify_function_map
+                    FM.modify
                       (StringMap.add f
                          (TFun (typed_vars, ret_type), new_fun_invoke))
                   in
-                  return return_value)))
+                  FM.return return_value)))
   | EUnOp (op, e) ->
       let& v = symb_eval_expr env e in
-      let&+ v = symb_eval_bool_un_op op v in
+      let&&* v = symb_eval_bool_un_op op v in
       Typed.cast v
   | EBinOp (e1, op, e2) ->
       let& v1 = symb_eval_expr env e1 in
       let& v2 = symb_eval_expr env e2 in
-      let&+ result =
+      let&&* result =
         match op with
         | Add | Sub | Mul | Div -> symb_eval_arithm_op v1 op v2
         | And | Or -> symb_eval_bool_bin_op v1 op v2
@@ -157,12 +168,12 @@ let rec symb_eval_expr env = function
 
 and symb_eval_aexpr env e =
   let& v = symb_eval_expr env e in
-  let&+ i = cast_to_int v in
+  let&&* i = cast_to_int v in
   i
 
 and symb_eval_bexpr env e =
   let& v = symb_eval_expr env e in
-  let&+ b = cast_to_bool v in
+  let&&* b = cast_to_bool v in
   b
 
 let rec symb_eval_stmt state = function
