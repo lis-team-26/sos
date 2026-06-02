@@ -213,10 +213,7 @@ let update_policy servMap (c : call) policy =
               (fun value ->
                 let new_cnt = snd value + 1 in
                 let new_sum = Typed.add (fst value) current_val in
-                let new_val = Typed.div new_sum (Typed.nonzero new_cnt) in
-                let policy_holds = cmp new_val (Typed.int cmpInt) in
-                if%sat policy_holds then Symex.Result.ok (new_sum, new_cnt)
-                else Symex.Result.error "average policy violation")
+                Symex.Result.ok (new_sum, new_cnt))
               c s sint_count
           in
           Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt)))
