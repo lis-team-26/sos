@@ -1,5 +1,6 @@
 int user := ?;
 int pass := ?;
+assume wellFormed(user) == 1 && wellFormed(pass) == 1 && fresh(0) == 1 && locked(user) == 0 && attempts(user) < MAX_ATTEMPTS;
 int tok := invoke Auth(user, pass, 0);
 int operations := ?;
 assume operations > 0 && operations < 4;
@@ -14,6 +15,7 @@ while operations > 0 do {
   assume op == get || op == pay;
   if op == get then {
     prodId := ?;
+    assume wellFormed(prodId) == 1;
     price := invoke GetPrice(prodId);
   } else {
     invoke Pay(price);

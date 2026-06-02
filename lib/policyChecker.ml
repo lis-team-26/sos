@@ -17,6 +17,9 @@ module Key = struct
 end
 
 module ValMap = Soteria.Data.S_map.Make (Symex) (Key)
+module StrMap = Map.Make (String)
+module CharSet = Set.Make (Char)
+
 (* Each policy can specify to be checked only for portions of the history:
  1) when group_by is None, check for the whole history
  2) when it is Some p, check for all sub-sequences of the history where p,
@@ -54,11 +57,13 @@ type pChecker =
       * int
     (*the integer to compare to the result of the sum divided by invoke count*)
   | Dfa of
-      int (*state of the dfa, initially 0*) checkerState
-      * char StringMap.t
-      * (int -> char -> int)
+      Reg2dfa.Nfa.state (*initial state of the dfa*)
+      * Reg2dfa.Nfa.state option (*current state of the policy checker*)
+        checkerState
+      * char StrMap.t
+      * (Reg2dfa.Nfa.state option -> char -> Reg2dfa.Nfa.state option)
       * (*transition relation*)
-      int list (*list of final states*)
+      Reg2dfa.Nfa.state list (*list of final states*)
   | Ascending of
       symb_int (*max value of the Qos field seen so far*) checkerState
       * string (*the Qos field*)
@@ -114,14 +119,24 @@ let init_policy (policyType, groupBy) =
           i,
           verify_now aggregator operator )
   | Contract.AST.Regex (serv2chr, reg) ->
+      let open Reg2dfa in
+      let domain = CharSet.of_list @@ List.map snd serv2chr in
+      let serv2chr = StrMap.of_seq @@ List.to_seq serv2chr in
+      (*NOTE: this throws an exception if reg is malformed*)
+      let dfa = Reg2dfa.Regex.reg2dfa ~domain reg in
+      let step_if_in_domain =
+       fun maybe_cur ch ->
+        if not @@ CharSet.mem ch domain then maybe_cur
+        else Dfa.step dfa maybe_cur ch
+      in
       Dfa
-        ( initial 0,
+        ( dfa.start,
+          initial (Some dfa.start),
           (*current state*)
-          StringMap.of_seq @@ List.to_seq serv2chr,
+          serv2chr,
           (*mapping from service name -> char*)
-          (*TODO: placeholder dfa, needs to be replaced by the one obtained by the regex2dfa conversion*)
-          (fun state c -> state),
-          [] (*list of final states*) )
+          step_if_in_domain,
+          Nfa.StateSet.to_list dfa.finals )
   | Contract.AST.Sort fieldName -> Ascending (initial (Typed.int 0), fieldName)
 
 let map_state initial f (c : call) (service : Contract.AST.service) = function
@@ -154,82 +169,103 @@ let map_state initial f (c : call) (service : Contract.AST.service) = function
 let update_policy servMap (c : call) policy =
   let s = StringMap.find c.serv_name servMap in
   match policy with
-  | QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow) ->
-      let current_val = StringMap.find aggrField c.qos in
+  | QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
+      match StringMap.find_opt aggrField c.qos with
+      | None -> Symex.Result.ok policy
+      | Some current_val ->
+          let apply_aggregator acc =
+            match aggrOp with
+            | Contract.AST.Sum -> Typed.add acc current_val
+            | Contract.AST.Max ->
+                Typed.ite (Typed.gt current_val acc) current_val acc
+            | Contract.AST.Min ->
+                Typed.ite (Typed.lt current_val acc) current_val acc
+            | Contract.AST.Avg -> failwith "Avg should be handled separately"
+          in
 
-      let apply_aggregator acc =
-        match aggrOp with
-        | Contract.AST.Sum -> Typed.add acc current_val
-        | Contract.AST.Max ->
-            Typed.ite (Typed.gt current_val acc) current_val acc
-        | Contract.AST.Min ->
-            Typed.ite (Typed.lt current_val acc) current_val acc
-        | Contract.AST.Avg -> failwith "Avg should be handled separately"
-        (*| _ -> failwith "Unknown aggregator"*)
-      in
-
-      let** next =
-        map_state
-          (match aggrOp with
-          | Contract.AST.Sum -> Typed.int 0
-          | Contract.AST.Min -> Typed.int Int.max_int
-          | Contract.AST.Max -> Typed.int Int.min_int
-          | Contract.AST.Avg -> assert false)
-          (fun aggregate ->
-            let new_aggregate = apply_aggregator aggregate in
-            if verNow then
-              let violation = cmp new_aggregate (Typed.int cmpInt) in
-              Symex.branch_on violation
-                ~then_:(fun () ->
-                  Symex.Result.error "aggregate policy violation")
-                ~else_:(fun () -> Symex.Result.ok new_aggregate)
-            else Symex.Result.ok new_aggregate)
-          c s sint
-      in
-      Symex.Result.ok
-        (QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow))
-  | QosAvg (sint_count, cmp, avgField, cmpInt) ->
-      (*TODO*) Symex.Result.ok (QosAvg (sint_count, cmp, avgField, cmpInt))
-  | Dfa (curState, servMap, transition, finalStates) ->
+          let** next =
+            map_state
+              (match aggrOp with
+              | Contract.AST.Sum -> Typed.int 0
+              | Contract.AST.Min -> Typed.int Int.max_int
+              | Contract.AST.Max -> Typed.int Int.min_int
+              | Contract.AST.Avg -> assert false)
+              (fun aggregate ->
+                let new_aggregate = apply_aggregator aggregate in
+                if verNow then
+                  let policy_holds = cmp new_aggregate (Typed.int cmpInt) in
+                  if%sat policy_holds then Symex.Result.ok new_aggregate
+                  else Symex.Result.error "aggregate policy violation"
+                else Symex.Result.ok new_aggregate)
+              c s sint
+          in
+          Symex.Result.ok
+            (QosAggregate (next, aggrOp, aggrField, cmp, cmpInt, verNow)))
+  | QosAvg (sint_count, cmp, avgField, cmpInt) -> (
+      match StringMap.find_opt avgField c.qos with
+      | None ->
+          (* Service doesn't report this QoS field; skip policy update *)
+          Symex.Result.ok policy
+      | Some current_val ->
+          let** result =
+            map_state
+              (Typed.int 0, 0)
+              (fun value ->
+                let new_cnt = snd value + 1 in
+                let new_sum = Typed.add (fst value) current_val in
+                let new_val = Typed.div new_sum (Typed.nonzero new_cnt) in
+                let policy_holds = cmp new_val (Typed.int cmpInt) in
+                if%sat policy_holds then Symex.Result.ok (new_sum, new_cnt)
+                else Symex.Result.error "average policy violation")
+              c s sint_count
+          in
+          Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt)))
+  | Dfa (start, curState, servMap, transition, finalStates) ->
       let** result =
-        map_state 0
+        map_state (Some start)
           (fun cur ->
-            let chr_opt = StringMap.find_opt c.serv_name servMap in
+            let chr_opt = StrMap.find_opt c.serv_name servMap in
             match chr_opt with
             | None -> Symex.Result.error "regex policy: no such service"
-            | Some chr ->
+            | Some chr -> (
                 let nextState = transition cur chr in
-                if List.mem nextState finalStates then
-                  Symex.Result.error "regex policy violation"
-                else Symex.Result.ok nextState)
+                match nextState with
+                (*Ended up in sink state*)
+                | None -> Symex.Result.ok nextState
+                | Some nextState ->
+                    if List.mem nextState finalStates then
+                      Symex.Result.error "regex policy violation"
+                    else Symex.Result.ok (Some nextState)))
           c s curState
       in
-      Symex.Result.ok (Dfa (result, servMap, transition, finalStates))
-  | Ascending (maximum, field) ->
-      let current_val = StringMap.find field c.qos in
-      let** next =
-        map_state (Typed.int Int.min_int)
-          (fun current_max ->
-            let violation = Typed.lt current_val current_max in
-
-            Symex.branch_on violation
-              ~then_:(fun () ->
-                Symex.Result.error "ascending policy violation: value decreased")
-              ~else_:(fun () -> Symex.Result.ok current_val))
-          c s maximum
-      in
-      Symex.Result.ok (Ascending (next, field))
-  | Descending (minimum, field) ->
-      let current_val = StringMap.find field c.qos in
-      let** next =
-        map_state (Typed.int Int.max_int)
-          (fun current_min ->
-            let violation = Typed.gt current_val current_min in
-            Symex.branch_on violation
-              ~then_:(fun () ->
-                Symex.Result.error
-                  "descending policy violation: value increased")
-              ~else_:(fun () -> Symex.Result.ok current_val))
-          c s minimum
-      in
-      Symex.Result.ok (Descending (next, field))
+      Symex.Result.ok (Dfa (start, result, servMap, transition, finalStates))
+  | Ascending (maximum, field) -> (
+      match StringMap.find_opt field c.qos with
+      | None -> Symex.Result.ok policy
+      | Some current_val ->
+          let** next =
+            map_state (Typed.int Int.min_int)
+              (fun current_max ->
+                let violation = Typed.lt current_val current_max in
+                if%sat violation then
+                  Symex.Result.error
+                    "ascending policy violation: value decreased"
+                else Symex.Result.ok current_val)
+              c s maximum
+          in
+          Symex.Result.ok (Ascending (next, field)))
+  | Descending (minimum, field) -> (
+      match StringMap.find_opt field c.qos with
+      | None -> Symex.Result.ok policy
+      | Some current_val ->
+          let** next =
+            map_state (Typed.int Int.max_int)
+              (fun current_min ->
+                let violation = Typed.gt current_val current_min in
+                if%sat violation then
+                  Symex.Result.error
+                    "descending policy violation: value increased"
+                else Symex.Result.ok current_val)
+              c s minimum
+          in
+          Symex.Result.ok (Descending (next, field)))
