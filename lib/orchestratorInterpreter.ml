@@ -436,16 +436,14 @@ let symb_invoke ext service args_exprs =
       }
     in
     let** policy_checkers =
-      Symex.Result.fold_list ext.policy_checkers ~init:[]
-        ~f:(fun acc checker ->
+      Symex.Result.map_list ext.policy_checkers
+        ~f:(fun checker ->
           let++ updated =
             PolicyChecker.update_policy state.service_map policy_call checker
             |> map_policy_error state
           in
-          updated :: acc)
+          updated)
     in
-    let policy_checkers = List.rev policy_checkers in
-
     let state =
       {
         state with
