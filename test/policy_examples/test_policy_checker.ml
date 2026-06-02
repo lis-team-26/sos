@@ -47,6 +47,7 @@ let run_symex f =
     match res with
     | Soteria.Symex.Compo_res.Ok    _ -> (ok + 1, err)
     | Soteria.Symex.Compo_res.Error _ -> (ok, err + 1)
+    | _ -> (ok, err)  (* ignore other results, e.g. Incomplete *)
   ) (0, 0) results
 
 let test name ~expect_ok ~expect_err f =

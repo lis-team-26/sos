@@ -278,8 +278,9 @@ Returns Symex.Result.ok () if the policy is satisfied,
 Symex.Result.error msg otherwise. *)
 
 (* Helper: apply a check function to every group's accumulated state.
-For Ungrouped, applies f once to the single accumulated state.
-For Grouped, iterates over all groups using ValMap.fold. *)
+   For Ungrouped, applies f once to the single accumulated state.
+   For Grouped, uses ValMap.find_opt with a fresh symbolic key to let Soteria
+   branch over all possible groups under their respective path conditions. *)
 
 let check_each_group f = function
   | Ungrouped s -> f s
