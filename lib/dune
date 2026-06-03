@@ -25,6 +25,24 @@
  (libraries utils))
 
 (library
+ (name typedExpr)
+ (modules typedExpr typedExprAST typedExprAST_pp)
+ (modules_without_implementation typedExprAST)
+ (libraries utils))
+
+(library
+ (name typedContract)
+ (modules typedContract typedContractAST typedContractAST_pp)
+ (modules_without_implementation typedContractAST)
+ (libraries expr typedExpr utils))
+
+(library
+ (name typedOrchestrator)
+ (modules typedOrchestrator typedOrchestratorAST typedOrchestratorAST_pp)
+ (modules_without_implementation typedOrchestratorAST)
+ (libraries typedExpr typedContract symbolic symbolicMonad policyChecker utils))
+
+(library
  (name utils)
  (modules utils parserUtils dataUtils))
 

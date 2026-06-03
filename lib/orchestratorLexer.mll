@@ -12,7 +12,8 @@ rule read = parse
   | white { read lexbuf }
   | int as n { INT (int_of_string n) }
   | bool as b { BOOL (b = "true") }
-  | '?' { NONDET }
+  | "int?" { ANONDET }
+  | "bool?" { BNONDET }
   | '+' { PLUS }
   | '-' { MINUS }
   | '*' { TIMES }

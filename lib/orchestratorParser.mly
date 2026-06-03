@@ -1,7 +1,9 @@
 %{
   open OrchestratorAST
+  open Utils.Data
 %}
 
+%token ANONDET BNONDET
 %token SKIP ASSIGN SEMICOLON IF THEN ELSE WHILE DO
 %token ASSUME ASSERT INVOKE
 %token LBRACE RBRACE EOF
@@ -15,7 +17,8 @@ program:
   | ss = stmts EOF { ss }
 
 nondet_or_app_expr:
-  | NONDET { ENonDet }
+  | ANONDET { EIntNonDet }
+  | BNONDET { EBoolNonDet }
   | f = VAR ; LPAREN ; args = exprs(nondet_or_app_expr) ; RPAREN { EApp (f, args) }
 
 orchestrator_expr:

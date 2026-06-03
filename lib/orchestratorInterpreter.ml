@@ -90,8 +90,11 @@ let rec symb_eval_expr env = function
         | None -> failwith (Fmt.str "Variable %s not found" x)
       in
       value
-  | ENonDet ->
+  | EIntNonDet ->
       let&+ v = Symex.nondet Typed.t_int in
+      Typed.cast v
+  | EBoolNonDet ->
+      let&+ v = Symex.nondet Typed.t_bool in
       Typed.cast v
   | EApp (f, args) -> (
       let& function_map = get in

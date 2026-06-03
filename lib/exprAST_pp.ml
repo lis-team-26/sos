@@ -1,9 +1,6 @@
 open ExprAST
 open Format
-
-let rec pp_var_type fmt = function
-  | TInt -> fprintf fmt "int"
-  | TBool -> fprintf fmt "bool"
+open Utils.Data
 
 let pp_bin_op fmt = function
   | Add -> fprintf fmt "+"
@@ -25,7 +22,8 @@ let rec pp_expr fmt = function
   | EInt i -> fprintf fmt "%d" i
   | EBool b -> fprintf fmt "%b" b
   | EVar v -> fprintf fmt "%s" v
-  | ENonDet -> fprintf fmt "?"
+  | EIntNonDet -> fprintf fmt "int?"
+  | EBoolNonDet -> fprintf fmt "bool?"
   | EUnOp (op, e) -> fprintf fmt "(%a%a)" pp_un_op op pp_expr e
   | EApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
   | EBinOp (e1, op, e2) ->

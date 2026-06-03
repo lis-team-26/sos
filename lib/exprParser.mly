@@ -6,7 +6,6 @@
 %token <bool> BOOL
 %token <string> VAR
 
-%token NONDET
 %token PLUS MINUS TIMES DIV
 %token LT LE GT GE EQ NEQ
 %token AND OR NOT

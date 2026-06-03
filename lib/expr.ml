@@ -4,7 +4,8 @@ module AST = ExprAST
 module AST_pp = ExprAST_pp
 
 let rec free_vars = function
-  | EInt _ | EBool _ | ENonDet -> StringSet.empty
+  | EInt _ | EBool _
+  | EIntNonDet -> StringSet.empty | EBoolNonDet -> StringSet.empty
   | EVar v -> StringSet.singleton v
   | EUnOp (_, e) -> free_vars e
   | EApp (_, args) ->
