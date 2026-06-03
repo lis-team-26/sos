@@ -405,13 +405,6 @@ let symb_invoke ext service args_exprs =
     let ret_var_name, _ret_var_type = service.returns in
     let ret_value = StringMap.find_opt ret_var_name ok_env' in
 
-    let qos_int_map =
-      StringMap.filter_map
-        (fun _ v ->
-          match v with SymbInt i -> Some i | SymbBool _ -> None)
-        qos_env
-    in
-
     let invocation =
       {
         service;
@@ -420,26 +413,11 @@ let symb_invoke ext service args_exprs =
         qos = qos_env;
       }
     in
-
-    let policy_call : PolicyChecker.call =
-      {
-        serv_name = service.name;
-        args =
-          List.map
-            (fun (name, _) ->
-              match StringMap.find_opt name args_env with
-              | Some (SymbInt i) -> i
-              | Some (SymbBool b) -> Typed.cast b
-              | None -> Typed.int 0)
-            service.params;
-        qos = qos_int_map;
-      }
-    in
     let** policy_checkers =
       Symex.Result.map_list ext.policy_checkers
         ~f:(fun checker ->
           let++ updated =
-            PolicyChecker.update_policy state.service_map policy_call checker
+            PolicyChecker.update_policy invocation checker
             |> map_policy_error state
           in
           updated)
@@ -486,36 +464,15 @@ let symb_invoke ext service args_exprs =
           {
             service;
             actual_args = args_env;
-            failed = Typed.v_true;
+            failed = Typed.v_false;
             qos = qos_env;
-          }
-        in
-
-        let qos_int_map =
-          StringMap.filter_map
-            (fun _ v ->
-              match v with SymbInt i -> Some i | SymbBool _ -> None)
-            qos_env
-        in
-        let policy_call : PolicyChecker.call =
-          {
-            serv_name = service.name;
-            args =
-              List.map
-                (fun (name, _) ->
-                  match StringMap.find_opt name args_env with
-                  | Some (SymbInt i) -> i
-                  | Some (SymbBool b) -> Typed.cast b
-                  | None -> Typed.int 0)
-                service.params;
-            qos = qos_int_map;
           }
         in
         let** policy_checkers =
           Symex.Result.map_list ext.policy_checkers
             ~f:(fun checker ->
               let++ updated =
-                PolicyChecker.update_policy state.service_map policy_call checker
+                PolicyChecker.update_policy invocation checker
                 |> map_policy_error state
               in
               updated)
