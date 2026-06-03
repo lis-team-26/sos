@@ -14,14 +14,15 @@
 program:
   | ss = stmts EOF { ss }
 
-nondet_expr:
+nondet_or_app_expr:
   | NONDET { ENonDet }
+  | f = VAR ; LPAREN ; args = exprs(nondet_or_app_expr) ; RPAREN { EApp (f, args) }
 
 orchestrator_expr:
-  | e = expr(nondet_expr) { e }
+  | e = expr(nondet_or_app_expr) { e }
 
 orchestrator_exprs:
-  | es = exprs(nondet_expr) { es }
+  | es = exprs(nondet_or_app_expr) { es }
 
 stmt:
   | s = atom_stmt { s }

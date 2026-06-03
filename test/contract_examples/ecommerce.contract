@@ -11,14 +11,15 @@
     ],
     QoS: [
         latency: int, 
-        cost: int
+        cost: int,
+        trust: int
     ], 
     policies: [
         sum(cost) < 100,
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        {Auth -> a, Pay -> p, GetPrice -> g} "a(gp)*|p"
+        {Auth -> a, Pay -> p, GetPrice -> g} "[^a]|a[apg]*pp"
     ],
     services: [
         {
@@ -41,7 +42,9 @@
                     cost := AuthFee(userId)
                 ],
                 constraints: [
-                    latency <= 10
+                    latency <= 10,
+                    cost <= 10,
+                    trust > 10
                 ]
             },
             ok-postcond: {
@@ -76,7 +79,9 @@
                     cost := PayFee(amt)
                 ],
                 constraints: [
-                    latency > 0
+                    latency > 0,
+                    cost <= 10,
+                    trust > 10
                 ]
             },
             ok-postcond: {
@@ -105,7 +110,8 @@
                 effects: [],
                 constraints: [
                     latency <= 10,
-                    cost <= 100
+                    cost <= 10,
+                    trust > 10
                 ]
             },
             ok-postcond: {

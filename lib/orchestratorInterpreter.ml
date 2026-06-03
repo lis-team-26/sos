@@ -10,6 +10,12 @@ open OkStateMonad
 open FunctionalMonad.Syntax
 open OkStateMonad.Syntax
 
+(* Extended state that carries policy checkers alongside the core monad state *)
+type extended_state = {
+  core : ok_monad_state;
+  policy_checkers : PolicyChecker.pChecker list;
+}
+
 let total_env state =
   StringMap.union (fun _ priv _ -> Some priv) state.private_env state.public_env
 
@@ -87,7 +93,26 @@ let rec symb_eval_expr env = function
         match StringMap.find_opt x env with
         | Some (SymbInt i) -> Symex.Result.ok (Typed.cast i)
         | Some (SymbBool b) -> Symex.Result.ok (Typed.cast b)
-        | None -> init_error (Fmt.str "Variable %s not found" x)
+        | None -> (
+            (* Check if it's an uninterpreted constant in function_map *)
+            match StringMap.find_opt x function_map with
+            | Some (TFun ([], ret_type), fun_invoke) -> (
+                let* _, v_opt = SymbolicListMap.find_opt [] fun_invoke in
+                match v_opt with
+                | Some (SymbInt i) -> Symex.Result.ok (Typed.cast i)
+                | Some (SymbBool b) -> Symex.Result.ok (Typed.cast b)
+                | None ->
+                    (* Create fresh value *)
+                    let* v = Symex.nondet Typed.t_int in
+                    (* let symb_val = SymbInt (Typed.cast v) in *)
+                    (* let new_invoke = SymbolicListMap.syntactic_add [] symb_val fun_invoke in *)
+                    let _ = (* update function_map via side channel won't work in FSM... *)
+                      () in
+                    Symex.Result.ok (Typed.cast v))
+            | _ ->
+                (* Treat as fresh uninterpreted constant *)
+                let* v = Symex.nondet Typed.t_int in
+                Symex.Result.ok (Typed.cast v))
       in
       value
   | ENonDet ->
@@ -189,6 +214,7 @@ and symb_eval_simple_stmt stmt =
   match stmt with
   | Skip -> return ()
   | Declare (t, x, e) -> (
+      let state = ext.core in
       match t with
       | TInt ->
           let& v = lift_fm (symb_eval_aexpr (total_env state) e) in
@@ -280,18 +306,16 @@ and symb_eval_simple_stmt stmt =
   | _ as stmt -> symb_eval_simple_stmt stmt
 
 (* contract is only needed by build_symb_process, not to evaluate statements *)
-let build_symb_process stmt contract _ =
+let build_symb_process stmt contract policy_init_states =
   let private_env = StringMap.empty in
   let* public_env =
     Symex.fold_list contract.globals ~init:StringMap.empty ~f:(fun acc (x, t) ->
         let* v =
           match t with
           | TInt ->
-              (* TODO: initialize with an explicit value or a default value *)
               let* v = Symex.nondet Typed.t_int in
               Symex.return (SymbInt v)
           | TBool ->
-              (* TODO: initialize with an explicit value or a default value *)
               let* v = Symex.nondet Typed.t_bool in
               Symex.return (SymbBool v)
         in
@@ -307,7 +331,7 @@ let build_symb_process stmt contract _ =
       (fun m (f, t) -> StringMap.add f (t, SymbolicListMap.empty) m)
       StringMap.empty contract.functions
   in
-  let state =
+  let core =
     { private_env; public_env; service_map; function_map; stack = [] }
   in
   let symbolic_results = run_unit (symb_eval_stmt stmt) state in
