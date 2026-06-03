@@ -147,11 +147,12 @@ let validate_contract (contract : AST.contract) =
             if not (StringSet.mem v qos_fields) then
               failwith ("Service " ^ service.name ^ " has QoS postcondition effect assigning to undefined QoS field: " ^ v)
         | AST.LApp (f, args) -> 
+            let args_vars = List.fold_left (fun acc arg -> StringSet.union acc (Expr.free_vars arg)) StringSet.empty args in
             if not (StringSet.mem f func_names) then
               failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying undefined function: " ^ f);
-            if not (StringSet.subset (StringSet.of_list (List.map Expr.free_vars args)) qos_fields) then
+            if not (StringSet.subset args_vars qos_fields) then
               failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying function with undefined QoS field arguments");
-            if not (StringSet.subset (StringSet.of_list (List.map Expr.free_vars args)) allowed_vars) then
+            if not (StringSet.subset args_vars allowed_vars) then
               failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying function with undefined variable arguments");
         
         let rhs_vars = Expr.free_vars rhs in 
@@ -161,8 +162,18 @@ let validate_contract (contract : AST.contract) =
           failwith ("Service " ^ service.name ^ " has QoS postcondition effect with undefined variables: " ^ disallowed_vars_str)
         
       ) effects;
+      
       let constraints = snd service.qos_postcond in
+      List.iter (fun constr ->
+        let constr_vars = Expr.free_vars constr in
+        if not (StringSet.subset constr_vars qos_fields) then
+          failwith ("Service " ^ service.name ^ " has QoS postcondition constraint with undefined QoS field variables");
+        if not (StringSet.subset constr_vars allowed_vars) then
+          let disallowed_vars = StringSet.diff constr_vars allowed_vars in
+          let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
+          failwith ("Service " ^ service.name ^ " has QoS postcondition constraint with undefined variables: " ^ disallowed_vars_str)
+      ) constraints
 
       
     in 
-    List.iter ( check_service_precond qos_fields) contract.services
+    List.iter ( check_service_qos_postcond qos_fields allowed_vars) contract.services
