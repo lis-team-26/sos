@@ -31,7 +31,6 @@ module Make (S : State) = struct
   let get = fun state -> Symex.Result.ok (state, state)
   let put state = fun _ -> Symex.Result.ok ((), state)
   let modify f = fun state -> Symex.Result.ok ((), f state)
-  let gets f = fun state -> Symex.Result.ok (f state, state)
 
   let lift_symex_result m =
    fun state ->
@@ -53,11 +52,9 @@ module Make (S : State) = struct
     in
     bind mapped (fun ys -> return (List.rev ys))
 
-  module Syntax = struct
-    let ( let& ) = bind
-    let ( let&* ) m f = bind (lift_symex_result m) f
-    let ( let&+ ) m f = bind (lift_symex m) f
-    let ( let&&* ) m f = map (lift_symex_result m) f
-    let ( let&&+ ) m f = map (lift_symex m) f
-  end
+  let ( let& ) = bind
+  let ( let&* ) m f = bind (lift_symex m) f
+  let ( let&** ) m f = bind (lift_symex_result m) f
+  let ( let&+ ) m f = map (lift_symex m) f
+  let ( let&++ ) m f = map (lift_symex_result m) f
 end

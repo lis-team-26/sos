@@ -1,2 +1,2 @@
-module MonadState = MonadState
-module MonadUtils = MonadUtils
+module State = SymbolicMonadState
+module Utils = SymbolicMonadUtils

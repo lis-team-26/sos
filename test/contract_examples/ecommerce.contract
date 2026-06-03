@@ -5,9 +5,13 @@
     ],
     functions: [
         attempts: int -> int,
-        AuthFee: int -> int,
-        GetToken: int -> int -> int,
-        PayFee: int -> int
+        well_formed: int -> bool,
+        fresh: int -> bool,
+        locked: int -> bool,
+        verify: int -> int -> bool,
+        auth_fee: int -> int,
+        get_token: int -> int -> int,
+        pay_fee: int -> int
     ],
     QoS: [
         latency: int, 
@@ -19,27 +23,29 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        {Auth -> a, Pay -> p, GetPrice -> g} "[^a]|a[apg]*pp"
+        { Auth -> a, Pay -> p, GetPrice -> g } "[^a]|a[apg]*pp"
     ],
     services: [
         {
             name: Auth,
             params: [
-                userId: int,
+                user_id: int,
                 password: int,
                 nonce: int
             ],
-            returns: { token: int },
+            returns: {
+                token: int
+            },
             precond: [
-                wellFormed(userId) = 1,
-                wellFormed(password) = 1,
-                fresh(nonce) = 1,
-                locked(userId) = 0,
-                attempts(userId) < MAX_ATTEMPTS
+                well_formed(user_id),
+                well_formed(password),
+                fresh(nonce),
+                !locked(user_id),
+                attempts(user_id) < MAX_ATTEMPTS
             ],
-            QoS-postcond: {
+            qos-postcond: {
                 effects: [
-                    cost := AuthFee(userId)
+                    cost := auth_fee(user_id)
                 ],
                 constraints: [
                     latency <= 10,
@@ -49,34 +55,35 @@
             },
             ok-postcond: {
                 effects: [
-                    token := GetToken(userId, nonce),
-                    attempts(userId) := 0,
+                    token := get_token(user_id, nonce),
+                    attempts(user_id) := 0,
                     budget := budget - 10
                 ],
                 constraints: [
-                    verify(userId, password) = 1
+                    verify(user_id, password)
                 ]
             },
             err-postcond: {
                 effects: [
                     token := err
                 ],
-                constraints: [
-                ]
+                constraints: [ ]
             }
         },
         {
             name: Pay,
             params: [
-                amt: int
+                amount: int
             ],
-            returns: { r: bool },
+            returns: {
+                ok: bool
+            },
             precond: [
-                amt > 0
+                amount > 0
             ],
-            QoS-postcond: {
+            qos-postcond: {
                 effects: [
-                    cost := PayFee(amt)
+                    cost := pay_fee(amount)
                 ],
                 constraints: [
                     latency > 0,
@@ -85,28 +92,30 @@
                 ]
             },
             ok-postcond: {
-                effects: [],
-                constraints: [
-                    r = true
-                ]
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
             },
             err-postcond: {
-                effects: [],
-                constraints: [
-                    r = false
-                ]
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
             }
         },
         {
             name: GetPrice,
             params: [
-                productId: int
+                product_id: int
             ],
-            returns: { price: int },
+            returns: {
+                price: int
+            },
             precond: [
-                wellFormed(productId) = 1
+                well_formed(product_id)
             ],
-            QoS-postcond: {
+            qos-postcond: {
                 effects: [],
                 constraints: [
                     latency <= 10,
@@ -121,10 +130,10 @@
                 ]
             },
             err-postcond: {
-                effects: [],
-                constraints: [
-                    price = false
-                ]
+                effects: [
+                    price := false
+                ],
+                constraints: [ ]
             }
         }
     ]

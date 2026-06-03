@@ -55,10 +55,10 @@ type invocation = {
   qos : symbolic_value env;
 }
 
-type function_map = (fun_type * symbolic_value symbolic_list_env) env
 type stack = invocation list
+type function_map = (fun_type * symbolic_value symbolic_list_env) env
 
-type ok_monad_state = {
+type ok_state = {
   private_env : symbolic_value env;
   public_env : symbolic_value env;
   service_map : service env;
@@ -66,7 +66,6 @@ type ok_monad_state = {
   stack : stack;
 }
 
-type err_monad_state = { msg : string; stack : stack }
-type 'a monad_state = (ok_monad_state, err_monad_state, 'a) Symex.Result.t
+type err_state = { msg : string; stack : stack }
 type path_condition = Typed.sbool list
-type 'a result = 'a monad_state * path_condition
+type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition

@@ -46,7 +46,7 @@
 
 (library
  (name symbolicMonad)
- (modules symbolicMonad monadState monadUtils)
+ (modules symbolicMonad symbolicMonadState symbolicMonadUtils)
  (preprocess
   (pps soteria.ppx))
  (libraries symbolic))

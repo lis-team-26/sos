@@ -37,8 +37,6 @@ let parse src =
     - constraints: expr (mentioning only return variable, globals, functions and parameters of the service)
 *)
 
-module StringSet = Set.Make (String)
-
 let rec validate_regex (s2letter : AST.serv2letter)
     (service_names_set : StringSet.t) =
   List.for_all (fun (s, _) -> StringSet.mem s service_names_set) s2letter
@@ -108,130 +106,197 @@ let validate_contract (contract : AST.contract) =
           ))
     contract.services;
     *)
+  let globals_vars = StringSet.of_list (List.map fst contract.globals) in
+  let func_names = StringSet.of_list (List.map fst contract.functions) in
+  let allowed_vars = StringSet.union globals_vars func_names in
 
-    let globals_vars = StringSet.of_list (List.map fst contract.globals) in
-    let func_names = StringSet.of_list (List.map fst contract.functions) in
-    let allowed_vars = StringSet.union globals_vars func_names in
-    
-    (*type-check precondition (they can only mention globals, functions and parameters of the service)*)
-    let check_service_precond allowed_vars (service : AST.service)  =
-      let precond_vars = 
-        List.fold_left 
-          (fun acc e -> StringSet.union acc (Expr.free_vars e))
-          StringSet.empty 
-          service.precond
-      in
-      let service_params = StringSet.of_list(List.map fst service.params) in
-      let serv_allowed_vars = StringSet.union allowed_vars service_params in
-      if not (StringSet.subset precond_vars serv_allowed_vars) then
-        let disallowed_vars = StringSet.diff precond_vars serv_allowed_vars in
-        let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
-        failwith ("Service " ^ service.name ^ " has precondition with undefined variables: " ^ disallowed_vars_str)
+  (*type-check precondition (they can only mention globals, functions and parameters of the service)*)
+  let check_service_precond allowed_vars (service : AST.service) =
+    let precond_vars =
+      List.fold_left
+        (fun acc e -> StringSet.union acc (Expr.free_vars e))
+        StringSet.empty service.precond
     in
-    List.iter (check_service_precond allowed_vars) contract.services;
+    let service_params = StringSet.of_list (List.map fst service.params) in
+    let serv_allowed_vars = StringSet.union allowed_vars service_params in
+    if not (StringSet.subset precond_vars serv_allowed_vars) then
+      let disallowed_vars = StringSet.diff precond_vars serv_allowed_vars in
+      let disallowed_vars_str =
+        String.concat ", " (StringSet.elements disallowed_vars)
+      in
+      failwith
+        ("Service " ^ service.name
+       ^ " has precondition with undefined variables: " ^ disallowed_vars_str)
+  in
+  List.iter (check_service_precond allowed_vars) contract.services;
 
-    (*- type check qos_postcond:
+  (*- type check qos_postcond:
     - effects: qos_field := expr (mentioning only globals, functions and parameters of the service)
     - constraints: expr (mentioning only qos fields, globals, functions and parameters of the service)
     *)
-    let qos_fields = StringSet.of_list (List.map fst contract.qos) in
-    
-    let check_service_qos_postcond qos_fields allowed_vars (service: AST.service) = 
-      let service_params = StringSet.of_list(List.map fst service.params) in
-      let allowed_vars = StringSet.union allowed_vars service_params in
+  let qos_fields = StringSet.of_list (List.map fst contract.qos) in
 
-      let effects = fst service.qos_postcond in
-      
-      List.iter ( fun (lhs, rhs) ->
+  let check_service_qos_postcond qos_fields allowed_vars (service : AST.service)
+      =
+    let service_params = StringSet.of_list (List.map fst service.params) in
+    let allowed_vars = StringSet.union allowed_vars service_params in
+
+    let effects = fst service.qos_postcond in
+
+    List.iter
+      (fun (lhs, rhs) ->
         match lhs with
-        | AST.LVar v -> 
+        | AST.LVar v ->
             if not (StringSet.mem v qos_fields) then
-              failwith ("Service " ^ service.name ^ " has QoS postcondition effect assigning to undefined QoS field: " ^ v)
-        | AST.LApp (f, args) -> 
-          if not (StringSet.mem f func_names) then
-            failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying undefined function: " ^ f);
-          
-          let args_vars = List.fold_left (fun acc arg -> StringSet.union acc (Expr.free_vars arg)) StringSet.empty args in
-          if not (StringSet.subset args_vars qos_fields) then
-            failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying function with undefined QoS field arguments");
-          if not (StringSet.subset args_vars allowed_vars) then
-            let diff_vars = StringSet.diff args_vars allowed_vars in
-            let diff_vars_str = String.concat ", " (StringSet.elements diff_vars) in
-            failwith ("Service " ^ service.name ^ " has QoS postcondition effect applying function" ^ f ^ " with undefined variable arguments: " ^ diff_vars_str);
-          else ();
+              failwith
+                ("Service " ^ service.name
+               ^ " has QoS postcondition effect assigning to undefined QoS \
+                  field: " ^ v)
+        | AST.LApp (f, args) ->
+            if not (StringSet.mem f func_names) then
+              failwith
+                ("Service " ^ service.name
+               ^ " has QoS postcondition effect applying undefined function: "
+               ^ f);
 
-        let rhs_vars = Expr.free_vars rhs in 
-        if not (StringSet.subset rhs_vars allowed_vars) then
-          let disallowed_vars = StringSet.diff rhs_vars allowed_vars in
-          let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
-          failwith ("Service " ^ service.name ^ " has QoS postcondition effect with undefined variables: " ^ disallowed_vars_str)
-        
-      ) effects;
-      
-      let constraints = snd service.qos_postcond in
-      List.iter (fun constr ->
+            let args_vars =
+              List.fold_left
+                (fun acc arg -> StringSet.union acc (Expr.free_vars arg))
+                StringSet.empty args
+            in
+            if not (StringSet.subset args_vars qos_fields) then
+              failwith
+                ("Service " ^ service.name
+               ^ " has QoS postcondition effect applying function with \
+                  undefined QoS field arguments");
+            if not (StringSet.subset args_vars allowed_vars) then
+              let diff_vars = StringSet.diff args_vars allowed_vars in
+              let diff_vars_str =
+                String.concat ", " (StringSet.elements diff_vars)
+              in
+              failwith
+                ("Service " ^ service.name
+               ^ " has QoS postcondition effect applying function" ^ f
+               ^ " with undefined variable arguments: " ^ diff_vars_str)
+            else ();
+
+            let rhs_vars = Expr.free_vars rhs in
+            if not (StringSet.subset rhs_vars allowed_vars) then
+              let disallowed_vars = StringSet.diff rhs_vars allowed_vars in
+              let disallowed_vars_str =
+                String.concat ", " (StringSet.elements disallowed_vars)
+              in
+              failwith
+                ("Service " ^ service.name
+               ^ " has QoS postcondition effect with undefined variables: "
+               ^ disallowed_vars_str))
+      effects;
+
+    let constraints = snd service.qos_postcond in
+    List.iter
+      (fun constr ->
         let constr_vars = Expr.free_vars constr in
         if not (StringSet.subset constr_vars qos_fields) then
-          failwith ("Service " ^ service.name ^ " has QoS postcondition constraint with undefined QoS field variables");
+          failwith
+            ("Service " ^ service.name
+           ^ " has QoS postcondition constraint with undefined QoS field \
+              variables");
         let allowed_vars = StringSet.union allowed_vars qos_fields in
         if not (StringSet.subset constr_vars allowed_vars) then
           let disallowed_vars = StringSet.diff constr_vars allowed_vars in
-          let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
-          failwith ("Service " ^ service.name ^ " has QoS postcondition constraint with undefined variables: " ^ disallowed_vars_str)
-      ) constraints
-    in 
-    List.iter ( check_service_qos_postcond qos_fields allowed_vars) contract.services;
+          let disallowed_vars_str =
+            String.concat ", " (StringSet.elements disallowed_vars)
+          in
+          failwith
+            ("Service " ^ service.name
+           ^ " has QoS postcondition constraint with undefined variables: "
+           ^ disallowed_vars_str))
+      constraints
+  in
+  List.iter
+    (check_service_qos_postcond qos_fields allowed_vars)
+    contract.services;
 
-    (*type check ok_postcond and err_postcond:
+  (*type check ok_postcond and err_postcond:
     - effects:
       - var (global or return variable) := expr (mentioning only globals, functions and parameters of the service)
       - function application: params in (global U service param)
     - constraints: expr (mentioning only return variable, globals, functions and parameters of the service)
     *)
+  let check_service_postcond allowed_vars (service : AST.service) =
+    let service_params = StringSet.of_list (List.map fst service.params) in
+    let allowed_vars = StringSet.union allowed_vars service_params in
+    let return_var = StringSet.singleton (fst service.returns) in
 
-    let check_service_postcond allowed_vars (service: AST.service) =
-      let service_params = StringSet.of_list(List.map fst service.params) in
-      let allowed_vars = StringSet.union allowed_vars service_params in
-      let return_var = StringSet.singleton (fst service.returns) in
-      
-      let effects = 
-        (fst service.ok_postcond) 
-        @ match service.err_postcond with | None -> [] | Some post -> fst post 
-      in
-      List.iter (fun(lhs, rhs) ->
+    let effects =
+      fst service.ok_postcond
+      @ match service.err_postcond with None -> [] | Some post -> fst post
+    in
+    List.iter
+      (fun (lhs, rhs) ->
         match lhs with
-        | AST.LVar v -> 
-            if not (StringSet.mem v globals_vars || StringSet.mem v return_var) then
-              failwith ("Service " ^ service.name ^ " has postcondition effect assigning to undefined variable: " ^ v)
-        | AST.LApp (f, args) -> 
-            let args_vars = List.fold_left (fun acc arg -> StringSet.union acc (Expr.free_vars arg)) StringSet.empty args in
+        | AST.LVar v ->
+            if not (StringSet.mem v globals_vars || StringSet.mem v return_var)
+            then
+              failwith
+                ("Service " ^ service.name
+               ^ " has postcondition effect assigning to undefined variable: "
+               ^ v)
+        | AST.LApp (f, args) ->
+            let args_vars =
+              List.fold_left
+                (fun acc arg -> StringSet.union acc (Expr.free_vars arg))
+                StringSet.empty args
+            in
             if not (StringSet.mem f func_names) then
-              failwith ("Service " ^ service.name ^ " has postcondition effect applying undefined function: " ^ f);
+              failwith
+                ("Service " ^ service.name
+               ^ " has postcondition effect applying undefined function: " ^ f);
             if not (StringSet.subset args_vars allowed_vars) then
               let diff_vars = StringSet.diff args_vars allowed_vars in
-              let diff_vars_str = String.concat ", " (StringSet.elements diff_vars) in
-              failwith ("Service " ^ service.name 
-                ^ " has postcondition effect applying function: " ^ f 
-                ^ " with undefined variable arguments: " ^ diff_vars_str
-                ^ " while allowed variables are: " ^ (String.concat ", " (StringSet.elements allowed_vars)));
+              let diff_vars_str =
+                String.concat ", " (StringSet.elements diff_vars)
+              in
+              failwith
+                ("Service " ^ service.name
+               ^ " has postcondition effect applying function: " ^ f
+               ^ " with undefined variable arguments: " ^ diff_vars_str
+               ^ " while allowed variables are: "
+                ^ String.concat ", " (StringSet.elements allowed_vars))
             else ();
-        
-        let rhs_vars = Expr.free_vars rhs in 
-        let allowed_vars = StringSet.union allowed_vars service_params in
-        if not (StringSet.subset rhs_vars allowed_vars) then
-          let disallowed_vars = StringSet.diff rhs_vars allowed_vars in
-          let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
-          failwith ("Service " ^ service.name ^ " has postcondition effect with undefined variables: " ^ disallowed_vars_str)
 
-      ) effects; 
-      let constraints = snd service.ok_postcond @ match service.err_postcond with | None -> [] | Some post -> snd post  in
-      List.iter (fun constr ->
-          let constr_vars = Expr.free_vars constr in
-          let allowed_vars = StringSet.union allowed_vars (StringSet.union service_params return_var) in
-          if not (StringSet.subset constr_vars allowed_vars) then
-            let disallowed_vars = StringSet.diff constr_vars allowed_vars in
-            let disallowed_vars_str = String.concat ", " (StringSet.elements disallowed_vars) in
-            failwith ("Service " ^ service.name ^ " has postcondition constraint with undefined variables: " ^ disallowed_vars_str)
-      ) constraints 
-
-    in List.iter (check_service_postcond allowed_vars) contract.services;
+            let rhs_vars = Expr.free_vars rhs in
+            let allowed_vars = StringSet.union allowed_vars service_params in
+            if not (StringSet.subset rhs_vars allowed_vars) then
+              let disallowed_vars = StringSet.diff rhs_vars allowed_vars in
+              let disallowed_vars_str =
+                String.concat ", " (StringSet.elements disallowed_vars)
+              in
+              failwith
+                ("Service " ^ service.name
+               ^ " has postcondition effect with undefined variables: "
+               ^ disallowed_vars_str))
+      effects;
+    let constraints =
+      snd service.ok_postcond
+      @ match service.err_postcond with None -> [] | Some post -> snd post
+    in
+    List.iter
+      (fun constr ->
+        let constr_vars = Expr.free_vars constr in
+        let allowed_vars =
+          StringSet.union allowed_vars
+            (StringSet.union service_params return_var)
+        in
+        if not (StringSet.subset constr_vars allowed_vars) then
+          let disallowed_vars = StringSet.diff constr_vars allowed_vars in
+          let disallowed_vars_str =
+            String.concat ", " (StringSet.elements disallowed_vars)
+          in
+          failwith
+            ("Service " ^ service.name
+           ^ " has postcondition constraint with undefined variables: "
+           ^ disallowed_vars_str))
+      constraints
+  in
+  List.iter (check_service_postcond allowed_vars) contract.services

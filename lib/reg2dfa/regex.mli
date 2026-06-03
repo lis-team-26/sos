@@ -4,33 +4,22 @@ type t
 type charset = Set.Make(Char).t
 (** Sets of characters *)
 
-val parse :  ?domain:charset -> string -> t
+val parse : ?domain:charset -> string -> t
 (** Parse a regular expression using the following grammar:
 
-      r ::= (r)          (parenthesized regex)
-            .            (match any character)
-            rr           (sequencing)
-            r|r          (alternation)
-            r?           (zero or one)
-            r*           (zero or more)
-            r+           (one or more)
-            c            (literal character)
-            [b]          (POSIX bracket expression)
+    r ::= (r) (parenthesized regex) . (match any character) rr (sequencing) r|r
+    (alternation) r? (zero or one) r* (zero or more) r+ (one or more) c (literal
+    character) [b] (POSIX bracket expression)
 
-   Raises [Parse_error] on parse error
-*)
-
+    Raises [Parse_error] on parse error *)
 
 val compile : t -> Dfa.dfa
-(** [compile r] translates [r] the minimized DFA that succeeds on exactly
-    those strings matched by [r] *)
+(** [compile r] translates [r] the minimized DFA that succeeds on exactly those
+    strings matched by [r] *)
 
 val reg2dfa : ?domain:charset -> string -> Dfa.dfa
 
-type parse_error =
-  | Generic
-  | Not_in_domain of char
-  | Bad_range of char * char
+type parse_error = Generic | Not_in_domain of char | Bad_range of char * char
 
-  exception Parse_error of string * parse_error 
-(** Raised when [parse] is given an invalid regex *) 
+exception Parse_error of string * parse_error
+(** Raised when [parse] is given an invalid regex *)

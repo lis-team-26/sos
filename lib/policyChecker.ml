@@ -1,7 +1,7 @@
 open Symbolic.Runtime
 open Symbolic.Data
 open Utils.Data
-   
+
 module Key = struct
   type t = Typed.T.any Typed.t
 
@@ -146,24 +146,27 @@ let init_policy (policyType, groupBy) =
           Nfa.StateSet.to_list dfa.finals )
   | Contract.AST.Sort fieldName -> Ascending (initial_state (Typed.int 0), fieldName)
 
-let map_state initial f (c : invocation) (service : Contract.AST.service) = function
+let map_state initial f (c : invocation) (service : Contract.AST.service) =
+  function
   | Ungrouped s ->
       let++ next = f s in
       Ungrouped next
   | Grouped (field, symMap) -> (
-    let v = (*get the symbolic value of the argument assigned to p*)
-      StringMap.find_opt field c.actual_args
-    in
-    match v with
-    | None -> (*if the service doesn't have that parameter, then skip the invoke*)
-       Symex.Result.ok (Grouped (field, symMap))
-    | Some ar ->
-       let arg =
-         Typed.cast
-           (match ar with
-            | SymbInt i -> Typed.cast i
-            | SymbBool b -> Typed.cast b)
-       in
+      let v =
+        (*get the symbolic value of the argument assigned to p*)
+        StringMap.find_opt field c.actual_args
+      in
+      match v with
+      | None ->
+          (*if the service doesn't have that parameter, then skip the invoke*)
+          Symex.Result.ok (Grouped (field, symMap))
+      | Some ar ->
+          let arg =
+            Typed.cast
+              (match ar with
+              | SymbInt i -> Typed.cast i
+              | SymbBool b -> Typed.cast b)
+          in
           (*otherwise*)
           let* k, s =
             ValMap.find_opt arg
@@ -180,8 +183,8 @@ let update_policy (c : invocation) policy =
   | QosAggregate (sint, initial, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
       match StringMap.find_opt aggrField c.qos with
       | None -> Symex.Result.ok policy
-      | Some current_val ->
-         (match current_val with
+      | Some current_val -> (
+          match current_val with
           | SymbInt cv ->
              let** next =
                map_state
@@ -203,23 +206,21 @@ let update_policy (c : invocation) policy =
       | None ->
           (* Service doesn't report this QoS field; skip policy update *)
           Symex.Result.ok policy
-      | Some current_val ->
-         (match current_val with
+      | Some current_val -> (
+          match current_val with
           | SymbInt cv ->
-          let** result =
-            map_state
-              (Typed.int 0, 0)
-              (fun value ->
-                let new_cnt = snd value + 1 in
-                let new_sum = Typed.add (fst value) cv in
-                Symex.Result.ok (new_sum, new_cnt))
-              c s sint_count
-          in
-          Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
+              let** result =
+                map_state
+                  (Typed.int 0, 0)
+                  (fun value ->
+                    let new_cnt = snd value + 1 in
+                    let new_sum = Typed.add (fst value) cv in
+                    Symex.Result.ok (new_sum, new_cnt))
+                  c s sint_count
+              in
+              Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
           | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
-
   | Dfa (start, curState, servMap, transition, finalStates) ->
-
       let** result =
         map_state (Some start)
           (fun cur ->
@@ -241,37 +242,36 @@ let update_policy (c : invocation) policy =
   | Ascending (maximum, field) -> (
       match StringMap.find_opt field c.qos with
       | None -> Symex.Result.ok policy
-      | Some current_val ->
-         (match current_val with
+      | Some current_val -> (
+          match current_val with
           | SymbInt cv ->
-          let** next =
-            map_state (Typed.int Int.min_int)
-              (fun current_max ->
-                let violation = Typed.lt cv current_max in
-                if%sat violation then
-                  Symex.Result.error
-                    "ascending policy violation: value decreased"
-                else Symex.Result.ok cv)
-              c s maximum
-          in
-          Symex.Result.ok (Ascending (next, field))
+              let** next =
+                map_state (Typed.int Int.min_int)
+                  (fun current_max ->
+                    let violation = Typed.lt cv current_max in
+                    if%sat violation then
+                      Symex.Result.error
+                        "ascending policy violation: value decreased"
+                    else Symex.Result.ok cv)
+                  c s maximum
+              in
+              Symex.Result.ok (Ascending (next, field))
           | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
   | Descending (minimum, field) -> (
       match StringMap.find_opt field c.qos with
       | None -> Symex.Result.ok policy
-      | Some current_val ->
-         (match current_val with
+      | Some current_val -> (
+          match current_val with
           | SymbInt cv ->
-
-          let** next =
-            map_state (Typed.int Int.max_int)
-              (fun current_min ->
-                let violation = Typed.gt cv current_min in
-                if%sat violation then
-                  Symex.Result.error
-                    "descending policy violation: value increased"
-                else Symex.Result.ok cv)
-              c s minimum
-          in
-          Symex.Result.ok (Descending (next, field))
+              let** next =
+                map_state (Typed.int Int.max_int)
+                  (fun current_min ->
+                    let violation = Typed.gt cv current_min in
+                    if%sat violation then
+                      Symex.Result.error
+                        "descending policy violation: value increased"
+                    else Symex.Result.ok cv)
+                  c s minimum
+              in
+              Symex.Result.ok (Descending (next, field))
           | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
