@@ -1,6 +1,7 @@
 {
     globals: [
-        MAX_ATTEMPTS: int
+        MAX_ATTEMPTS: int,
+        budget: int
     ],
     functions: [
         attempts: int -> int,
@@ -49,11 +50,10 @@
             ok-postcond: {
                 effects: [
                     token := GetToken(userId, nonce),
-                    attempts := 0,
+                    attempts(userId) := 0,
                     budget := budget - 10
                 ],
                 constraints: [
-                    succ = True,
                     verify(userId, password) = 1
                 ]
             },
@@ -62,7 +62,6 @@
                     token := err
                 ],
                 constraints: [
-                    succ = False
                 ]
             }
         },
@@ -88,15 +87,13 @@
             ok-postcond: {
                 effects: [],
                 constraints: [
-                    succ = True,
-                    r = ok
+                    r = true
                 ]
             },
             err-postcond: {
                 effects: [],
                 constraints: [
-                    succ = False,
-                    r = err
+                    r = false
                 ]
             }
         },
@@ -120,15 +117,13 @@
             ok-postcond: {
                 effects: [],
                 constraints: [
-                    succ = True,
                     price > 0
                 ]
             },
             err-postcond: {
                 effects: [],
                 constraints: [
-                    succ = False,
-                    price = err
+                    price = false
                 ]
             }
         }
