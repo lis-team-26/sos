@@ -6,7 +6,7 @@
 *)
 
 module PC    = PolicyChecker
-module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
+module Symex = PolicyChecker.Symex
 module Typed = Soteria.Tiny_values.Typed
 module StrMap = Map.Make (String)
 open Symex.Syntax
