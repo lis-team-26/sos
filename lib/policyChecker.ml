@@ -34,8 +34,9 @@ type pChecker =
   | QosAggregate of
       symb_int
       (*can be many things, depending on the aggregate operation*)
-      checkerState
-      * Contract.AST.aggr_op (*sum, max, ...*)
+        checkerState
+      * symb_int (*initial state*)
+      * (Typed.T.sint Typed.t -> Typed.T.sint Typed.t -> Typed.T.sint Typed.t) (*sum, max, ...*)
       * string (*the Qos field to aggregate*)
       * (Typed.T.sint Typed.t -> Typed.T.sint Typed.t -> Typed.sbool Typed.t)
       * (*comparison*)
@@ -90,30 +91,40 @@ let cmp_function = function
   | Expr.AST.Neq -> fun l r -> Typed.not @@ Typed.sem_eq l r
   | _ -> failwith "Unknown comparison operator"
 
+let aggr_function = function
+  | Contract.AST.Sum -> (fun acc cv -> Typed.add acc cv)
+  | Contract.AST.Max ->
+     (fun acc cv -> Typed.ite (Typed.gt cv acc) cv acc)
+  | Contract.AST.Min ->
+     (fun acc cv -> Typed.ite (Typed.lt cv acc) cv acc)
+  | Contract.AST.Avg -> failwith "Avg should be handled separately"
+                 
 (*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
 let init_policy (policyType, groupBy) =
-  let initial state =
+  let initial_state state =
     match groupBy with
     | None -> Ungrouped state
     | Some param -> Grouped (param, ValMap.empty)
   in
   match policyType with
   | Contract.AST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
-      QosAvg (initial (Typed.int 0, 0), cmp_function operator, fieldName, i)
+      QosAvg (initial_state (Typed.int 0, 0), cmp_function operator, fieldName, i)
   | Contract.AST.QosFieldOp (aggregator, fieldName, operator, i) ->
-      (* meaning: <aggregator>(<fieldname>) <operator> i *)
-      QosAggregate
-        ( initial
-            (Typed.int
+     (* meaning: <aggregator>(<fieldname>) <operator> i *)
+     let init = (Typed.int
                (match aggregator with
                | Contract.AST.Sum | Contract.AST.Avg -> 0
                | Contract.AST.Min -> Int.max_int
-               | Contract.AST.Max -> Int.min_int)),
-          aggregator,
+               | Contract.AST.Max -> Int.min_int))
+     in
+      QosAggregate
+        ( (initial_state init),
+          init,
+          (aggr_function aggregator),
           fieldName,
-          cmp_function operator,
+          (cmp_function operator),
           i,
-          verify_now aggregator operator )
+          (verify_now aggregator operator))
   | Contract.AST.Regex (serv2chr, reg) ->
       let open Reg2dfa in
       let domain = CharSet.of_list @@ List.map snd serv2chr in
@@ -127,13 +138,13 @@ let init_policy (policyType, groupBy) =
       in
       Dfa
         ( dfa.start,
-          initial (Some dfa.start),
+          initial_state (Some dfa.start),
           (*current state*)
           serv2chr,
           (*mapping from service name -> char*)
           step_if_in_domain,
           Nfa.StateSet.to_list dfa.finals )
-  | Contract.AST.Sort fieldName -> Ascending (initial (Typed.int 0), fieldName)
+  | Contract.AST.Sort fieldName -> Ascending (initial_state (Typed.int 0), fieldName)
 
 let map_state initial f (c : invocation) (service : Contract.AST.service) = function
   | Ungrouped s ->
@@ -166,31 +177,17 @@ let map_state initial f (c : invocation) (service : Contract.AST.service) = func
 let update_policy (c : invocation) policy =
   let s = c.service in
   match policy with
-  | QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
+  | QosAggregate (sint, initial, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
       match StringMap.find_opt aggrField c.qos with
       | None -> Symex.Result.ok policy
       | Some current_val ->
          (match current_val with
           | SymbInt cv ->
-             let apply_aggregator acc =
-               match aggrOp with
-               | Contract.AST.Sum -> Typed.add acc cv
-               | Contract.AST.Max ->
-                  Typed.ite (Typed.gt cv acc) cv acc
-               | Contract.AST.Min ->
-                  Typed.ite (Typed.lt cv acc) cv acc
-               | Contract.AST.Avg -> failwith "Avg should be handled separately"
-             in
-
              let** next =
                map_state
-                 (match aggrOp with
-                  | Contract.AST.Sum -> Typed.int 0
-                  | Contract.AST.Min -> Typed.int Int.max_int
-                  | Contract.AST.Max -> Typed.int Int.min_int
-                  | Contract.AST.Avg -> assert false)
+                 initial
                  (fun aggregate ->
-                   let new_aggregate = apply_aggregator aggregate in
+                   let new_aggregate = aggrOp aggregate cv in
                    if verNow then
                      let policy_holds = cmp new_aggregate (Typed.int cmpInt) in
                      if%sat policy_holds then Symex.Result.ok new_aggregate
@@ -199,7 +196,7 @@ let update_policy (c : invocation) policy =
                  c s sint
              in
              Symex.Result.ok
-               (QosAggregate (next, aggrOp, aggrField, cmp, cmpInt, verNow))
+               (QosAggregate (next, initial, aggrOp, aggrField, cmp, cmpInt, verNow))
           | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
   | QosAvg (sint_count, cmp, avgField, cmpInt) -> (
       match StringMap.find_opt avgField c.qos with
