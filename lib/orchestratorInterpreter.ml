@@ -1,22 +1,14 @@
 open OrchestratorAST
 open Symbolic.Data
 open Symbolic.Runtime
-
-module FM = StateMonad.Make (struct
-  type ok = function_map
-  type err = ok_monad_state -> err_monad_state
-end)
-
-module SM = StateMonad.Make (struct
-  type ok = ok_monad_state
-  type err = err_monad_state
-end)
-
-open FM.Syntax
-open SM.Syntax
+open SymbolicMonad.MonadUtils
 open Expr.AST
 open Contract.AST
 open Utils.Data
+open FunctionalMonad
+open OkStateMonad
+open FunctionalMonad.Syntax
+open OkStateMonad.Syntax
 
 let total_env state =
   StringMap.union (fun _ priv _ -> Some priv) state.private_env state.public_env
@@ -24,9 +16,6 @@ let total_env state =
 let build_error msg (ok : ok_monad_state) = { msg; stack = ok.stack }
 let init_error msg = Symex.Result.error (build_error msg)
 let raise_error msg ok = Symex.Result.error (build_error msg ok)
-
-let seal_error ok partial_err =
-  Symex.Result.map_error partial_err (fun partial_err -> partial_err ok)
 
 let cast_to_int v =
   match Typed.cast_checked v Typed.t_int with
@@ -38,17 +27,19 @@ let cast_to_bool v =
   | Some b -> Symex.Result.ok b
   | None -> init_error "Expected a boolean"
 
-let checked_update_env env t x v =
-  let++ v =
-    match t with
-    | TInt ->
-        let++ v = cast_to_int v in
-        SymbInt v
-    | TBool ->
-        let++ v = cast_to_bool v in
-        SymbBool v
+let checked_update_env t x v =
+  let& state = get in
+  let&* v =
+    (match t with
+      | TInt ->
+          let++ v = cast_to_int v in
+          SymbInt v
+      | TBool ->
+          let++ v = cast_to_bool v in
+          SymbBool v)
+    |> seal_error state
   in
-  StringMap.add x v env
+  put { state with private_env = StringMap.add x v state.private_env }
 
 let symb_eval_arithm_op v1 op v2 =
   let** v1 = cast_to_int v1 in
@@ -89,8 +80,8 @@ let symb_eval_cmp_op v1 op v2 =
   | _ -> init_error "Type error in comparison operation"
 
 let rec symb_eval_expr env = function
-  | EInt n -> FM.return (Typed.int n)
-  | EBool b -> FM.return (Typed.of_bool b)
+  | EInt n -> return (Typed.int n)
+  | EBool b -> return (Typed.of_bool b)
   | EVar x ->
       let&&* value =
         match StringMap.find_opt x env with
@@ -103,22 +94,22 @@ let rec symb_eval_expr env = function
       let&&+ v = Symex.nondet Typed.t_int in
       Typed.cast v
   | EApp (f, args) -> (
-      let& function_map = FM.get in
+      let& function_map = get in
       match StringMap.find_opt f function_map with
       | None -> failwith (Fmt.str "Function %s not found" f)
       | Some (TFun (typed_vars, ret_type), _) -> (
           let typed_args = List.combine typed_vars args in
           let& actual_args =
-            FM.map_list typed_args ~f:(fun (t, x) ->
+            map_list typed_args ~f:(fun (t, x) ->
                 match t with
                 | TInt ->
                     let& v = symb_eval_aexpr env x in
-                    FM.return (Typed.cast v)
+                    return (Typed.cast v)
                 | TBool ->
                     let& v = symb_eval_bexpr env x in
-                    FM.return (Typed.cast v))
+                    return (Typed.cast v))
           in
-          let& function_map = FM.get in
+          let& function_map = get in
           match StringMap.find_opt f function_map with
           | None -> failwith (Fmt.str "Function %s not found" f)
           | Some (TFun (_, _), fun_invoke) -> (
@@ -126,8 +117,8 @@ let rec symb_eval_expr env = function
                 SymbolicListMap.find_opt actual_args fun_invoke
               in
               match return_value_opt with
-              | Some (SymbInt i) -> FM.return (Typed.cast i)
-              | Some (SymbBool b) -> FM.return (Typed.cast b)
+              | Some (SymbInt i) -> return (Typed.cast i)
+              | Some (SymbBool b) -> return (Typed.cast b)
               | None ->
                   let&+ return_value =
                     match ret_type with
@@ -144,11 +135,11 @@ let rec symb_eval_expr env = function
                       fun_invoke
                   in
                   let& () =
-                    FM.modify
+                    modify
                       (StringMap.add f
                          (TFun (typed_vars, ret_type), new_fun_invoke))
                   in
-                  FM.return return_value)))
+                  return return_value)))
   | EUnOp (op, e) ->
       let& v = symb_eval_expr env e in
       let&&* v = symb_eval_bool_un_op op v in
@@ -176,118 +167,99 @@ and symb_eval_bexpr env e =
   let&&* b = cast_to_bool v in
   b
 
-let rec symb_eval_stmt state = function
+let rec symb_eval_stmt stmt =
+  let& state = get in
+  match stmt with
   | Seq (s1, s2) ->
-      let** state = symb_eval_stmt state s1 in
-      symb_eval_stmt state s2
+      let& () = symb_eval_stmt s1 in
+      symb_eval_stmt s2
   | If (e, then_s, else_s) ->
-      let** b, function_map =
-        symb_eval_bexpr (total_env state) e state.function_map
-        |> seal_error state
-      in
-      let state = { state with function_map } in
-      if%sat b then symb_eval_stmt state then_s else symb_eval_stmt state else_s
+      let& b = lift_fm (symb_eval_bexpr (total_env state) e) in
+      branch b (symb_eval_stmt then_s) (symb_eval_stmt else_s)
   | While (e, s) ->
-      let** b, function_map =
-        symb_eval_bexpr (total_env state) e state.function_map
-        |> seal_error state
-      in
-      let state = { state with function_map } in
-      if%sat b then
-        let** state = symb_eval_stmt state s in
-        symb_eval_stmt state (While (e, s))
-      else Symex.Result.ok state
-  | stmt -> symb_eval_simple_stmt state stmt |> seal_error state
+      let& b = lift_fm (symb_eval_bexpr (total_env state) e) in
+      branch b
+        (let& () = symb_eval_stmt s in
+         symb_eval_stmt (While (e, s)))
+        (return ())
+  | stmt -> symb_eval_simple_stmt stmt
 
-and symb_eval_simple_stmt state = function
-  | Skip -> Symex.Result.ok state
+and symb_eval_simple_stmt stmt =
+  let& state = get in
+  match stmt with
+  | Skip -> return ()
   | Declare (t, x, e) -> (
       match t with
       | TInt ->
-          let** v, function_map =
-            symb_eval_aexpr (total_env state) e state.function_map
-          in
-          (* Is it really necessay a checked insert? *)
-          let++ private_env = checked_update_env state.private_env t x v in
-          { state with private_env; function_map }
+          let& v = lift_fm (symb_eval_aexpr (total_env state) e) in
+          checked_update_env t x v
       | TBool ->
-          let** v, function_map =
-            symb_eval_bexpr (total_env state) e state.function_map
-          in
-          (* Is it really necessay a checked insert? *)
-          let++ private_env = checked_update_env state.private_env t x v in
-          { state with private_env; function_map })
+          let& v = lift_fm (symb_eval_bexpr (total_env state) e) in
+          checked_update_env t x v)
   | Assign (x, e) ->
-      let** t =
-        match StringMap.find_opt x state.private_env with
-        | Some (SymbInt _) -> Symex.Result.ok TInt
-        | Some (SymbBool _) -> Symex.Result.ok TBool
-        | None -> init_error (Fmt.str "Variable %s not declared" x)
+      let&* t =
+        (match StringMap.find_opt x state.private_env with
+          | Some (SymbInt _) -> Symex.Result.ok TInt
+          | Some (SymbBool _) -> Symex.Result.ok TBool
+          | None -> init_error (Fmt.str "Variable %s not declared" x))
+        |> seal_error state
       in
-      let** v, function_map =
-        match t with
-        | TInt -> symb_eval_aexpr (total_env state) e state.function_map
-        | TBool -> symb_eval_bexpr (total_env state) e state.function_map
+      let& v =
+        lift_fm
+          (match t with
+          | TInt -> symb_eval_aexpr (total_env state) e
+          | TBool -> symb_eval_bexpr (total_env state) e)
       in
       (* Is it really necessay a checked insert? *)
-      let++ private_env = checked_update_env state.private_env t x v in
-      { state with private_env; function_map }
+      checked_update_env t x v
   | Assume e ->
-      let** b, function_map =
-        symb_eval_bexpr (total_env state) e state.function_map
-      in
-      let* () = Symex.assume [ b ] in
-      Symex.Result.ok { state with function_map }
+      let& b = lift_fm (symb_eval_bexpr (total_env state) e) in
+      let&+ () = Symex.assume [ b ] in
+      return ()
   | Assert e ->
-      let** b, function_map =
-        symb_eval_bexpr (total_env state) e state.function_map
-      in
-      let++ () =
+      let& b = lift_fm (symb_eval_bexpr (total_env state) e) in
+      let&* () =
         Symex.assert_or_error b
-          (build_error (Fmt.str "Assertion failed: %a" Typed.ppa b))
+          (build_error (Fmt.str "Assertion failed: %a" Typed.ppa b) state)
       in
-      { state with function_map }
+      return ()
   | Invoke (f, args) ->
-      let** service =
-        match StringMap.find_opt f state.service_map with
-        | Some s -> Symex.Result.ok s
-        | None -> init_error (Fmt.str "Service %s not found" f)
+      let&* service =
+        (match StringMap.find_opt f state.service_map with
+          | Some s -> Symex.Result.ok s
+          | None -> init_error (Fmt.str "Service %s not found" f))
+        |> seal_error state
       in
       let typed_args = List.combine service.params args in
-      let** args_env, function_map =
-        Symex.Result.fold_list typed_args
-          ~init:(StringMap.empty, state.function_map)
-          ~f:(fun (acc_args_env, acc_function_map) ((x, t), e) ->
-            match t with
-            | TInt ->
-                let++ arg, function_map =
-                  symb_eval_aexpr (total_env state) e state.function_map
-                in
-                (StringMap.add x (SymbInt arg) acc_args_env, function_map)
-            | TBool ->
-                let++ arg, function_map =
-                  symb_eval_bexpr (total_env state) e state.function_map
-                in
-                (StringMap.add x (SymbBool arg) acc_args_env, function_map))
+      let& args_env =
+        lift_fm
+          (fold_list typed_args ~init:StringMap.empty
+             ~f:(fun acc_args_env ((x, t), e) ->
+               match t with
+               | TInt ->
+                   let& arg = symb_eval_aexpr (total_env state) e in
+                   return (StringMap.add x (SymbInt arg) acc_args_env)
+               | TBool ->
+                   let& arg = symb_eval_bexpr (total_env state) e in
+                   return (StringMap.add x (SymbBool arg) acc_args_env)))
       in
       let precond_env =
         (* The environment for evaluating preconditions gives precedence to the arguments *)
         StringMap.union (fun _ arg _ -> Some arg) args_env state.public_env
       in
-      let** b, function_map =
-        Symex.Result.fold_list service.precond
-          ~init:(Typed.v_true, function_map)
-          ~f:(fun (acc_precond, acc_function_map) e ->
-            let++ b, function_map =
-              symb_eval_bexpr precond_env e acc_function_map
-            in
-            (acc_precond &&@ b, function_map))
+      let& b =
+        lift_fm
+          (fold_list service.precond ~init:Typed.v_true ~f:(fun acc_precond e ->
+               let& b = symb_eval_bexpr precond_env e in
+               return (acc_precond &&@ b)))
       in
-      let** () =
+      let&* () =
         Symex.assert_or_error b
-          (build_error (Fmt.str "Precondition violated for service '%s'" f))
+          (build_error
+             (Fmt.str "Precondition violated for service '%s'" f)
+             state)
       in
-      let+ success =
+      let&+ success =
         if Option.is_none service.err_postcond then Symex.return Typed.v_true
         else Symex.nondet Typed.t_bool
       in
@@ -305,7 +277,7 @@ and symb_eval_simple_stmt state = function
       Symex.Result.ok
         { env = StringMap.add x ret_val state.env; stack = call :: state.stack } *)
       failwith "Not yet implemented"
-  | _ as stmt -> symb_eval_simple_stmt state stmt
+  | _ as stmt -> symb_eval_simple_stmt stmt
 
 (* contract is only needed by build_symb_process, not to evaluate statements *)
 let build_symb_process stmt contract _ =
@@ -338,7 +310,8 @@ let build_symb_process stmt contract _ =
   let state =
     { private_env; public_env; service_map; function_map; stack = [] }
   in
-  symb_eval_stmt state stmt
+  let symbolic_results = run_unit (symb_eval_stmt stmt) state in
+  symbolic_results
   |> Fun.flip Symex.Result.map (fun (s : ok_monad_state) ->
       { s with stack = List.rev s.stack })
   |> Fun.flip Symex.Result.map_error (fun (s : err_monad_state) ->
