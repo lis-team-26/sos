@@ -1,0 +1,32 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y z3 bubblewrap
+
+    - name: Set up OCaml
+      uses: ocaml/setup-ocaml@v3
+      with:
+        ocaml-compiler: 5.x
+
+    - name: Install dependencies
+      run: |
+        opam install . --deps-only --with-test --with-dev-setup
+        
+    - name: Build
+      run: opam exec -- dune build --release
+
+    - name: Test
+      run: opam exec -- dune exec -- run test/contract_examples/ecommerce.contract test/orchestrator_examples/ecommerce.example
