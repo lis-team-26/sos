@@ -100,4 +100,4 @@
 (library
  (name typeCheckExpr)
  (modules typeCheckExpr)
- (libraries utils expr typedExpr))
+ (libraries utils expr typedExpr contract))

@@ -6,6 +6,16 @@ open Format
 
 type static_scope = var_type scope_stack
 
+(* Sequences a list of results into a result of a list, short-circuiting on the
+   first error. *)
+let rec sequence_results = function
+  | [] -> Ok []
+  | Error err :: _ -> Error err
+  | Ok x :: rest -> (
+      match sequence_results rest with
+      | Ok xs -> Ok (x :: xs)
+      | Error err -> Error err)
+
 let rec type_check_arithm scope static_fn_map = function
   | EInt n -> Ok (ALit n)
   | EBool _ -> Error "Expected numerical expression but found boolean literal"
@@ -30,24 +40,10 @@ let rec type_check_arithm scope static_fn_map = function
   | EUnOp _ -> Error "Expected numerical expression but found unary operation"
   | EApp (f, args) -> (
       match StringMap.find_opt f static_fn_map with
-      | Some (TFun (params_types, TInt)) ->
-          if List.length params_types <> List.length args then
-            Error (sprintf "Function %s expected %d arguments but found %d" f (List.length params_types) (List.length args))
-          else
-            let type_checked_args =
-              List.map2 (fun t e -> type_check_expr_as t scope static_fn_map e) params_types args
-            in
-            let rec check_all = function
-              | [] -> Ok []
-              | Ok e :: rest -> (
-                  match check_all rest with
-                  | Ok rest' -> Ok (e :: rest')
-                  | Error err -> Error err)
-              | Error err :: _ -> Error err
-            in
-            (match check_all type_checked_args with
-            | Ok args' -> Ok (AApp (f, args'))
-            | Error err -> Error err)
+      | Some (TFun (params_types, TInt)) -> (
+          match type_check_args f params_types args scope static_fn_map with
+          | Ok args' -> Ok (AApp (f, args'))
+          | Error err -> Error err)
       | Some (TFun (_, TBool)) -> Error (sprintf "Function %s returns boolean but numerical expected" f)
       | None -> Error (sprintf "Function %s not found" f))
 
@@ -92,24 +88,10 @@ and type_check_bool scope static_fn_map = function
       | _ -> Error "Expected boolean operator or comparison operator")
   | EApp (f, args) -> (
       match StringMap.find_opt f static_fn_map with
-      | Some (TFun (params_types, TBool)) ->
-          if List.length params_types <> List.length args then
-            Error (sprintf "Function %s expected %d arguments but found %d" f (List.length params_types) (List.length args))
-          else
-            let type_checked_args =
-              List.map2 (fun t e -> type_check_expr_as t scope static_fn_map e) params_types args
-            in
-            let rec check_all = function
-              | [] -> Ok []
-              | Ok e :: rest -> (
-                  match check_all rest with
-                  | Ok rest' -> Ok (e :: rest')
-                  | Error err -> Error err)
-              | Error err :: _ -> Error err
-            in
-            (match check_all type_checked_args with
-            | Ok args' -> Ok (BApp (f, args'))
-            | Error err -> Error err)
+      | Some (TFun (params_types, TBool)) -> (
+          match type_check_args f params_types args scope static_fn_map with
+          | Ok args' -> Ok (BApp (f, args'))
+          | Error err -> Error err)
       | Some (TFun (_, TInt)) -> Error (sprintf "Function %s returns numerical but boolean expected" f)
       | None -> Error (sprintf "Function %s not found" f))
 
@@ -123,6 +105,17 @@ and type_check_expr_as t scope static_fn_map e =
       match type_check_bool scope static_fn_map e with
       | Ok bexpr -> Ok (BExpr bexpr)
       | Error err -> Error err)
+
+and type_check_args f params_types args scope static_fn_map =
+  if List.length params_types <> List.length args then
+    Error
+      (sprintf "Function %s expected %d arguments but found %d" f
+         (List.length params_types) (List.length args))
+  else
+    sequence_results
+      (List.map2
+         (fun t e -> type_check_expr_as t scope static_fn_map e)
+         params_types args)
 
 let type_check scope static_fn_map e =
   match e with
