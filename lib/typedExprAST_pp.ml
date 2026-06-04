@@ -15,9 +15,7 @@ let pp_cmp_op fmt = function
   | TGt -> fprintf fmt ">"
   | TGe -> fprintf fmt ">="
 
-let pp_bop fmt = function
-  | TAnd -> fprintf fmt "&&"
-  | TOr -> fprintf fmt "||"
+let pp_bop fmt = function TAnd -> fprintf fmt "&&" | TOr -> fprintf fmt "||"
 
 let rec pp_aexpr fmt = function
   | ALit i -> fprintf fmt "%d" i

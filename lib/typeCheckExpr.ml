@@ -12,9 +12,13 @@ let rec type_check_arithm scope static_fn_map = function
       | Some TBool -> Error (Fmt.str "Variable %s expected numerical but found boolean" v)
       | None -> Error (Fmt.str "Numerical variable %s not found" v))
   | EIntNonDet -> Ok ANonDet
-  | EBoolNonDet -> Error "Expected numerical expression but found boolean nondet"
+  | EBoolNonDet ->
+      Error "Expected numerical expression but found boolean nondet"
   | EBinOp (e1, op, e2) -> (
-      match (type_check_arithm scope static_fn_map e1, type_check_arithm scope static_fn_map e2) with
+      match
+        ( type_check_arithm scope static_fn_map e1,
+          type_check_arithm scope static_fn_map e2 )
+      with
       | Ok v1, Ok v2 -> (
           match op with
           | Add -> Ok (AOp (v1, TAdd, v2))
@@ -51,7 +55,10 @@ and type_check_bool scope static_fn_map = function
   | EBinOp (e1, op, e2) -> (
       match op with
       | And | Or -> (
-          match (type_check_bool scope static_fn_map e1, type_check_bool scope static_fn_map e2) with
+          match
+            ( type_check_bool scope static_fn_map e1,
+              type_check_bool scope static_fn_map e2 )
+          with
           | Ok v1, Ok v2 -> (
               match op with
               | And -> Ok (BBoolOp (v1, TAnd, v2))
@@ -60,7 +67,10 @@ and type_check_bool scope static_fn_map = function
           | Error err, _ -> Error err
           | _, Error err -> Error err)
       | Eq | Neq | Lt | Le | Gt | Ge -> (
-          match (type_check_arithm scope static_fn_map e1, type_check_arithm scope static_fn_map e2) with
+          match
+            ( type_check_arithm scope static_fn_map e1,
+              type_check_arithm scope static_fn_map e2 )
+          with
           | Ok v1, Ok v2 -> (
               match op with
               | Eq -> Ok (BCmpOp (v1, TEq, v2))

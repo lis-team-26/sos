@@ -31,6 +31,12 @@
  (libraries utils))
 
 (library
+ (name contract)
+ (modules contract contractAST contractAST_pp contractLexer contractParser)
+ (modules_without_implementation contractAST)
+ (libraries expr utils))
+
+(library
  (name typedContract)
  (modules typedContract typedContractAST typedContractAST_pp)
  (modules_without_implementation typedContractAST)
@@ -49,8 +55,9 @@
   utils))
 
 (library
- (name utils)
- (modules utils parserUtils dataUtils))
+ (name typeCheckExpr)
+ (modules typeCheckExpr)
+ (libraries utils expr typedExpr contract))
 
 (library
  (name symbolic)
@@ -63,32 +70,11 @@
  (libraries soteria expr contract utils))
 
 (library
- (name contract)
- (modules contract contractAST contractAST_pp contractLexer contractParser)
- (modules_without_implementation contractAST)
- (libraries expr utils))
-
-(library
  (name symbolicMonad)
  (modules symbolicMonad symbolicMonadState symbolicMonadUtils)
  (preprocess
   (pps soteria.ppx))
  (libraries symbolic))
-
-(library
- (name orchestrator)
- (modules
-  orchestrator
-  orchestratorAST
-  orchestratorAST_pp
-  orchestratorLexer
-  orchestratorParser
-  orchestratorInterpreter)
- (modules_without_implementation orchestratorAST)
- (libraries expr contract symbolic symbolicMonad policyChecker utils)
- (preprocess
-  (pps soteria.ppx))
- (flags :standard -open Soteria.Logs.Import))
 
 (library
  (name policyChecker)
