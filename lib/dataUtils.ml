@@ -10,6 +10,13 @@ type 'a scope_stack = 'a env list
 (** A stack of environments representing nested scopes. The head of the list is
     the innermost scope, and the tail represents outer scopes. *)
 
+(** Builds an environment from an association list. Later bindings for the same
+    key override earlier ones. *)
+let env_of_list bindings =
+  List.fold_left
+    (fun acc (x, v) -> StringMap.add x v acc)
+    StringMap.empty bindings
+
 (** Looks up a variable in the scope stack, starting from the innermost scope.
     Returns None if the variable is not found in any of the scopes *)
 let rec lookup x = function
@@ -36,6 +43,15 @@ let rec update x v s =
   | _, Some updated_scope -> Some updated_scope
   | env :: rest, None -> Some (StringMap.add x v env :: rest)
   | [], None -> None
+
+(** Introduces [x |-> v] in the innermost scope, shadowing any binding of [x] in
+    an outer scope (or overwriting it in the innermost one). Starts a new
+    innermost scope if the stack is empty. Unlike {!update}, which rewrites an
+    existing binding wherever it lives, this always binds in the head scope —
+    the behaviour a block-scoped declaration needs. *)
+let declare x v = function
+  | env :: rest -> Ok (StringMap.add x v env :: rest)
+  | [] -> Error (Fmt.str "Variable %s not declared" x)
 
 (** Adds a new variable to the innermost scope. Fails if the scope stack is
     empty. *)

@@ -80,6 +80,19 @@
  (libraries fmt utils expr typedExpr contract typedContract typeCheckExpr))
 
 (library
+ (name typeCheckOrchestrator)
+ (modules typeCheckOrchestrator)
+ (libraries
+  fmt
+  utils
+  expr
+  typedExpr
+  contract
+  orchestrator
+  typedOrchestrator
+  typeCheckExpr))
+
+(library
  (name symbolic)
  (modules
   symbolic
@@ -105,4 +118,5 @@
 
 (library
  (name utils)
- (modules utils parserUtils dataUtils))
+ (modules utils parserUtils dataUtils)
+ (libraries fmt))
