@@ -9,7 +9,8 @@ let rec type_check_arithm scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TInt -> Ok (AVar v)
-      | Some TBool -> Error (Fmt.str "Variable %s expected numerical but found boolean" v)
+      | Some TBool ->
+          Error (Fmt.str "Variable %s expected numerical but found boolean" v)
       | None -> Error (Fmt.str "Numerical variable %s not found" v))
   | EIntNonDet -> Ok ANonDet
   | EBoolNonDet ->
@@ -35,7 +36,8 @@ let rec type_check_arithm scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (AApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TBool)) -> Error (Fmt.str "Function %s returns boolean but numerical expected" f)
+      | Some (TFun (_, TBool)) ->
+          Error (Fmt.str "Function %s returns boolean but numerical expected" f)
       | None -> Error (Fmt.str "Function %s not found" f))
 
 and type_check_bool scope static_fn_map = function
@@ -44,7 +46,8 @@ and type_check_bool scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TBool -> Ok (BVar v)
-      | Some TInt -> Error (Fmt.str "Variable %s expected boolean but found numerical" v)
+      | Some TInt ->
+          Error (Fmt.str "Variable %s expected boolean but found numerical" v)
       | None -> Error (Fmt.str "Boolean variable %s not found" v))
   | EBoolNonDet -> Ok BNonDet
   | EIntNonDet -> Error "Expected boolean expression but found numerical nondet"
@@ -89,7 +92,8 @@ and type_check_bool scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (BApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TInt)) -> Error (Fmt.str "Function %s returns numerical but boolean expected" f)
+      | Some (TFun (_, TInt)) ->
+          Error (Fmt.str "Function %s returns numerical but boolean expected" f)
       | None -> Error (Fmt.str "Function %s not found" f))
 
 and type_check_expr t scope static_fn_map e =

@@ -44,7 +44,8 @@ let type_check_policy (policy_type, group_by) =
    The typed contract AST keeps effect expressions untyped (see [effct] in
    [TypedContractAST]), so the original expressions are returned unchanged once
    they have been validated. *)
-let type_check_effect lhs_type_env args_scope rhs_scope static_fn_map (lhs, rhs) =
+let type_check_effect lhs_type_env args_scope rhs_scope static_fn_map (lhs, rhs)
+    =
   match lhs with
   | LVar v -> (
       match lhs_type_env v with
@@ -59,12 +60,14 @@ let type_check_effect lhs_type_env args_scope rhs_scope static_fn_map (lhs, rhs)
           let* typed_args =
             type_check_args f params_types args args_scope static_fn_map
           in
-          let* typed_rhs = type_check_expr ret_type rhs_scope static_fn_map rhs in
+          let* typed_rhs =
+            type_check_expr ret_type rhs_scope static_fn_map rhs
+          in
           Ok (T.LApp (f, typed_args), typed_rhs))
 
 (* Type-checks a postcondition: its effects and its boolean constraints. *)
-let type_check_postcond lhs_type_env args_scope rhs_scope constr_scope static_fn_map
-    (effects, constraints) =
+let type_check_postcond lhs_type_env args_scope rhs_scope constr_scope
+    static_fn_map (effects, constraints) =
   let* effects' =
     sequence_results
       (List.map
@@ -96,7 +99,8 @@ let type_check_service globals_env qos_env static_fn_map (s : service) =
   in
   let typed =
     let* typed_precond =
-      sequence_results (List.map (type_check_bool base_scope static_fn_map) s.precond)
+      sequence_results
+        (List.map (type_check_bool base_scope static_fn_map) s.precond)
     in
     let* typed_qos_postcond =
       type_check_postcond
@@ -136,7 +140,9 @@ let type_check_contract (c : contract) =
   let static_fn_map = build_static_fn_map c.functions in
   let* typed_services =
     sequence_results
-      (List.map (type_check_service globals_env qos_env static_fn_map) c.services)
+      (List.map
+         (type_check_service globals_env qos_env static_fn_map)
+         c.services)
   in
   let* typed_policies =
     sequence_results (List.map type_check_policy c.policies)

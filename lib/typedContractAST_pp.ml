@@ -33,7 +33,8 @@ let pp_policy fmt (p, group_by) =
 
 let pp_effct_lhs fmt = function
   | TypedContractAST.LVar x -> fprintf fmt "%s" x
-  | TypedContractAST.LApp (f, args) -> fprintf fmt "%s(%a)" f pp_typed_expr_list args
+  | TypedContractAST.LApp (f, args) ->
+      fprintf fmt "%s(%a)" f pp_typed_expr_list args
 
 let pp_effct fmt (lhs, e) =
   fprintf fmt "%a := %a" pp_effct_lhs lhs pp_typed_expr e

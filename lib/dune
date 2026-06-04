@@ -43,6 +43,21 @@
  (libraries expr typedExpr contract utils))
 
 (library
+ (name orchestrator)
+ (modules
+  orchestrator
+  orchestratorAST
+  orchestratorAST_pp
+  orchestratorLexer
+  orchestratorParser
+  orchestratorInterpreter)
+ (modules_without_implementation orchestratorAST)
+ (libraries expr contract symbolic symbolicMonad policyChecker utils)
+ (preprocess
+  (pps soteria.ppx))
+ (flags :standard -open Soteria.Logs.Import))
+
+(library
  (name typedOrchestrator)
  (modules typedOrchestrator typedOrchestratorAST typedOrchestratorAST_pp)
  (modules_without_implementation typedOrchestratorAST)
@@ -57,7 +72,12 @@
 (library
  (name typeCheckExpr)
  (modules typeCheckExpr)
- (libraries utils expr typedExpr contract))
+ (libraries fmt utils expr typedExpr contract))
+
+(library
+ (name typeCheckContract)
+ (modules typeCheckContract)
+ (libraries fmt utils expr typedExpr contract typedContract typeCheckExpr))
 
 (library
  (name symbolic)
@@ -84,11 +104,5 @@
   (pps soteria.ppx)))
 
 (library
- (name typeCheckExpr)
- (modules typeCheckExpr)
- (libraries fmt utils expr typedExpr contract))
-
-(library
- (name typeCheckContract)
- (modules typeCheckContract)
- (libraries fmt utils expr typedExpr contract typedContract typeCheckExpr))
+ (name utils)
+ (modules utils parserUtils dataUtils))
