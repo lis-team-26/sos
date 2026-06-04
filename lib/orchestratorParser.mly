@@ -1,6 +1,5 @@
 %{
   open OrchestratorAST
-  open Utils.Data
 %}
 
 %token ANONDET BNONDET

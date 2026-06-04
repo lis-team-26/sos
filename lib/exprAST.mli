@@ -1,6 +1,7 @@
 type ident = string
 type bin_op = Add | Sub | Mul | Div | And | Or | Eq | Neq | Lt | Le | Gt | Ge
 type un_op = Not
+type var_type = TInt | TBool
 
 type expr =
   | EInt of int

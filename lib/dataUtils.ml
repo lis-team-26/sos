@@ -4,12 +4,6 @@ module StringMap = Map.Make (String)
 
 type ident = string
 
-type var_type = TInt | TBool
-
-let rec pp_var_type fmt = function
-  | TInt -> fprintf fmt "int"
-  | TBool -> fprintf fmt "bool"
-
 
 type 'a env = 'a StringMap.t
 (** A mapping from variable names to their values *)

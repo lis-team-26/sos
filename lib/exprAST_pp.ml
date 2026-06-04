@@ -33,3 +33,8 @@ and pp_expr_list fmt = function
   | [] -> ()
   | [ e ] -> pp_expr fmt e
   | e :: es -> fprintf fmt "%a, %a" pp_expr e pp_expr_list es
+
+
+let rec pp_var_type fmt = function
+  | TInt -> fprintf fmt "int"
+  | TBool -> fprintf fmt "bool"

@@ -1,5 +1,5 @@
 open TypedExpr.AST
-open Utils.Data
+open Expr.AST
 
 type typed_var = ident * var_type
 type aggr_op = Sum | Avg | Min | Max

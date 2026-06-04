@@ -1,8 +1,7 @@
 open Format
 open TypedContractAST
-open Expr.AST_pp
 open TypedExpr.AST_pp
-open Utils.Data
+open Expr.AST_pp
 
 let rec pp_list pp fmt = function
   | [] -> fprintf fmt "<empty>"
