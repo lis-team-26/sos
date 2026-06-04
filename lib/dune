@@ -40,7 +40,13 @@
  (name typedOrchestrator)
  (modules typedOrchestrator typedOrchestratorAST typedOrchestratorAST_pp)
  (modules_without_implementation typedOrchestratorAST)
- (libraries typedExpr typedContract symbolic symbolicMonad policyChecker utils))
+ (libraries
+  typedExpr
+  typedContract
+  symbolic
+  symbolicMonad
+  policyChecker
+  utils))
 
 (library
  (name utils)
@@ -90,3 +96,8 @@
  (libraries contract symbolic reg2dfa)
  (preprocess
   (pps soteria.ppx)))
+
+(library
+ (name typeCheckExpr)
+ (modules typeCheckExpr)
+ (libraries utils expr typedExpr))
