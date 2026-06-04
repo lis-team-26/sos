@@ -25,7 +25,7 @@ let rec pp_aexpr fmt = function
   | ANonDet -> fprintf fmt "int?"
   | AOp (e1, op, e2) ->
       fprintf fmt "(%a %a %a)" pp_aexpr e1 pp_aop op pp_aexpr e2
-  | AApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
+  | AApp (f, args) -> fprintf fmt "%s(%a)" f pp_typed_expr_list args
 
 and pp_bexpr fmt = function
   | BLit b -> fprintf fmt "%b" b
@@ -36,13 +36,13 @@ and pp_bexpr fmt = function
   | BBoolOp (e1, op, e2) ->
       fprintf fmt "(%a %a %a)" pp_bexpr e1 pp_bop op pp_bexpr e2
   | BNot e -> fprintf fmt "(!%a)" pp_bexpr e
-  | BApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
+  | BApp (f, args) -> fprintf fmt "%s(%a)" f pp_typed_expr_list args
 
-and pp_expr fmt = function
+and pp_typed_expr fmt = function
   | AExpr e -> pp_aexpr fmt e
   | BExpr e -> pp_bexpr fmt e
 
-and pp_expr_list fmt = function
+and pp_typed_expr_list fmt = function
   | [] -> ()
-  | [ e ] -> pp_expr fmt e
-  | e :: es -> fprintf fmt "%a, %a" pp_expr e pp_expr_list es
+  | [ e ] -> pp_typed_expr fmt e
+  | e :: es -> fprintf fmt "%a, %a" pp_typed_expr e pp_typed_expr_list es

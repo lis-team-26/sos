@@ -19,9 +19,9 @@ let rec pp_stmt fmt = function
   | While (e, body) ->
       fprintf fmt "while %a do " pp_bexpr e;
       pp_block fmt body
-  | Invoke (f, args) -> fprintf fmt "invoke %s(%a);" f pp_expr_list args
+  | Invoke (f, args) -> fprintf fmt "invoke %s(%a);" f pp_typed_expr_list args
   | AssignInvoke (x, f, args) ->
-      fprintf fmt "%s := invoke %s(%a);" x f pp_expr_list args
+      fprintf fmt "%s := invoke %s(%a);" x f pp_typed_expr_list args
 
 and pp_block fmt stmt = fprintf fmt "{@,@[<v 2>  %a@]@,}" pp_stmt stmt
 

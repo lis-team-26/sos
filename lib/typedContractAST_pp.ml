@@ -2,6 +2,7 @@ open Format
 open TypedContractAST
 open TypedExpr.AST_pp
 open Expr.AST_pp
+open Contract.AST_pp
 
 let rec pp_list pp fmt = function
   | [] -> fprintf fmt "<empty>"
@@ -12,12 +13,6 @@ and pp_var_type_list fmt = function
   | [] -> ()
   | [ t ] -> pp_var_type fmt t
   | t :: ts -> fprintf fmt "%a -> %a" pp_var_type t pp_var_type_list ts
-
-let pp_aggr_op fmt = function
-  | TypedContractAST.Sum -> fprintf fmt "sum"
-  | TypedContractAST.Avg -> fprintf fmt "avg"
-  | TypedContractAST.Min -> fprintf fmt "min"
-  | TypedContractAST.Max -> fprintf fmt "max"
 
 let pp_typed_var fmt (x, t) = fprintf fmt "%s: %a" x pp_var_type t
 
@@ -38,11 +33,10 @@ let pp_policy fmt (p, group_by) =
 
 let pp_effct_lhs fmt = function
   | TypedContractAST.LVar x -> fprintf fmt "%s" x
-  | TypedContractAST.LApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
+  | TypedContractAST.LApp (f, args) -> fprintf fmt "%s(%a)" f pp_typed_expr_list args
 
 let pp_effct fmt (lhs, e) =
-  fprintf fmt "%a := %a" pp_effct_lhs lhs pp_expr e
-
+  fprintf fmt "%a := %a" pp_effct_lhs lhs pp_typed_expr e
 
 let pp_postcond fmt (es, cs) =
   fprintf fmt "effects:@,@[<v 2>  %a@]@,constraints:@,@[<v 2>  %a@]"

@@ -9,7 +9,7 @@ type aexpr =
   | AVar of ident
   | ANonDet
   | AOp of aexpr * arithm_op * aexpr
-  | AApp of ident * expr list
+  | AApp of ident * typed_expr list
 
 and bexpr =
   | BLit of bool
@@ -18,6 +18,6 @@ and bexpr =
   | BCmpOp of aexpr * cmp_op * aexpr
   | BBoolOp of bexpr * bool_op * bexpr
   | BNot of bexpr
-  | BApp of ident * expr list
+  | BApp of ident * typed_expr list
 
-and expr = AExpr of aexpr | BExpr of bexpr
+and typed_expr = AExpr of aexpr | BExpr of bexpr

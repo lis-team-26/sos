@@ -2,19 +2,6 @@ open Expr.AST
 open TypedExpr.AST
 open Contract.AST
 open Utils.Data
-open Format
-
-type static_scope = var_type scope_stack
-
-(* Sequences a list of results into a result of a list, short-circuiting on the
-   first error. *)
-let rec sequence_results = function
-  | [] -> Ok []
-  | Error err :: _ -> Error err
-  | Ok x :: rest -> (
-      match sequence_results rest with
-      | Ok xs -> Ok (x :: xs)
-      | Error err -> Error err)
 
 let rec type_check_arithm scope static_fn_map = function
   | EInt n -> Ok (ALit n)
@@ -22,8 +9,8 @@ let rec type_check_arithm scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TInt -> Ok (AVar v)
-      | Some TBool -> Error (sprintf "Variable %s expected numerical but found boolean" v)
-      | None -> Error (sprintf "Numerical variable %s not found" v))
+      | Some TBool -> Error (Fmt.str "Variable %s expected numerical but found boolean" v)
+      | None -> Error (Fmt.str "Numerical variable %s not found" v))
   | EIntNonDet -> Ok ANonDet
   | EBoolNonDet -> Error "Expected numerical expression but found boolean nondet"
   | EBinOp (e1, op, e2) -> (
@@ -44,8 +31,8 @@ let rec type_check_arithm scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (AApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TBool)) -> Error (sprintf "Function %s returns boolean but numerical expected" f)
-      | None -> Error (sprintf "Function %s not found" f))
+      | Some (TFun (_, TBool)) -> Error (Fmt.str "Function %s returns boolean but numerical expected" f)
+      | None -> Error (Fmt.str "Function %s not found" f))
 
 and type_check_bool scope static_fn_map = function
   | EBool b -> Ok (BLit b)
@@ -53,8 +40,8 @@ and type_check_bool scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TBool -> Ok (BVar v)
-      | Some TInt -> Error (sprintf "Variable %s expected boolean but found numerical" v)
-      | None -> Error (sprintf "Boolean variable %s not found" v))
+      | Some TInt -> Error (Fmt.str "Variable %s expected boolean but found numerical" v)
+      | None -> Error (Fmt.str "Boolean variable %s not found" v))
   | EBoolNonDet -> Ok BNonDet
   | EIntNonDet -> Error "Expected boolean expression but found numerical nondet"
   | EUnOp (Not, e) -> (
@@ -92,10 +79,10 @@ and type_check_bool scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (BApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TInt)) -> Error (sprintf "Function %s returns numerical but boolean expected" f)
-      | None -> Error (sprintf "Function %s not found" f))
+      | Some (TFun (_, TInt)) -> Error (Fmt.str "Function %s returns numerical but boolean expected" f)
+      | None -> Error (Fmt.str "Function %s not found" f))
 
-and type_check_expr_as t scope static_fn_map e =
+and type_check_expr t scope static_fn_map e =
   match t with
   | TInt -> (
       match type_check_arithm scope static_fn_map e with
@@ -109,15 +96,15 @@ and type_check_expr_as t scope static_fn_map e =
 and type_check_args f params_types args scope static_fn_map =
   if List.length params_types <> List.length args then
     Error
-      (sprintf "Function %s expected %d arguments but found %d" f
+      (Fmt.str "Function %s expected %d arguments but found %d" f
          (List.length params_types) (List.length args))
   else
     sequence_results
       (List.map2
-         (fun t e -> type_check_expr_as t scope static_fn_map e)
+         (fun t e -> type_check_expr t scope static_fn_map e)
          params_types args)
 
-let type_check scope static_fn_map e =
+(*let type_check scope static_fn_map e =
   match e with
   | EInt _ | EIntNonDet -> (
       match type_check_arithm scope static_fn_map e with
@@ -131,7 +118,7 @@ let type_check scope static_fn_map e =
       match lookup v scope with
       | Some TInt -> Ok (AExpr (AVar v))
       | Some TBool -> Ok (BExpr (BVar v))
-      | None -> Error (sprintf "Variable %s not found" v))
+      | None -> Error (Fmt.str "Variable %s not found" v))
   | EBinOp (_, op, _) -> (
       match op with
       | Add | Sub | Mul | Div -> (
@@ -152,4 +139,5 @@ let type_check scope static_fn_map e =
           match type_check_bool scope static_fn_map e with
           | Ok b -> Ok (BExpr b)
           | Error err -> Error err)
-      | None -> Error (sprintf "Function %s not found" f))
+      | None -> Error (Fmt.str "Function %s not found" f))
+*)

@@ -34,7 +34,7 @@
  (name typedContract)
  (modules typedContract typedContractAST typedContractAST_pp)
  (modules_without_implementation typedContractAST)
- (libraries expr typedExpr utils))
+ (libraries expr typedExpr contract utils))
 
 (library
  (name typedOrchestrator)
@@ -100,4 +100,9 @@
 (library
  (name typeCheckExpr)
  (modules typeCheckExpr)
- (libraries utils expr typedExpr contract))
+ (libraries fmt utils expr typedExpr contract))
+
+(library
+ (name typeCheckContract)
+ (modules typeCheckContract)
+ (libraries fmt utils expr typedExpr contract typedContract typeCheckExpr))

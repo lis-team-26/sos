@@ -1,9 +1,7 @@
-open Format
 module StringSet = Set.Make (String)
 module StringMap = Map.Make (String)
 
 type ident = string
-
 
 type 'a env = 'a StringMap.t
 (** A mapping from variable names to their values *)
@@ -46,3 +44,13 @@ let push_scope s = StringMap.empty :: s
 (** Removes the innermost scope from the scope stack. Returns None if the scope
     stack is empty. *)
 let pop_scope s = match s with [] -> None | _ :: rest -> Some rest
+
+(* Sequences a list of results into a result of a list, short-circuiting on the
+   first error. *)
+let rec sequence_results = function
+  | [] -> Ok []
+  | Error err :: _ -> Error err
+  | Ok x :: rest -> (
+      match sequence_results rest with
+      | Ok xs -> Ok (x :: xs)
+      | Error err -> Error err)
