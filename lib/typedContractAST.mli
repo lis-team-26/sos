@@ -11,11 +11,8 @@ type policy_type =
   | Sort of ident
 
 type policy = policy_type * string option
-
 type effct_lhs = LVar of ident | LApp of ident * expr list
-
 type effct = effct_lhs * expr
-
 type postcond = effct list * bexpr list
 
 type service = {

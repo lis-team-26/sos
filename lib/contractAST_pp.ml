@@ -3,7 +3,6 @@ open ContractAST
 open Expr.AST_pp
 open Utils.Data
 
-
 let rec pp_list pp fmt = function
   | [] -> fprintf fmt "<empty>"
   | [ x ] -> pp fmt x

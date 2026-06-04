@@ -3,7 +3,7 @@ module StringSet = Set.Make (String)
 module StringMap = Map.Make (String)
 
 type ident = string
-
+(** An identifier, which is just a string *)
 
 type 'a env = 'a StringMap.t
 (** A mapping from variable names to their values *)

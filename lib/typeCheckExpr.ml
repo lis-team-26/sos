@@ -22,12 +22,17 @@ let rec type_check_arithm scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TInt -> Ok (AVar v)
-      | Some TBool -> Error (sprintf "Variable %s expected numerical but found boolean" v)
+      | Some TBool ->
+          Error (sprintf "Variable %s expected numerical but found boolean" v)
       | None -> Error (sprintf "Numerical variable %s not found" v))
   | EIntNonDet -> Ok ANonDet
-  | EBoolNonDet -> Error "Expected numerical expression but found boolean nondet"
+  | EBoolNonDet ->
+      Error "Expected numerical expression but found boolean nondet"
   | EBinOp (e1, op, e2) -> (
-      match (type_check_arithm scope static_fn_map e1, type_check_arithm scope static_fn_map e2) with
+      match
+        ( type_check_arithm scope static_fn_map e1,
+          type_check_arithm scope static_fn_map e2 )
+      with
       | Ok v1, Ok v2 -> (
           match op with
           | Add -> Ok (AOp (v1, TAdd, v2))
@@ -44,7 +49,8 @@ let rec type_check_arithm scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (AApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TBool)) -> Error (sprintf "Function %s returns boolean but numerical expected" f)
+      | Some (TFun (_, TBool)) ->
+          Error (sprintf "Function %s returns boolean but numerical expected" f)
       | None -> Error (sprintf "Function %s not found" f))
 
 and type_check_bool scope static_fn_map = function
@@ -53,7 +59,8 @@ and type_check_bool scope static_fn_map = function
   | EVar v -> (
       match lookup v scope with
       | Some TBool -> Ok (BVar v)
-      | Some TInt -> Error (sprintf "Variable %s expected boolean but found numerical" v)
+      | Some TInt ->
+          Error (sprintf "Variable %s expected boolean but found numerical" v)
       | None -> Error (sprintf "Boolean variable %s not found" v))
   | EBoolNonDet -> Ok BNonDet
   | EIntNonDet -> Error "Expected boolean expression but found numerical nondet"
@@ -64,7 +71,10 @@ and type_check_bool scope static_fn_map = function
   | EBinOp (e1, op, e2) -> (
       match op with
       | And | Or -> (
-          match (type_check_bool scope static_fn_map e1, type_check_bool scope static_fn_map e2) with
+          match
+            ( type_check_bool scope static_fn_map e1,
+              type_check_bool scope static_fn_map e2 )
+          with
           | Ok v1, Ok v2 -> (
               match op with
               | And -> Ok (BBoolOp (v1, TAnd, v2))
@@ -73,7 +83,10 @@ and type_check_bool scope static_fn_map = function
           | Error err, _ -> Error err
           | _, Error err -> Error err)
       | Eq | Neq | Lt | Le | Gt | Ge -> (
-          match (type_check_arithm scope static_fn_map e1, type_check_arithm scope static_fn_map e2) with
+          match
+            ( type_check_arithm scope static_fn_map e1,
+              type_check_arithm scope static_fn_map e2 )
+          with
           | Ok v1, Ok v2 -> (
               match op with
               | Eq -> Ok (BCmpOp (v1, TEq, v2))
@@ -92,7 +105,8 @@ and type_check_bool scope static_fn_map = function
           match type_check_args f params_types args scope static_fn_map with
           | Ok args' -> Ok (BApp (f, args'))
           | Error err -> Error err)
-      | Some (TFun (_, TInt)) -> Error (sprintf "Function %s returns numerical but boolean expected" f)
+      | Some (TFun (_, TInt)) ->
+          Error (sprintf "Function %s returns numerical but boolean expected" f)
       | None -> Error (sprintf "Function %s not found" f))
 
 and type_check_expr_as t scope static_fn_map e =

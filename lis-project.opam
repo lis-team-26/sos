@@ -10,7 +10,7 @@ bug-reports: "https://github.com/lis-team-26/lis-project/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.22"}
-  "menhir" {>= "20180523"}
+  "menhir"
   "ppx_blob"
   "ppx_subliner"
   "soteria"

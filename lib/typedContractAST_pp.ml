@@ -40,9 +40,7 @@ let pp_effct_lhs fmt = function
   | TypedContractAST.LVar x -> fprintf fmt "%s" x
   | TypedContractAST.LApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
 
-let pp_effct fmt (lhs, e) =
-  fprintf fmt "%a := %a" pp_effct_lhs lhs pp_expr e
-
+let pp_effct fmt (lhs, e) = fprintf fmt "%a := %a" pp_effct_lhs lhs pp_expr e
 
 let pp_postcond fmt (es, cs) =
   fprintf fmt "effects:@,@[<v 2>  %a@]@,constraints:@,@[<v 2>  %a@]"
