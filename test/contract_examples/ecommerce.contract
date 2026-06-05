@@ -65,6 +65,7 @@
             },
             err-postcond: {
                 effects: [
+                    attempts(user_id) := attempts(user_id) + 1,
                     token := err
                 ],
                 constraints: [ ]
