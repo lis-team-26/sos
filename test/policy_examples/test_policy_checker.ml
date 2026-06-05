@@ -174,6 +174,53 @@ let () =
        let** c = drive policy calls smap in
        PC.verify_policy c)
 
+(* ------------------------------------------------------------------ *)
+(* Bad prefix tests *)
+(* ------------------------------------------------------------------ *)
+let () =
+  let serv2letter = ["Forbidden",'f';"Other",'o'] in
+  let smap = make_smap [ make_service "Other"; make_service "Ignore"
+                       ; make_service "Forbidden"] in
+  let reg = ".*f" in
+  test "never call forbidden: valid seq → ok"
+    ~expect_ok:1 ~expect_err:0
+    (fun ()-> 
+      let** policy = Symex.Result.ok (PC.init_policy (Contract.AST.Regex(serv2letter,reg), None)) in
+      let calls = [ make_call "Other" []; make_call "Ignore" [] ] in
+      let** c = drive policy calls smap in
+      PC.verify_policy c);
+  test "never call forbidden:  invalid seq → error"
+   ~expect_ok:0 ~expect_err:1
+    (fun ()-> 
+       let** policy = Symex.Result.ok (PC.init_policy (Contract.AST.Regex(serv2letter,reg), None)) in
+       let calls = [ make_call "Other" []; make_call "Ignore" []
+                   ; make_call "Forbidden" []; make_call "Other" [] ] in
+      let** c = drive policy calls smap in
+      PC.verify_policy c)
+
+let () =
+  let serv2letter = ["Other",'o';"Read",'r';"Update",'u'] in
+  let reg = ".*ru" in
+  let smap = make_smap [ make_service "Other"; make_service "Read"
+                       ; make_service "Update"; make_service "Ignore" ] in
+  test "no update after read: valid seq → ok"
+    ~expect_ok:1 ~expect_err:0
+    (fun ()-> 
+       let** policy = Symex.Result.ok (PC.init_policy (Contract.AST.Regex(serv2letter,reg), None)) in
+       let calls = [ make_call "Other" [] ; make_call "Update" []
+                   ; make_call "Read" []; make_call "Ignore" []] in
+      let** c = drive policy calls smap in
+      PC.verify_policy c);
+   test "no update after read: invalid seq → error"
+    ~expect_ok:0 ~expect_err:1
+    (fun ()-> 
+       let** policy = Symex.Result.ok (PC.init_policy (Contract.AST.Regex(serv2letter,reg), None)) in
+       let calls = [ make_call "Other" [] ; make_call "Update" []
+                   ; make_call "Read" []; make_call "Ignore" []
+                   ; make_call "Update" []; make_call "Read" []] in
+      let** c = drive policy calls smap in
+      PC.verify_policy c) 
+    
 let () =
   Printf.printf "\n%d passed, %d failed\n" !pass_count !fail_count;
   if !fail_count > 0 then exit 1
