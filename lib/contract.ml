@@ -37,6 +37,9 @@ let parse src =
     - constraints: expr (mentioning only return variable, globals, functions and parameters of the service)
 *)
 
+module StringSet = Set.Make(String)
+module StringMap = Map.Make(String)
+
 let rec validate_regex (s2letter : AST.serv2letter)
     (service_names_set : StringSet.t) =
   List.for_all (fun (s, _) -> StringSet.mem s service_names_set) s2letter
@@ -127,8 +130,8 @@ let validate_contract (contract : AST.contract) =
       failwith
         ("Service " ^ service.name
        ^ " has precondition with undefined variables: " ^ disallowed_vars_str)
-  in
-  List.iter (check_service_precond allowed_vars) contract.services;
+       
+  in List.iter (check_service_precond allowed_vars) contract.services;
 
   (*- type check qos_postcond:
     - effects: qos_field := expr (mentioning only globals, functions and parameters of the service)
