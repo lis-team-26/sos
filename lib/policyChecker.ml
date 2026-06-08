@@ -204,10 +204,11 @@ let update_policy servMap (c : call) policy =
           (fun aggregate ->
             let new_aggregate = apply_aggregator aggregate in
             if verNow then
-              let violation = cmp new_aggregate (Typed.int cmpInt) in
-              Symex.branch_on violation 
-                ~then_: (fun () -> Symex.Result.error "aggregate policy violation")
-                ~else_: (fun () -> Symex.Result.ok new_aggregate)
+              (* cmp returns true when the policy IS satisfied, so swap branches *)
+              let satisfied = cmp new_aggregate (Typed.int cmpInt) in
+              Symex.branch_on satisfied
+                ~then_: (fun () -> Symex.Result.ok new_aggregate)
+                ~else_: (fun () -> Symex.Result.error "aggregate policy violation")
             else Symex.Result.ok new_aggregate)
           c s sint
 
@@ -231,8 +232,7 @@ let update_policy servMap (c : call) policy =
             let chr_opt = StrMap.find_opt c.serv_name servMap
             in
             match chr_opt with
-            (* Ignore services not in domain *)
-            | None -> Symex.Result.ok cur
+            | None -> Symex.Result.error "regex policy: no such service"
             | Some chr ->
                let nextState = transition cur chr in
                match nextState with

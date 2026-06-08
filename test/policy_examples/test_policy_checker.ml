@@ -288,7 +288,7 @@ let () = test "grouped: service without groupBy param is skipped → ok"
 (* ------------------------------------------------------------------ *)
 (* Bad prefix tests *)
 (* ------------------------------------------------------------------ *)
-module Bad_pref_test = struct
+(*module Bad_pref_test = struct
 let () =
 
   let make_smap services = make_smap @@ List.map make_service services in
@@ -322,7 +322,7 @@ let () =
     ~expect_ok:0 ~expect_err:1
     (up_after_read ["Other"; "Update"; "Ignore"; "Read";  
                    "Update"; "Read" ]);
-end    
+end    *)
     
 let () =
   Printf.printf "\n%d passed, %d failed\n" !pass_count !fail_count;

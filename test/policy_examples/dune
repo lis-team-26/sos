@@ -1,5 +1,5 @@
-(executable
- (name test_policy_checker)
+(executables
+ (names test_policy_checker test_policy_checker_extra)
  (libraries contract policyChecker soteria)
  (preprocess
   (pps soteria.ppx)))
