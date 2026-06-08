@@ -212,16 +212,16 @@ let update_policy servMap (c : call) policy =
           c s sint
 
       in 
-      Symex.Result.ok (QosAggregate (sint, aggrOp, aggrField, cmp, cmpInt, verNow))
+      Symex.Result.ok (QosAggregate (next, aggrOp, aggrField, cmp, cmpInt, verNow))
   | QosAvg (sint_count, cmp, avgField, cmpInt) ->
     let current_val = StrMap.find avgField c.qos in
     let** result = map_state (Typed.int 0, 0)
-    ( fun value -> let new_cnt = (snd value) + 1 in 
-      let new_val = Typed.div (Typed.add (fst value) current_val) (Typed.nonzero new_cnt) in 
-      let violated = cmp new_val (Typed.int cmpInt) in
-      Symex.branch_on violated 
-              ~then_: (fun () -> Symex.Result.error "average policy violation")
-              ~else_: (fun () -> Symex.Result.ok (new_val,new_cnt))
+    ( fun value ->
+      let new_sum = Typed.add (fst value) current_val in
+      let new_cnt = (snd value) + 1 in
+      (* Do not check eagerly: avg can recover on future calls.
+         Just accumulate (sum, count) and defer the check to verify_policy. *)
+      Symex.Result.ok (new_sum, new_cnt)
       ) c s sint_count in
       Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
   | Dfa (start,curState, servMap, transition, finalStates) ->
@@ -285,11 +285,22 @@ Symex.Result.error msg otherwise. *)
 let check_each_group f = function
   | Ungrouped s -> f s
   | Grouped (_, symMap) ->
-      let* key = Symex.nondet Typed.t_int in
-      let* _, s = ValMap.find_opt key symMap in
-      (match s with
-      | None -> Symex.Result.ok ()   (* no invocations in this group *)
-      | Some state -> f state)
+      (* syntactic_bindings returns the list of (key, value) pairs that have
+         been inserted with syntactic_add — i.e. the concrete groups built
+         during update_policy. We fold over them sequentially and stop at the
+         first violation (the monadic bind propagates errors). *)
+      let bindings = List.of_seq (ValMap.syntactic_bindings symMap) in
+      (match bindings with
+      | [] ->
+          (* No invocations were ever grouped: nothing to verify *)
+          Symex.Result.ok ()
+      | _ ->
+          List.fold_left
+            (fun acc (_, state) ->
+              let** () = acc in
+              f state)
+            (Symex.Result.ok ())
+            bindings)
 
 let verify_policy = function
   | QosAggregate (sint, _, _, cmp, cmpInt, verNow) ->
@@ -297,10 +308,11 @@ let verify_policy = function
       if verNow then Symex.Result.ok ()
       else
         check_each_group (fun aggregate ->
-          let violation = cmp aggregate (Typed.int cmpInt) in
-          Symex.branch_on violation
-            ~then_:(fun () -> Symex.Result.error "aggregate policy violation")
-            ~else_:(fun () -> Symex.Result.ok ()))
+          (* cmp returns true when the policy IS satisfied, so negate for violation *)
+          let satisfied = cmp aggregate (Typed.int cmpInt) in
+          Symex.branch_on satisfied
+            ~then_:(fun () -> Symex.Result.ok ())
+            ~else_:(fun () -> Symex.Result.error "aggregate policy violation"))
           sint
   | QosAvg (sint_count, cmp, _, cmpInt) ->
       (* QosAvg is never verified eagerly (avg can recover across invocations) *)
@@ -308,10 +320,11 @@ let verify_policy = function
         if count = 0 then Symex.Result.ok ()
         else
           let avg = Typed.div sum (Typed.nonzero count) in
-          let violation = cmp avg (Typed.int cmpInt) in
-          Symex.branch_on violation
-            ~then_:(fun () -> Symex.Result.error "average policy violation")
-            ~else_:(fun () -> Symex.Result.ok ()))
+          (* cmp returns true when the policy IS satisfied, so negate for violation *)
+          let satisfied = cmp avg (Typed.int cmpInt) in
+          Symex.branch_on satisfied
+            ~then_:(fun () -> Symex.Result.ok ())
+            ~else_:(fun () -> Symex.Result.error "average policy violation"))
         sint_count
   (* Dfa, Ascending, Descending: violations are monotone.
      If no violation occurred at any step, the final state is valid. *)
