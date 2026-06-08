@@ -285,6 +285,45 @@ let () = test "grouped: service without groupBy param is skipped → ok"
 
 (* ---- summary -------------------------------------------------------- *)
 
+(* ------------------------------------------------------------------ *)
+(* Bad prefix tests *)
+(* ------------------------------------------------------------------ *)
+module Bad_pref_test = struct
+let () =
+
+  let make_smap services = make_smap @@ List.map make_service services in
+  let make_history services = List.map (fun svc -> make_call svc []) services in
+  let make_policy serv2letter reg =
+    PC.init_policy (Contract.AST.Regex (serv2letter, reg), None)
+  in
+  let make_thunk serv2letter reg services calls =
+    let smap = make_smap services in
+    let call_history = make_history calls in
+    fun () ->
+    let** policy = Symex.Result.ok (make_policy serv2letter reg) in
+    let** c = drive policy call_history smap in
+    PC.verify_policy c 
+  in
+  let fbd = make_thunk  ["Forbidden",'f';"Other",'o'] "[f-o]*f"  ["Other"; "Ignore"; "Forbidden"] in 
+  test "never call forbidden: valid seq → ok"
+    ~expect_ok:1 ~expect_err:0
+     (fbd ["Other"; "Ignore"]);
+  test "never call forbidden:  invalid seq → error"
+   ~expect_ok:0 ~expect_err:1
+   (fbd ["Other"; "Ignore"; "Forbidden"; "Other" ; "Ignore"]);
+  let up_after_read = make_thunk ["Other",'o';"Read",'r';"Update",'u'] ".*ru" 
+                       [ "Other"; "Read"
+                       ; "Update"; "Ignore" ] 
+  in
+  test "no update after read: valid seq → ok"
+    ~expect_ok:1 ~expect_err:0
+    (up_after_read  [ "Other"; "Update"; "Read"; "Ignore"]);
+  test "no update after read: invalid seq → error"
+    ~expect_ok:0 ~expect_err:1
+    (up_after_read ["Other"; "Update"; "Ignore"; "Read";  
+                   "Update"; "Read" ]);
+end    
+    
 let () =
   Printf.printf "\n%d passed, %d failed\n" !pass_count !fail_count;
   if !fail_count > 0 then exit 1
