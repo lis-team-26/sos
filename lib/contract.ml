@@ -30,7 +30,7 @@ let parse src =
   (v) qos_postcond:
     - effects: qos_field := expr (mentioning only globals, functions and parameters of the service)
     - constraints: expr (mentioning only qos fields, globals, functions and parameters of the service)
-  - ok_postcond and err_postcond:
+  (v) ok_postcond and err_postcond:
     - effects:
       - var (global or return variable) := expr (mentioning only globals, functions and parameters of the service)
       - function application ???
