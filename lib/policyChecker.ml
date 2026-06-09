@@ -232,7 +232,9 @@ let update_policy servMap (c : call) policy =
             let chr_opt = StrMap.find_opt c.serv_name servMap
             in
             match chr_opt with
-            | None -> Symex.Result.error "regex policy: no such service"
+            | None ->
+                (* Service not in the regex domain: self-loop, state unchanged *)
+                Symex.Result.ok cur
             | Some chr ->
                let nextState = transition cur chr in
                match nextState with
