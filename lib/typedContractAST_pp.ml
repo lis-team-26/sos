@@ -1,8 +1,8 @@
 open Format
 open TypedContractAST
-open TypedExpr.AST_pp
+open ContractAST_pp
 open Expr.AST_pp
-open Contract.AST_pp
+open Expr.TypedAST_pp
 
 let rec pp_list pp fmt = function
   | [] -> fprintf fmt "<empty>"
@@ -22,19 +22,18 @@ let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt " ] %s" regex
 
 let pp_policy_type fmt = function
-  | TypedContractAST.QosFieldOp (agg_op, v, cmp_op_val, i) ->
+  | QosFieldOp (agg_op, v, cmp_op_val, i) ->
       fprintf fmt "%a(%s) %a %d" pp_aggr_op agg_op v pp_cmp_op cmp_op_val i
-  | TypedContractAST.Regex (l, r) -> pp_regex fmt (l, r)
-  | TypedContractAST.Sort id -> fprintf fmt "sorted(%s)" id
+  | Regex (l, r) -> pp_regex fmt (l, r)
+  | Sort id -> fprintf fmt "sorted(%s)" id
 
 let pp_policy fmt (p, group_by) =
   pp_policy_type fmt p;
   match group_by with None -> () | Some x -> fprintf fmt " group by %s" x
 
 let pp_effct_lhs fmt = function
-  | TypedContractAST.LVar x -> fprintf fmt "%s" x
-  | TypedContractAST.LApp (f, args) ->
-      fprintf fmt "%s(%a)" f pp_typed_expr_list args
+  | LVar x -> fprintf fmt "%s" x
+  | LApp (f, args) -> fprintf fmt "%s(%a)" f pp_typed_expr_list args
 
 let pp_effct fmt (lhs, e) =
   fprintf fmt "%a := %a" pp_effct_lhs lhs pp_typed_expr e

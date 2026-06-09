@@ -1,8 +1,8 @@
 open Utils.Data
 
-type arithm_op = TAdd | TSub | TMul | TDiv
-type cmp_op = TEq | TNeq | TLt | TLe | TGt | TGe
-type bool_op = TAnd | TOr
+type arithm_op = Add | Sub | Mul | Div
+type cmp_op = Eq | Neq | Lt | Le | Gt | Ge
+type bool_op = And | Or
 
 type aexpr =
   | ALit of int

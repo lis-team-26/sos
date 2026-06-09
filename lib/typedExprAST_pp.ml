@@ -2,20 +2,20 @@ open TypedExprAST
 open Format
 
 let pp_aop fmt = function
-  | TAdd -> fprintf fmt "+"
-  | TSub -> fprintf fmt "-"
-  | TMul -> fprintf fmt "*"
-  | TDiv -> fprintf fmt "/"
+  | Add -> fprintf fmt "+"
+  | Sub -> fprintf fmt "-"
+  | Mul -> fprintf fmt "*"
+  | Div -> fprintf fmt "/"
 
 let pp_cmp_op fmt = function
-  | TEq -> fprintf fmt "=="
-  | TNeq -> fprintf fmt "!="
-  | TLt -> fprintf fmt "<"
-  | TLe -> fprintf fmt "<="
-  | TGt -> fprintf fmt ">"
-  | TGe -> fprintf fmt ">="
+  | Eq -> fprintf fmt "=="
+  | Neq -> fprintf fmt "!="
+  | Lt -> fprintf fmt "<"
+  | Le -> fprintf fmt "<="
+  | Gt -> fprintf fmt ">"
+  | Ge -> fprintf fmt ">="
 
-let pp_bop fmt = function TAnd -> fprintf fmt "&&" | TOr -> fprintf fmt "||"
+let pp_bop fmt = function And -> fprintf fmt "&&" | Or -> fprintf fmt "||"
 
 let rec pp_aexpr fmt = function
   | ALit i -> fprintf fmt "%d" i

@@ -1,7 +1,7 @@
 open Format
 open TypedOrchestratorAST
 open Expr.AST_pp
-open TypedExpr.AST_pp
+open Expr.TypedAST_pp
 
 let rec pp_stmt fmt = function
   | Skip -> fprintf fmt "skip;"

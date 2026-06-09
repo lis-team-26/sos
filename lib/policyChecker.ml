@@ -77,21 +77,23 @@ type pChecker =
  of them can be verified now, other can only be verified at the end*)
 let verify_now aggrOp cmp =
   let ascending = function Contract.AST.Min -> false | _ -> true in
-  let less = function Expr.AST.Lt | Expr.AST.Le -> true | _ -> false in
+  let less = function
+    | Expr.TypedAST.Lt | Expr.TypedAST.Le -> true
+    | _ -> false
+  in
   ascending aggrOp == less cmp
   &&
   match (aggrOp, cmp) with
-  | Contract.AST.Avg, _ | _, Expr.AST.Eq | _, Expr.AST.Neq -> false
+  | Contract.AST.Avg, _ | _, Expr.TypedAST.Eq | _, Expr.TypedAST.Neq -> false
   | _ -> true
 
 let cmp_function = function
-  | Expr.AST.Lt -> Typed.lt
-  | Expr.AST.Le -> Typed.leq
-  | Expr.AST.Gt -> Typed.gt
-  | Expr.AST.Ge -> Typed.geq
-  | Expr.AST.Eq -> Typed.sem_eq
-  | Expr.AST.Neq -> fun l r -> Typed.not @@ Typed.sem_eq l r
-  | _ -> failwith "Unknown comparison operator"
+  | Expr.TypedAST.Lt -> Typed.lt
+  | Expr.TypedAST.Le -> Typed.leq
+  | Expr.TypedAST.Gt -> Typed.gt
+  | Expr.TypedAST.Ge -> Typed.geq
+  | Expr.TypedAST.Eq -> Typed.sem_eq
+  | Expr.TypedAST.Neq -> fun l r -> Typed.not @@ Typed.sem_eq l r
 
 let aggr_function = function
   | Contract.AST.Sum -> fun acc cv -> Typed.add acc cv
@@ -107,10 +109,10 @@ let init_policy (policyType, groupBy) =
     | Some param -> Grouped (param, ValMap.empty)
   in
   match policyType with
-  | Contract.AST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
+  | Contract.TypedAST.QosFieldOp (Contract.AST.Avg, fieldName, operator, i) ->
       QosAvg
         (initial_state (Typed.int 0, 0), cmp_function operator, fieldName, i)
-  | Contract.AST.QosFieldOp (aggregator, fieldName, operator, i) ->
+  | Contract.TypedAST.QosFieldOp (aggregator, fieldName, operator, i) ->
       (* meaning: <aggregator>(<fieldname>) <operator> i *)
       let init =
         Typed.int
@@ -127,7 +129,7 @@ let init_policy (policyType, groupBy) =
           cmp_function operator,
           i,
           verify_now aggregator operator )
-  | Contract.AST.Regex (serv2chr, reg) ->
+  | Contract.TypedAST.Regex (serv2chr, reg) ->
       let open Reg2dfa in
       let domain = CharSet.of_list @@ List.map snd serv2chr in
       let serv2chr = StringMap.of_seq @@ List.to_seq serv2chr in
@@ -146,10 +148,10 @@ let init_policy (policyType, groupBy) =
           (*mapping from service name -> char*)
           step_if_in_domain,
           Nfa.StateSet.to_list dfa.finals )
-  | Contract.AST.Sort fieldName ->
+  | Contract.TypedAST.Sort fieldName ->
       Ascending (initial_state (Typed.int 0), fieldName)
 
-let map_state initial f (c : invocation) (service : Contract.AST.service) =
+let map_state initial f (c : invocation) (service : Contract.TypedAST.service) =
   function
   | Ungrouped s ->
       let++ next = f s in

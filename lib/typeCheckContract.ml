@@ -1,9 +1,9 @@
-open Utils.Data
+open ContractAST
+module TC = TypedContractAST
 open Expr.AST
-open TypedExpr.AST
-open Contract.AST
-open TypeCheckExpr
-module T = TypedContract.AST
+module TE = Expr.TypedAST
+open Expr.TypeCheck
+open Utils.Data
 
 let ( let* ) = Result.bind
 
@@ -12,19 +12,19 @@ let build_static_env vars =
   List.fold_left (fun acc (x, t) -> StringMap.add x t acc) StringMap.empty vars
 
 (* Builds the function-signature map consulted by the expression type checker. *)
-let build_static_fn_map functions =
+let build_static_fun_map functions =
   List.fold_left
     (fun acc (f, ft) -> StringMap.add f ft acc)
     StringMap.empty functions
 
 (* Comparison binary operators are the only ones allowed in a QoS policy. *)
 let cmp_op_of_bin_op = function
-  | Eq -> Ok TEq
-  | Neq -> Ok TNeq
-  | Lt -> Ok TLt
-  | Le -> Ok TLe
-  | Gt -> Ok TGt
-  | Ge -> Ok TGe
+  | Eq -> Ok TE.Eq
+  | Neq -> Ok TE.Neq
+  | Lt -> Ok TE.Lt
+  | Le -> Ok TE.Le
+  | Gt -> Ok TE.Gt
+  | Ge -> Ok TE.Ge
   | Add | Sub | Mul | Div | And | Or ->
       Error "QoS policy must use a comparison operator"
 
@@ -32,9 +32,9 @@ let type_check_policy (policy_type, group_by) =
   match policy_type with
   | QosFieldOp (aggr, field, op, n) ->
       let* cmp = cmp_op_of_bin_op op in
-      Ok (T.QosFieldOp (aggr, field, cmp, n), group_by)
-  | Regex (s2letter, regex) -> Ok (T.Regex (s2letter, regex), group_by)
-  | Sort field -> Ok (T.Sort field, group_by)
+      Ok (TC.QosFieldOp (aggr, field, cmp, n), group_by)
+  | Regex (s2letter, regex) -> Ok (TC.Regex (s2letter, regex), group_by)
+  | Sort field -> Ok (TC.Sort field, group_by)
 
 (* Type-checks a single effect [lhs := rhs].
    - [lhs_type] resolves the declared type of an assigned variable (LVar);
@@ -44,43 +44,43 @@ let type_check_policy (policy_type, group_by) =
    The typed contract AST keeps effect expressions untyped (see [effct] in
    [TypedContractAST]), so the original expressions are returned unchanged once
    they have been validated. *)
-let type_check_effect lhs_type_env args_scope rhs_scope static_fn_map (lhs, rhs)
+let type_check_effect lhs_type_env args_scope rhs_scope static_fun_map (lhs, rhs)
     =
   match lhs with
   | LVar v -> (
       match lhs_type_env v with
       | None -> Error (Fmt.str "Effect assigns to unknown variable %s" v)
       | Some t ->
-          let* typed_rhs = type_check_expr t rhs_scope static_fn_map rhs in
-          Ok (T.LVar v, typed_rhs))
+          let* typed_rhs = type_check_expr t rhs_scope static_fun_map rhs in
+          Ok (TC.LVar v, typed_rhs))
   | LApp (f, args) -> (
-      match StringMap.find_opt f static_fn_map with
+      match StringMap.find_opt f static_fun_map with
       | None -> Error (Fmt.str "Effect applies unknown function %s" f)
       | Some (TFun (params_types, ret_type)) ->
           let* typed_args =
-            type_check_args f params_types args args_scope static_fn_map
+            type_check_args f params_types args args_scope static_fun_map
           in
           let* typed_rhs =
-            type_check_expr ret_type rhs_scope static_fn_map rhs
+            type_check_expr ret_type rhs_scope static_fun_map rhs
           in
-          Ok (T.LApp (f, typed_args), typed_rhs))
+          Ok (TC.LApp (f, typed_args), typed_rhs))
 
 (* Type-checks a postcondition: its effects and its boolean constraints. *)
 let type_check_postcond lhs_type_env args_scope rhs_scope constr_scope
-    static_fn_map (effects, constraints) =
+    static_fun_map (effects, constraints) =
   let* effects' =
     sequence_results
       (List.map
-         (type_check_effect lhs_type_env args_scope rhs_scope static_fn_map)
+         (type_check_effect lhs_type_env args_scope rhs_scope static_fun_map)
          effects)
   in
   let* constraints' =
     sequence_results
-      (List.map (type_check_bool constr_scope static_fn_map) constraints)
+      (List.map (type_check_bool constr_scope static_fun_map) constraints)
   in
   Ok (effects', constraints')
 
-let type_check_service globals_env qos_env static_fn_map (s : service) =
+let type_check_service globals_env qos_env static_fun_map (s : service) =
   let params_env = build_static_env s.params in
   let return_name, return_type = s.returns in
   let return_env = StringMap.singleton return_name return_type in
@@ -100,16 +100,16 @@ let type_check_service globals_env qos_env static_fn_map (s : service) =
   let typed =
     let* typed_precond =
       sequence_results
-        (List.map (type_check_bool base_scope static_fn_map) s.precond)
+        (List.map (type_check_bool base_scope static_fun_map) s.precond)
     in
     let* typed_qos_postcond =
       type_check_postcond
         (fun x -> StringMap.find_opt x qos_env)
-        qos_scope qos_scope qos_scope static_fn_map s.qos_postcond
+        qos_scope qos_scope qos_scope static_fun_map s.qos_postcond
     in
     let* typed_ok_postcond =
       type_check_postcond global_or_return_env base_scope base_scope
-        return_scope static_fn_map s.ok_postcond
+        return_scope static_fun_map s.ok_postcond
     in
     let* typed_err_postcond =
       match s.err_postcond with
@@ -117,40 +117,42 @@ let type_check_service globals_env qos_env static_fn_map (s : service) =
       | Some pc ->
           let* typed_pc =
             type_check_postcond global_or_return_env base_scope base_scope
-              return_scope static_fn_map pc
+              return_scope static_fun_map pc
           in
           Ok (Some typed_pc)
     in
     Ok
-      {
-        T.name = s.name;
-        params = List.map fst s.params;
-        returns = s.returns;
-        precond = typed_precond;
-        qos_postcond = typed_qos_postcond;
-        ok_postcond = typed_ok_postcond;
-        err_postcond = typed_err_postcond;
-      }
+      TC.
+        {
+          name = s.name;
+          params = List.map fst s.params;
+          returns = s.returns;
+          precond = typed_precond;
+          qos_postcond = typed_qos_postcond;
+          ok_postcond = typed_ok_postcond;
+          err_postcond = typed_err_postcond;
+        }
   in
   Result.map_error (fun msg -> Fmt.str "Service %s: %s" s.name msg) typed
 
 let type_check_contract (c : contract) =
   let globals_env = build_static_env c.globals in
   let qos_env = build_static_env c.qos in
-  let static_fn_map = build_static_fn_map c.functions in
+  let static_fun_map = build_static_fun_map c.functions in
   let* typed_services =
     sequence_results
       (List.map
-         (type_check_service globals_env qos_env static_fn_map)
+         (type_check_service globals_env qos_env static_fun_map)
          c.services)
   in
   let* typed_policies =
     sequence_results (List.map type_check_policy c.policies)
   in
   Ok
-    T.
+    TC.
       {
         globals = c.globals;
+        functions = List.map fst c.functions;
         policies = typed_policies;
         qos = c.qos;
         services = typed_services;

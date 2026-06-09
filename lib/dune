@@ -20,27 +20,23 @@
 
 (library
  (name expr)
- (modules expr exprAST exprAST_pp)
- (modules_without_implementation exprAST)
- (libraries utils))
-
-(library
- (name typedExpr)
- (modules typedExpr typedExprAST typedExprAST_pp)
- (modules_without_implementation typedExprAST)
- (libraries utils))
+ (modules expr exprAST exprAST_pp typedExprAST typedExprAST_pp typeCheckExpr)
+ (modules_without_implementation exprAST typedExprAST)
+ (libraries fmt utils))
 
 (library
  (name contract)
- (modules contract contractAST contractAST_pp contractLexer contractParser)
- (modules_without_implementation contractAST)
+ (modules
+  contract
+  contractAST
+  contractAST_pp
+  contractLexer
+  contractParser
+  typedContractAST
+  typedContractAST_pp
+  typeCheckContract)
+ (modules_without_implementation contractAST typedContractAST)
  (libraries expr utils))
-
-(library
- (name typedContract)
- (modules typedContract typedContractAST typedContractAST_pp)
- (modules_without_implementation typedContractAST)
- (libraries expr typedExpr contract utils))
 
 (library
  (name orchestrator)
@@ -50,47 +46,15 @@
   orchestratorAST_pp
   orchestratorLexer
   orchestratorParser
-  orchestratorInterpreter)
- (modules_without_implementation orchestratorAST)
+  orchestratorInterpreter
+  typedOrchestratorAST
+  typedOrchestratorAST_pp
+  typeCheckOrchestrator)
+ (modules_without_implementation orchestratorAST typedOrchestratorAST)
  (libraries expr contract symbolic symbolicMonad policyChecker utils)
  (preprocess
   (pps soteria.ppx))
  (flags :standard -open Soteria.Logs.Import))
-
-(library
- (name typedOrchestrator)
- (modules typedOrchestrator typedOrchestratorAST typedOrchestratorAST_pp)
- (modules_without_implementation typedOrchestratorAST)
- (libraries
-  typedExpr
-  typedContract
-  symbolic
-  symbolicMonad
-  policyChecker
-  utils))
-
-(library
- (name typeCheckExpr)
- (modules typeCheckExpr)
- (libraries fmt utils expr typedExpr contract))
-
-(library
- (name typeCheckContract)
- (modules typeCheckContract)
- (libraries fmt utils expr typedExpr contract typedContract typeCheckExpr))
-
-(library
- (name typeCheckOrchestrator)
- (modules typeCheckOrchestrator)
- (libraries
-  fmt
-  utils
-  expr
-  typedExpr
-  contract
-  orchestrator
-  typedOrchestrator
-  typeCheckExpr))
 
 (library
  (name symbolic)
@@ -107,7 +71,7 @@
  (modules symbolicMonad symbolicMonadState symbolicMonadUtils)
  (preprocess
   (pps soteria.ppx))
- (libraries symbolic))
+ (libraries symbolic utils))
 
 (library
  (name policyChecker)

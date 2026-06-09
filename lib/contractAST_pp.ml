@@ -2,6 +2,7 @@ open Format
 open ContractAST
 open Expr.AST_pp
 open Utils.Data
+open Utils.Types
 
 let rec pp_list pp fmt = function
   | [] -> fprintf fmt "<empty>"
@@ -9,8 +10,7 @@ let rec pp_list pp fmt = function
   | x :: xs -> fprintf fmt "%a@,%a" pp x (pp_list pp) xs
 
 let rec pp_fun_type fmt = function
-  | ContractAST.TFun (ts, t) ->
-      fprintf fmt "%a -> %a" pp_var_type_list ts pp_var_type t
+  | TFun (ts, t) -> fprintf fmt "%a -> %a" pp_var_type_list ts pp_var_type t
 
 and pp_var_type_list fmt = function
   | [] -> ()
@@ -18,10 +18,10 @@ and pp_var_type_list fmt = function
   | t :: ts -> fprintf fmt "%a -> %a" pp_var_type t pp_var_type_list ts
 
 let pp_aggr_op fmt = function
-  | ContractAST.Sum -> fprintf fmt "sum"
-  | ContractAST.Avg -> fprintf fmt "avg"
-  | ContractAST.Min -> fprintf fmt "min"
-  | ContractAST.Max -> fprintf fmt "max"
+  | Sum -> fprintf fmt "sum"
+  | Avg -> fprintf fmt "avg"
+  | Min -> fprintf fmt "min"
+  | Max -> fprintf fmt "max"
 
 let pp_typed_var fmt (x, t) = fprintf fmt "%s: %a" x pp_var_type t
 let pp_typed_fun fmt (f, t) = fprintf fmt "%s: %a" f pp_fun_type t
@@ -32,18 +32,18 @@ let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt " ] %s" regex
 
 let pp_policy_type fmt = function
-  | ContractAST.QosFieldOp (agg_op, v, cmp_op, i) ->
+  | QosFieldOp (agg_op, v, cmp_op, i) ->
       fprintf fmt "%a(%s) %a %d" pp_aggr_op agg_op v pp_bin_op cmp_op i
-  | ContractAST.Regex (l, r) -> pp_regex fmt (l, r)
-  | ContractAST.Sort id -> fprintf fmt "sorted(%s)" id
+  | Regex (l, r) -> pp_regex fmt (l, r)
+  | Sort id -> fprintf fmt "sorted(%s)" id
 
 let pp_policy fmt (p, group_by) =
   pp_policy_type fmt p;
   match group_by with None -> () | Some x -> fprintf fmt " group by %s" x
 
 let pp_lhs fmt = function
-  | ContractAST.LVar x -> fprintf fmt "%s" x
-  | ContractAST.LApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
+  | LVar x -> fprintf fmt "%s" x
+  | LApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
 
 let pp_effct fmt (lhs, e) = fprintf fmt "%a := %a" pp_lhs lhs pp_expr e
 

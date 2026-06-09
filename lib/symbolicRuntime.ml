@@ -1,8 +1,9 @@
 open SymbolicData
 open Soteria
-open Expr.AST
-open Contract.AST
+open Expr.TypedAST
+open Contract.TypedAST
 open Utils.Data
+open Utils.Types
 module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
 module Compo_res = Soteria.Symex.Compo_res
 include Symex.Syntax
@@ -51,18 +52,17 @@ type 'a symbolic_list_env = 'a SymbolicListMap.t
 type invocation = {
   service : service;
   actual_args : symbolic_value env;
-  failed : symb_bool;
+  successful : symb_bool;
   qos : symbolic_value env;
 }
 
 type stack = invocation list
-type function_map = (fun_type * symbolic_value symbolic_list_env) env
+type function_envs = symbolic_value symbolic_list_env env
 
 type ok_state = {
-  private_env : symbolic_value env;
-  public_env : symbolic_value env;
+  env : symbolic_value scope_stack;
+  function_envs : function_envs;
   service_map : service env;
-  function_map : function_map;
   stack : stack;
 }
 

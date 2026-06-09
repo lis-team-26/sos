@@ -40,9 +40,9 @@ let rec update x v s =
           | None -> Some (env :: rest))
   in
   match (s, helper s) with
-  | _, Some updated_scope -> Some updated_scope
-  | env :: rest, None -> Some (StringMap.add x v env :: rest)
-  | [], None -> None
+  | _, Some updated_scope -> updated_scope
+  | env :: rest, None -> StringMap.add x v env :: rest
+  | _ -> failwith "Scope stack is empty"
 
 (** Introduces [x |-> v] in the innermost scope, shadowing any binding of [x] in
     an outer scope (or overwriting it in the innermost one). Starts a new
@@ -59,7 +59,7 @@ let push_scope s = StringMap.empty :: s
 
 (** Removes the innermost scope from the scope stack. Returns None if the scope
     stack is empty. *)
-let pop_scope s = match s with [] -> None | _ :: rest -> Some rest
+let pop_scope s = match s with [] -> failwith "Scope stack is empty" | _ :: rest -> rest
 
 (* Sequences a list of results into a result of a list, short-circuiting on the
    first error. *)

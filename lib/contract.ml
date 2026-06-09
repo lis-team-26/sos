@@ -3,6 +3,8 @@ open Utils.Parser
 open Utils.Data
 module AST = ContractAST
 module AST_pp = ContractAST_pp
+module TypedAST = TypedContractAST
+module TypedAST_pp = TypedContractAST_pp
 module Lexer = ContractLexer
 module Parser = ContractParser
 
@@ -20,6 +22,8 @@ let parse src =
   end) in
   Wrapper.parse src
 
+let type_check contract = TypeCheckContract.type_check_contract contract
+
 (* TODO: enforce invariants for contracts: 
 (v) no duplicate service names
 (v) regex use services that are defined in the program
@@ -36,9 +40,6 @@ let parse src =
       - function application ???
     - constraints: expr (mentioning only return variable, globals, functions and parameters of the service)
 *)
-
-module StringSet = Set.Make(String)
-module StringMap = Map.Make(String)
 
 let rec validate_regex (s2letter : AST.serv2letter)
     (service_names_set : StringSet.t) =
@@ -130,8 +131,8 @@ let validate_contract (contract : AST.contract) =
       failwith
         ("Service " ^ service.name
        ^ " has precondition with undefined variables: " ^ disallowed_vars_str)
-       
-  in List.iter (check_service_precond allowed_vars) contract.services;
+  in
+  List.iter (check_service_precond allowed_vars) contract.services;
 
   (*- type check qos_postcond:
     - effects: qos_field := expr (mentioning only globals, functions and parameters of the service)

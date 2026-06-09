@@ -1,5 +1,6 @@
 open Expr.AST
 open Utils.Data
+open Utils.Types
 
 type stmt =
   | Skip

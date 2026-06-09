@@ -1,9 +1,10 @@
-open Utils.Data
+open OrchestratorAST
+module T = TypedOrchestratorAST
 open Expr.AST
+open Expr.TypeCheck
 open Contract.AST
-open Orchestrator.AST
-open TypeCheckExpr
-module T = TypedOrchestrator.AST
+open Utils.Data
+open Utils.Types
 
 let ( let* ) = Result.bind
 
@@ -103,10 +104,10 @@ let rec type_check_stmt fn_map service_map scope = function
 (* Type-checks an orchestrator against a contract, which supplies the function
    signatures (for calls inside expressions), the service signatures (for
    invocations) and the globals that are in scope from the start. *)
-let type_check_orchestrator (c : contract) stmt =
-  let fn_map = env_of_list c.functions in
-  let service_map = service_map_of_services c.services in
-  let* typed_stmt, _ =
-    type_check_stmt fn_map service_map [ env_of_list c.globals ] stmt
+let type_check_orchestrator contract program =
+  let fn_map = env_of_list contract.functions in
+  let service_map = service_map_of_services contract.services in
+  let* typed_program, _ =
+    type_check_stmt fn_map service_map [ env_of_list contract.globals ] program
   in
-  Ok typed_stmt
+  Ok typed_program

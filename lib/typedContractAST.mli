@@ -1,6 +1,6 @@
-open TypedExpr.AST
+open ContractAST
 open Expr.AST
-open Contract.AST
+open Expr.TypedAST
 
 type policy_type =
   | QosFieldOp of aggr_op * string * cmp_op * int
@@ -24,6 +24,7 @@ type service = {
 
 type contract = {
   globals : typed_var list;
+  functions : ident list;
   policies : policy list;
   qos : typed_var list;
   services : service list;

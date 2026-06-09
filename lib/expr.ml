@@ -2,6 +2,9 @@ open ExprAST
 open Utils.Data
 module AST = ExprAST
 module AST_pp = ExprAST_pp
+module TypedAST = TypedExprAST
+module TypedAST_pp = TypedExprAST_pp
+module TypeCheck = TypeCheckExpr
 
 let rec free_vars = function
   | EInt _ | EBool _ | EIntNonDet -> StringSet.empty

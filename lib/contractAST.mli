@@ -1,7 +1,7 @@
 open Expr.AST
 open Utils.Data
+open Utils.Types
 
-type fun_type = TFun of var_type list * var_type
 type typed_var = ident * var_type
 type typed_fun = ident * fun_type
 type aggr_op = Sum | Avg | Min | Max

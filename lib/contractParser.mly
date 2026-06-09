@@ -1,5 +1,6 @@
 %{
-  open ContractAST    
+  open ContractAST
+  open Utils.Types    
 %}
 
 (* Tokens and precedence *)

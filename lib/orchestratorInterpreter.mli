@@ -1,5 +1,5 @@
-open OrchestratorAST
-open Contract.AST
+open TypedOrchestratorAST
+open Contract.TypedAST
 open Symbolic.Runtime
 open PolicyChecker
 

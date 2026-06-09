@@ -1,7 +1,9 @@
-open Contract.AST
+open Contract.TypedAST
 open Utils.Parser
 module AST = OrchestratorAST
 module AST_pp = OrchestratorAST_pp
+module TypedAST = TypedOrchestratorAST
+module TypedAST_pp = TypedOrchestratorAST_pp
 module Lexer = OrchestratorLexer
 module Parser = OrchestratorParser
 module Interpreter = OrchestratorInterpreter
@@ -19,6 +21,9 @@ let parse src =
     let parser = Parser.program
   end) in
   Wrapper.parse src
+
+let type_check contract ast =
+  TypeCheckOrchestrator.type_check_orchestrator contract ast
 
 let symb_run (contract, program) ~mode =
   (* initialize each policy checker *)

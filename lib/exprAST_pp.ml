@@ -1,6 +1,7 @@
 open ExprAST
 open Format
 open Utils.Data
+open Utils.Types
 
 let pp_bin_op fmt = function
   | Add -> fprintf fmt "+"

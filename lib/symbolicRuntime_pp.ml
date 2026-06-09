@@ -52,18 +52,14 @@ let pp_section fmt title is_empty pp_content content =
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
   (match Compo_res.to_result_opt state with
-  | Some (Ok { private_env; public_env; stack }) ->
+  | Some (Ok { env; stack }) ->
       fprintf fmt "@{<green>SUCCESS@}@,";
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
-      pp_section fmt "Private environment"
-        (StringMap.is_empty private_env)
-        pp_env private_env;
-      fprintf fmt "@,";
       pp_section fmt "Public environment"
-        (StringMap.is_empty public_env)
-        pp_env public_env;
+        (StringMap.is_empty (List.hd env))
+        pp_env (List.hd env);
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (stack = []) pp_stack stack;
       fprintf fmt "@]@,}"
