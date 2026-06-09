@@ -59,7 +59,8 @@ let push_scope s = StringMap.empty :: s
 
 (** Removes the innermost scope from the scope stack. Returns None if the scope
     stack is empty. *)
-let pop_scope s = match s with [] -> failwith "Scope stack is empty" | _ :: rest -> rest
+let pop_scope s =
+  match s with [] -> failwith "Scope stack is empty" | _ :: rest -> rest
 
 (* Sequences a list of results into a result of a list, short-circuiting on the
    first error. *)

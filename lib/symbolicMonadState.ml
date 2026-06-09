@@ -42,10 +42,6 @@ module Make (S : State) = struct
     let* x = m in
     Symex.Result.ok (x, state)
 
-  let lift_symex_back m state =
-    let** x, state = m state in
-    Symex.Result.ok (x, state)
-
   let fold_list xs ~init ~f =
     List.fold_left (fun acc x -> bind acc (fun acc -> f acc x)) (return init) xs
 

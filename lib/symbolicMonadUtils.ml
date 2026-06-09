@@ -21,10 +21,10 @@ let lift_fm m =
   let++ v, function_envs = m state.function_envs |> seal_error state in
   (v, { state with function_envs })
 
-let branch b then_m else_m =
+let scoped m =
  fun state ->
-  let env = push_scope state.env in
-  let++ (), state =
-    if%sat b then then_m { state with env } else else_m { state with env }
-  in
+  let++ (), state = m { state with env = push_scope state.env } in
   ((), { state with env = pop_scope state.env })
+
+let branch b then_m else_m =
+ fun state -> if%sat b then then_m state else else_m state

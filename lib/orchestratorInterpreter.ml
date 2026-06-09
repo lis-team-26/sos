@@ -165,12 +165,13 @@ let rec symb_eval_stmt stmt =
       symb_eval_stmt s2
   | If (e, then_s, else_s) ->
       let& b = lift_fm (symb_eval_bexpr state.env e) in
-      branch b (symb_eval_stmt then_s) (symb_eval_stmt else_s)
+      branch b (scoped (symb_eval_stmt then_s)) (scoped (symb_eval_stmt else_s))
   | While (e, s) ->
       let& b = lift_fm (symb_eval_bexpr state.env e) in
-      let& () = put { state with env = push_scope state.env } in
-      let& state = get in
-      failwith "Not yet implemented"
+      branch b
+        (let& () = scoped (symb_eval_stmt s) in
+         symb_eval_stmt (While (e, s)))
+        (return ())
   | Invoke (f, args) ->
       (* let&** service =
         (match StringMap.find_opt f state.service_map with
