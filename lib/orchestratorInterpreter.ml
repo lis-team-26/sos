@@ -95,6 +95,11 @@ and symb_eval_bexpr env = function
       | SymbInt _ -> failwith "Unreachable")
 
 and symb_eval_app env t f args =
+  let& fun_envs = get in
+  let fun_env =
+    StringMap.find_opt f fun_envs
+    |> Option.value ~default:(failwith "Unreachable")
+  in
   let& actual_args =
     map_list args ~f:(fun e ->
         match e with
@@ -105,32 +110,89 @@ and symb_eval_app env t f args =
             let& v = symb_eval_bexpr env e in
             return (Typed.cast v))
   in
-  let& fun_envs = get in
-  let fun_env =
-    StringMap.find_opt f fun_envs
-    |> Option.value ~default:(failwith "Unreachable")
+  let&* syntactic_key, opt_ret_val =
+    SymbolicListMap.find_opt actual_args fun_env
   in
-  let&* _, opt_ret_val = SymbolicListMap.find_opt actual_args fun_env in
   match (opt_ret_val, t) with
   | Some (SymbInt v), TInt -> return (SymbInt v)
   | Some (SymbBool v), TBool -> return (SymbBool v)
   | None, TInt ->
       let&* ret_val = Symex.nondet Typed.t_int in
       let fun_env =
-        SymbolicListMap.syntactic_add actual_args (SymbInt ret_val) fun_env
+        SymbolicListMap.syntactic_add syntactic_key (SymbInt ret_val) fun_env
       in
       let& () = modify (StringMap.add f fun_env) in
       return (SymbInt ret_val)
   | None, TBool ->
       let&* ret_val = Symex.nondet Typed.t_bool in
       let fun_env =
-        SymbolicListMap.syntactic_add actual_args (SymbBool ret_val) fun_env
+        SymbolicListMap.syntactic_add syntactic_key (SymbBool ret_val) fun_env
       in
       let& () = modify (StringMap.add f fun_env) in
       return (SymbBool ret_val)
   | _ -> failwith "Unreachable"
 
-let rec symb_eval_stmt stmt =
+let eval_expr env = function
+  | AExpr e ->
+      let& v = symb_eval_aexpr env e in
+      return (SymbInt v)
+  | BExpr e ->
+      let& v = symb_eval_bexpr env e in
+      return (SymbBool v)
+
+let eval_constraints env constraints =
+  fold_list constraints ~init:Typed.v_true ~f:(fun acc e ->
+      let& b = symb_eval_bexpr env e in
+      return (acc &&@ b))
+
+let apply_effects env effects =
+  fold_list effects ~init:env ~f:(fun env (lhs, rhs) ->
+      match lhs with
+      | LVar x ->
+          let& v = lift_fm (eval_expr env rhs) in
+          return (update x v env)
+      | LApp (f, args) ->
+          let& actual_args =
+            lift_fm
+              (map_list args ~f:(fun e ->
+                   match e with
+                   | AExpr e ->
+                       let& v = symb_eval_aexpr env e in
+                       return (Typed.cast v)
+                   | BExpr e ->
+                       let& v = symb_eval_bexpr env e in
+                       return (Typed.cast v)))
+          in
+          let& v = lift_fm (eval_expr env rhs) in
+          let& state = get in
+          let fun_envs =
+            StringMap.find_opt f state.function_envs
+            |> Option.value ~default:(failwith "Unreachable")
+          in
+          let fun_env = SymbolicListMap.syntactic_add actual_args v fun_envs in
+          let& () =
+            put
+              {
+                state with
+                function_envs = StringMap.add f fun_env state.function_envs;
+              }
+          in
+          return env)
+
+let handle_postcond postcond env service actual_args success qos =
+  let& env = apply_effects env (fst postcond) in
+  let& constraints = lift_fm (eval_constraints env (snd postcond)) in
+  let&* () = Symex.assume [ constraints ] in
+  let& state = get in
+  put
+    {
+      state with
+      env = pop_scope env;
+      ok_stack =
+        { service; actual_args; successful = success; qos } :: state.ok_stack;
+    }
+
+let rec symb_eval_stmt stmt (contract : contract) =
   let& state = get in
   match stmt with
   | Skip -> return ()
@@ -156,46 +218,47 @@ let rec symb_eval_stmt stmt =
         Symex.assert_or_error b
           {
             msg = Fmt.str "Assertion failed: %a" Typed.ppa b;
-            stack = state.stack;
+            err_stack = state.ok_stack;
           }
       in
       return ()
   | Seq (s1, s2) ->
-      let& () = symb_eval_stmt s1 in
-      symb_eval_stmt s2
+      let& () = symb_eval_stmt s1 contract in
+      symb_eval_stmt s2 contract
   | If (e, then_s, else_s) ->
       let& b = lift_fm (symb_eval_bexpr state.env e) in
-      branch b (scoped (symb_eval_stmt then_s)) (scoped (symb_eval_stmt else_s))
+      branch b
+        (scoped (symb_eval_stmt then_s contract))
+        (scoped (symb_eval_stmt else_s contract))
   | While (e, s) ->
       let& b = lift_fm (symb_eval_bexpr state.env e) in
       branch b
-        (let& () = scoped (symb_eval_stmt s) in
-         symb_eval_stmt (While (e, s)))
+        (let& () = scoped (symb_eval_stmt s contract) in
+         symb_eval_stmt (While (e, s)) contract)
         (return ())
   | Invoke (f, args) ->
-      (* let&** service =
-        (match StringMap.find_opt f state.service_map with
-          | Some s -> Symex.Result.ok s
-          | None -> Symex.Result.error (Fmt.str "Service %s not found" f))
-        |> seal_error state
+      let service =
+        StringMap.find_opt f state.service_map
+        |> Option.value ~default:(failwith "Unreachable")
       in
-      let typed_args = List.combine service.params args in
-      let& args_env =
-        lift_fm
-          (fold_list typed_args ~init:StringMap.empty
-             ~f:(fun acc_args_env ((x, t), e) ->
-               match t with
-               | TInt ->
-                   let& arg = symb_eval_aexpr state.env e in
-                   return (StringMap.add x (SymbInt arg) acc_args_env)
-               | TBool ->
-                   let& arg = symb_eval_bexpr (total_env state) e in
-                   return (StringMap.add x (SymbBool arg) acc_args_env)))
+      let actual_params = List.combine service.params args in
+      let& actual_args, precond_env =
+        fold_list actual_params
+          ~init:(StringMap.empty, push_scope state.env)
+          ~f:(fun (actual_args, env) (x, e) ->
+            match e with
+            | AExpr e ->
+                let& v = lift_fm (symb_eval_aexpr state.env e) in
+                return
+                  ( StringMap.add x (SymbInt v) actual_args,
+                    update x (SymbInt v) env )
+            | BExpr e ->
+                let& v = lift_fm (symb_eval_bexpr state.env e) in
+                return
+                  ( StringMap.add x (SymbBool v) actual_args,
+                    update x (SymbBool v) env ))
       in
-      let precond_env =
-        (* The environment for evaluating preconditions gives precedence to the arguments *)
-        StringMap.union (fun _ arg _ -> Some arg) args_env state.public_env
-      in
+      let& () = put { state with env = precond_env } in
       let& b =
         lift_fm
           (fold_list service.precond ~init:Typed.v_true ~f:(fun acc_precond e ->
@@ -206,14 +269,52 @@ let rec symb_eval_stmt stmt =
         Symex.assert_or_error b
           {
             msg = Fmt.str "Precondition violated for service '%s'" f;
-            stack = state.stack;
+            err_stack = state.ok_stack;
           }
       in
-      let&+ success =
+      let& qos_env =
+        fold_list contract.qos ~init:precond_env ~f:(fun env (x, t) ->
+            match t with
+            | TInt ->
+                let&* v = Symex.nondet Typed.t_int in
+                return (update x (SymbInt v) env)
+            | TBool ->
+                let&* v = Symex.nondet Typed.t_bool in
+                return (update x (SymbBool v) env))
+      in
+      let& qos_env = apply_effects qos_env (fst service.qos_postcond) in
+      let& qos_constraints =
+        lift_fm (eval_constraints qos_env (snd service.qos_postcond))
+      in
+      let&* () = Symex.assume [ qos_constraints ] in
+      let&* success =
         if Option.is_none service.err_postcond then Symex.return Typed.v_true
         else Symex.nondet Typed.t_bool
-      in *)
-      failwith "Not yet implemented"
+      in
+      let qos =
+        List.fold_left
+          (fun acc (x, _) ->
+            match lookup x qos_env with
+            | Some v -> StringMap.add x v acc
+            | None -> acc)
+          StringMap.empty contract.qos
+      in
+      let&** state =
+        if%sat success then
+          run_unit
+            (handle_postcond service.ok_postcond qos_env service actual_args
+               success qos)
+            state
+        else
+          match service.err_postcond with
+          | Some err_postcond ->
+              run_unit
+                (handle_postcond err_postcond qos_env service actual_args
+                   success qos)
+                state
+          | None -> run_unit (return ()) state
+      in
+      put state
   | AssignInvoke (x, serv, args) ->
       (* let** args =
         Symex.Result.map_list args ~f:(fun arg ->
@@ -254,13 +355,13 @@ let build_symb_process stmt contract policy_init_states =
       (fun m f -> StringMap.add f SymbolicListMap.empty m)
       StringMap.empty contract.functions
   in
-  let state = { env; function_envs; service_map; stack = [] } in
-  let symbolic_results = run_unit (symb_eval_stmt stmt) state in
+  let state = { env; function_envs; service_map; ok_stack = [] } in
+  let symbolic_results = run_unit (symb_eval_stmt stmt contract) state in
   symbolic_results
   |> Fun.flip Symex.Result.map (fun (s : ok_state) ->
-      { s with stack = List.rev s.stack })
+      { s with ok_stack = List.rev s.ok_stack })
   |> Fun.flip Symex.Result.map_error (fun (s : err_state) ->
-      { s with stack = List.rev s.stack })
+      { s with err_stack = List.rev s.err_stack })
 
 (* let apply_effects effects env function_map state =
   Symex.Result.fold_list effects ~init:(env, function_map)

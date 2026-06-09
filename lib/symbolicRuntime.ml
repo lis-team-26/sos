@@ -63,9 +63,9 @@ type ok_state = {
   env : symbolic_value scope_stack;
   function_envs : function_envs;
   service_map : service env;
-  stack : stack;
+  ok_stack : stack;
 }
 
-type err_state = { msg : string; stack : stack }
+type err_state = { msg : string; err_stack : stack }
 type path_condition = Typed.sbool list
 type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition

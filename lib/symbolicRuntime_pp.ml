@@ -52,7 +52,7 @@ let pp_section fmt title is_empty pp_content content =
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
   (match Compo_res.to_result_opt state with
-  | Some (Ok { env; stack }) ->
+  | Some (Ok { env; ok_stack }) ->
       fprintf fmt "@{<green>SUCCESS@}@,";
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
@@ -61,14 +61,14 @@ let pp_result fmt (idx, state, path_condition) =
         (StringMap.is_empty (List.hd env))
         pp_env (List.hd env);
       fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (stack = []) pp_stack stack;
+      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack ok_stack;
       fprintf fmt "@]@,}"
-  | Some (Error { msg; stack }) ->
+  | Some (Error { msg; err_stack }) ->
       fprintf fmt "@{<red>ERROR@}: %s@," msg;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (stack = []) pp_stack stack
+      pp_section fmt "Invocation stack" (err_stack = []) pp_stack err_stack
   | None ->
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;

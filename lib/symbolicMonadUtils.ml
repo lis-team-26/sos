@@ -14,7 +14,7 @@ end)
 
 let seal_error (old_ok_state : ok_state) err_state =
   Symex.Result.map_error err_state (fun msg ->
-      { msg; stack = old_ok_state.stack })
+      { msg; err_stack = old_ok_state.ok_stack })
 
 let lift_fm m =
  fun state ->
