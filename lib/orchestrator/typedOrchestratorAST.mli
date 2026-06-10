@@ -3,6 +3,7 @@ open Utils.Data
 
 type stmt =
   | Skip
+  | Declare of ident * typed_expr
   | Assign of ident * typed_expr
   | Seq of stmt * stmt
   | If of bexpr * stmt * stmt
@@ -10,4 +11,5 @@ type stmt =
   | Assume of bexpr
   | Assert of bexpr
   | Invoke of ident * typed_expr list
+  | DeclareInvoke of ident * ident * typed_expr list
   | AssignInvoke of ident * ident * typed_expr list

@@ -1,0 +1,9 @@
+(library
+ (name symbolic)
+ (modules
+  symbolic
+  symbolicData
+  symbolicRuntime
+  symbolicData_pp
+  symbolicRuntime_pp)
+ (libraries soteria expr contract utils))

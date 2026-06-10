@@ -5,6 +5,8 @@ open Expr.TypedAST_pp
 
 let rec pp_stmt fmt = function
   | Skip -> fprintf fmt "skip;"
+  | Declare (x, AExpr e) -> fprintf fmt "int %s := %a;" x pp_aexpr e
+  | Declare (x, BExpr e) -> fprintf fmt "bool %s := %a;" x pp_bexpr e
   | Assign (x, AExpr e) -> fprintf fmt "%s := %a;" x pp_aexpr e
   | Assign (x, BExpr e) -> fprintf fmt "%s := %a;" x pp_bexpr e
   | Assume e -> fprintf fmt "assume %a;" pp_bexpr e
@@ -20,6 +22,8 @@ let rec pp_stmt fmt = function
       fprintf fmt "while %a do " pp_bexpr e;
       pp_block fmt body
   | Invoke (f, args) -> fprintf fmt "invoke %s(%a);" f pp_typed_expr_list args
+  | DeclareInvoke (x, f, args) ->
+      fprintf fmt "rcpt %s := invoke %s(%a);" x f pp_typed_expr_list args
   | AssignInvoke (x, f, args) ->
       fprintf fmt "%s := invoke %s(%a);" x f pp_typed_expr_list args
 

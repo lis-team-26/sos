@@ -10,6 +10,7 @@ let rec free_vars = function
   | EInt _ | EBool _ | EIntNonDet -> StringSet.empty
   | EBoolNonDet -> StringSet.empty
   | EVar v -> StringSet.singleton v
+  | EAccess (x, _) -> StringSet.singleton x
   | EUnOp (_, e) -> free_vars e
   | EApp (_, args) ->
       List.fold_left

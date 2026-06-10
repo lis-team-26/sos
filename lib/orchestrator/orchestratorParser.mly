@@ -6,8 +6,9 @@
 %token ANONDET BNONDET
 %token SKIP ASSIGN SEMICOLON IF THEN ELSE WHILE DO
 %token ASSUME ASSERT INVOKE
-%token LBRACE RBRACE EOF
-%token INT_TYPE BOOL_TYPE
+%token DOT LBRACE RBRACE EOF
+%token INT_TYPE BOOL_TYPE RECEIPT_TYPE
+%token RETVAL SUCCESSFUL QOS
 
 %start <stmt> program
 
@@ -16,16 +17,19 @@
 program:
   | ss = stmts EOF { ss }
 
-nondet_or_app_expr:
+orchestrator_atom_expr:
   | ANONDET { EIntNonDet }
   | BNONDET { EBoolNonDet }
-  | f = VAR ; LPAREN ; args = exprs(nondet_or_app_expr) ; RPAREN { EApp (f, args) }
+  | f = VAR ; LPAREN ; args = exprs(orchestrator_atom_expr) ; RPAREN { EApp (f, args) }
+  | x = VAR ; DOT ; field = RETVAL { EAccess (x, ReturnValue) }
+  | x = VAR ; DOT ; field = SUCCESSFUL { EAccess (x, Successful) }
+  | x = VAR ; DOT ; field = QOS ; DOT ; f = VAR { EAccess (x, QosField f) }
 
 orchestrator_expr:
-  | e = expr(nondet_or_app_expr) { e }
+  | e = expr(orchestrator_atom_expr) { e }
 
 orchestrator_exprs:
-  | es = exprs(nondet_or_app_expr) { es }
+  | es = exprs(orchestrator_atom_expr) { es }
 
 stmt:
   | s = atom_stmt { s }
@@ -47,8 +51,8 @@ atom_stmt:
   | ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert e }
   | INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
     { Invoke (f, args) }
-  | t = var_type ; x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
-    { DeclareInvoke (t, x, f, args) }
+  | RECEIPT_TYPE ; x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
+    { DeclareInvoke (x, f, args) }
   | x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
     { AssignInvoke (x, f, args) }
 

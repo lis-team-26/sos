@@ -1,0 +1,6 @@
+(library
+ (name stateMonad)
+ (modules stateMonad)
+ (preprocess
+  (pps soteria.ppx))
+ (libraries symbolic utils))

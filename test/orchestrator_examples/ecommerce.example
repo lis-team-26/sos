@@ -1,24 +1,29 @@
 int user := int?;
 int pass := int?;
 assume well_formed(user) && well_formed(pass) && fresh(0) && !locked(user) && attempts(user) < MAX_ATTEMPTS;
-int tok := invoke Auth(user, pass, 0);
+
+invoke Auth(user, pass, 0);
+
 int operations := int?;
 assume operations > 0 && operations < 4;
 
 int get := 1;
 int pay := 2;
-int prodId := 0;
+int prod_id := 0;
 int price := 0;
 
 while operations > 0 do {
   int op := int?;
   assume op == get || op == pay;
+  
   if op == get then {
-    prodId := int?;
-    assume well_formed(prodId);
-    price := invoke GetPrice(prodId);
+    prod_id := int?;
+    assume well_formed(prod_id);
+    rcpt r := invoke GetPrice(prod_id);
+    price := r.retval;
   } else {
     invoke Pay(price);
   }
+  
   operations := operations - 1;
 }

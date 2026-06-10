@@ -1,5 +1,6 @@
+open Utils.Data
+
 let mode = Soteria.Symex.Approx.OX
-let get_result = function Ok v -> v | Error e -> failwith e
 
 let () =
   if Array.length Sys.argv != 3 then
@@ -10,9 +11,12 @@ let () =
     let contract_ast = Contract.parse contract_file in
     let orchestrator_ast = Orchestrator.parse orchestrator_file in
     Contract.validate_contract contract_ast;
-    let typed_contract_ast = Contract.type_check contract_ast |> get_result in
+    let typed_contract_ast =
+      Contract.type_check contract_ast |> get_result Fmt.string
+    in
     let typed_orchestrator_ast =
-      Orchestrator.type_check contract_ast orchestrator_ast |> get_result
+      Orchestrator.type_check contract_ast orchestrator_ast
+      |> get_result Fmt.string
     in
     let results =
       Orchestrator.symb_run (typed_contract_ast, typed_orchestrator_ast) ~mode

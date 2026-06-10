@@ -20,8 +20,8 @@ let rec pp_stmt fmt = function
       fprintf fmt "while %a do " pp_expr e;
       pp_block fmt body
   | Invoke (f, args) -> fprintf fmt "invoke %s(%a);" f pp_expr_list args
-  | DeclareInvoke (t, x, f, args) ->
-      fprintf fmt "%a %s := invoke %s(%a);" pp_var_type t x f pp_expr_list args
+  | DeclareInvoke (x, f, args) ->
+      fprintf fmt "rcpt %s := invoke %s(%a);" x f pp_expr_list args
   | AssignInvoke (x, f, args) ->
       fprintf fmt "%s := invoke %s(%a);" x f pp_expr_list args
 

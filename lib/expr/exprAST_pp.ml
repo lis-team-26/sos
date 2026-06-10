@@ -23,6 +23,11 @@ let rec pp_expr fmt = function
   | EInt i -> fprintf fmt "%d" i
   | EBool b -> fprintf fmt "%b" b
   | EVar v -> fprintf fmt "%s" v
+  | EAccess (x, field) -> (
+      match field with
+      | ReturnValue -> fprintf fmt "%s.retval" x
+      | Successful -> fprintf fmt "%s.successful" x
+      | QosField f -> fprintf fmt "%s.qos.%s" x f)
   | EIntNonDet -> fprintf fmt "int?"
   | EBoolNonDet -> fprintf fmt "bool?"
   | EUnOp (op, e) -> fprintf fmt "(%a%a)" pp_un_op op pp_expr e
@@ -38,3 +43,4 @@ and pp_expr_list fmt = function
 let rec pp_var_type fmt = function
   | TInt -> fprintf fmt "int"
   | TBool -> fprintf fmt "bool"
+  | TReceipt _ -> fprintf fmt "rcpt"

@@ -1,0 +1,27 @@
+(ocamllex
+ (modules contractLexer))
+
+(rule
+ (target exprParser.mly)
+ (deps ../expr/exprParser.mly)
+ (action
+  (copy %{deps} %{target})))
+
+(menhir
+ (modules contractParser exprParser)
+ (merge_into contractParser)
+ (flags --unused-token NONDET))
+
+(library
+ (name contract)
+ (modules
+  contract
+  contractAST
+  contractAST_pp
+  contractLexer
+  contractParser
+  typedContractAST
+  typedContractAST_pp
+  typeCheckContract)
+ (modules_without_implementation contractAST typedContractAST)
+ (libraries expr utils))

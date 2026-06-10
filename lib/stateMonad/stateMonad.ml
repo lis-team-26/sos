@@ -1,11 +1,13 @@
 open Symbolic.Runtime
+open Soteria.Symex
+open Utils.Data
 
-module type State = sig
+module type S = sig
   type ok
   type err
 end
 
-module Make (S : State) = struct
+module Make (S : S) = struct
   type ok = S.ok
   type err = S.err
   type ('a, 'fix) t = ok -> ('a * ok, err, 'fix) Symex.Result.t
@@ -58,3 +60,31 @@ module Make (S : State) = struct
   let ( let&+ ) m f = map (lift_symex m) f
   let ( let&++ ) m f = map (lift_symex_result m) f
 end
+
+module FunctionalMonad = Make (struct
+  type ok = function_envs
+  type err = string
+end)
+
+module OkStateMonad = Make (struct
+  type ok = ok_state
+  type err = err_state
+end)
+
+let lift_fm m =
+  let seal_error old_ok_state err_state =
+    Symex.Result.map_error err_state (fun msg ->
+        { msg; err_stack = old_ok_state.ok_stack })
+  in
+  fun state ->
+    let++ v, function_envs = m state.function_envs |> seal_error state in
+    (v, { state with function_envs })
+
+let scoped m =
+ fun state ->
+  let++ (), state = m { state with env = push_scope state.env } in
+  ((), { state with env = pop_scope state.env })
+
+let branch b then_m else_m =
+ fun state -> if%sat b then then_m state else else_m state
+

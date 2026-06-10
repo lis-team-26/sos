@@ -1,0 +1,30 @@
+(ocamllex
+ (modules orchestratorLexer))
+
+(rule
+ (target exprParser.mly)
+ (deps ../expr/exprParser.mly)
+ (action
+  (copy %{deps} %{target})))
+
+(menhir
+ (modules orchestratorParser exprParser)
+ (merge_into orchestratorParser))
+
+(library
+ (name orchestrator)
+ (modules
+  orchestrator
+  orchestratorAST
+  orchestratorAST_pp
+  orchestratorLexer
+  orchestratorParser
+  orchestratorInterpreter
+  typedOrchestratorAST
+  typedOrchestratorAST_pp
+  typeCheckOrchestrator)
+ (modules_without_implementation orchestratorAST typedOrchestratorAST)
+ (libraries expr contract symbolic stateMonad policyChecker utils)
+ (preprocess
+  (pps soteria.ppx))
+ (flags :standard -open Soteria.Logs.Import))

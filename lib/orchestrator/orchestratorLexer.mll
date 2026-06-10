@@ -30,6 +30,7 @@ rule read = parse
   | "skip" { SKIP }
   | ":=" { ASSIGN }
   | ';' { SEMICOLON }
+  | '.' { DOT }
   | "if" { IF }
   | "then" { THEN }
   | "else" { ELSE }
@@ -40,6 +41,10 @@ rule read = parse
   | "invoke" { INVOKE }
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
+  | "rcpt" { RECEIPT_TYPE }
+  | "retval" { RETVAL }
+  | "successful" { SUCCESSFUL }
+  | "qos" { QOS }
   | ',' { COMMA }
   | '(' { LPAREN }
   | ')' { RPAREN }

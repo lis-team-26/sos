@@ -12,5 +12,5 @@ type stmt =
   | If of expr * stmt * stmt
   | While of expr * stmt
   | Invoke of ident * expr list
-  | DeclareInvoke of var_type * ident * ident * expr list
+  | DeclareInvoke of ident * ident * expr list
   | AssignInvoke of ident * ident * expr list

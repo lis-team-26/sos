@@ -167,10 +167,12 @@ let map_state initial f (c : invocation) (service : Contract.TypedAST.service) =
           Symex.Result.ok (Grouped (field, symMap))
       | Some ar ->
           let arg =
-            Typed.cast
-              (match ar with
-              | SymbInt i -> Typed.cast i
-              | SymbBool b -> Typed.cast b)
+            match ar with
+            | SymbInt i -> Typed.cast i
+            | SymbBool b -> Typed.cast b
+            | SymbReceipt _ ->
+                failwith
+                  "Unreachable: receipts cannot be used as grouping parameters"
           in
           (*otherwise*)
           let* k, s =
@@ -198,14 +200,14 @@ let update_policy (c : invocation) policy =
                     if verNow then
                       let policy_holds = cmp new_aggregate (Typed.int cmpInt) in
                       if%sat policy_holds then Symex.Result.ok new_aggregate
-                      else Symex.Result.error "aggregate policy violation"
+                      else Symex.Result.error "Aggregate policy violation"
                     else Symex.Result.ok new_aggregate)
                   c s sint
               in
               Symex.Result.ok
                 (QosAggregate
                    (next, initial, aggrOp, aggrField, cmp, cmpInt, verNow))
-          | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
+          | _ -> failwith "Expected integer QoS field for aggregate policy"))
   | QosAvg (sint_count, cmp, avgField, cmpInt) -> (
       match StringMap.find_opt avgField c.qos with
       | None ->
@@ -224,7 +226,7 @@ let update_policy (c : invocation) policy =
                   c s sint_count
               in
               Symex.Result.ok (QosAvg (result, cmp, avgField, cmpInt))
-          | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
+          | _ -> failwith "Expected integer QoS field for average policy"))
   | Dfa (start, curState, servMap, transition, finalStates) ->
       let** result =
         map_state (Some start)
@@ -261,7 +263,7 @@ let update_policy (c : invocation) policy =
                   c s maximum
               in
               Symex.Result.ok (Ascending (next, field))
-          | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
+          | _ -> failwith "Expected integer QoS field for ascending policy"))
   | Descending (minimum, field) -> (
       match StringMap.find_opt field c.qos with
       | None -> Symex.Result.ok policy
@@ -279,4 +281,4 @@ let update_policy (c : invocation) policy =
                   c s minimum
               in
               Symex.Result.ok (Descending (next, field))
-          | SymbBool _ -> failwith "Can't use boolean qos field for policy"))
+          | _ -> failwith "Expected integer QoS field for descending policy"))
