@@ -7,7 +7,7 @@ type stmt =
   | Declare of var_type * ident * expr
   | Assign of ident * expr
   | Assume of expr
-  | Assert of expr
+  | Assert of expr * int (*add line number*)
   | Seq of stmt * stmt
   | If of expr * stmt * stmt
   | While of expr * stmt

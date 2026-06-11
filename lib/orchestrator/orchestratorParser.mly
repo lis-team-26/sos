@@ -5,7 +5,8 @@
 
 %token ANONDET BNONDET
 %token SKIP ASSIGN SEMICOLON IF THEN ELSE WHILE DO
-%token ASSUME ASSERT INVOKE
+%token <int> ASSERT (*add line number*)
+%token ASSUME INVOKE
 %token DOT LBRACE RBRACE EOF
 %token INT_TYPE BOOL_TYPE RECEIPT_TYPE
 %token RETVAL SUCCESSFUL QOS
@@ -48,7 +49,7 @@ atom_stmt:
   | t = var_type ; x = VAR ; ASSIGN ; e = orchestrator_expr ; SEMICOLON { Declare (t, x, e) }
   | x = VAR ; ASSIGN ; e = orchestrator_expr ; SEMICOLON { Assign (x, e) }
   | ASSUME ; e = orchestrator_expr ; SEMICOLON { Assume e }
-  | ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert e }
+  | ln = ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert (e, ln) }
   | INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
     { Invoke (f, args) }
   | RECEIPT_TYPE ; x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON

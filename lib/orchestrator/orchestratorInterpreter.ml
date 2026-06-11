@@ -198,7 +198,7 @@ let rec symb_eval_stmt c stmt =
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&* () = Symex.assume [ b ] in
       return ()
-  | Assert e ->
+  | Assert (e, _) ->
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&** () =
         Symex.assert_or_error b

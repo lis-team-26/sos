@@ -52,9 +52,9 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
   | Assume e ->
       let* typed_e = type_check_bool scope fun_map e in
       Ok (T.Assume typed_e, scope)
-  | Assert e ->
+  | Assert (e, ln) ->
       let* typed_e = type_check_bool scope fun_map e in
-      Ok (T.Assert typed_e, scope)
+      Ok (T.Assert (typed_e, ln), scope)
   | Seq (s1, s2) ->
       let* typed_s1, scope = type_check_stmt fun_map svc_map qos_map scope s1 in
       let* typed_s2, scope = type_check_stmt fun_map svc_map qos_map scope s2 in

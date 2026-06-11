@@ -8,7 +8,7 @@ let rec pp_stmt fmt = function
   | Declare (t, x, e) -> fprintf fmt "%a %s := %a;" pp_var_type t x pp_expr e
   | Assign (x, e) -> fprintf fmt "%s := %a;" x pp_expr e
   | Assume e -> fprintf fmt "assume %a;" pp_expr e
-  | Assert e -> fprintf fmt "assert %a;" pp_expr e
+  | Assert (e, _) -> fprintf fmt "assert %a;" pp_expr e
   | Seq (s1, s2) -> fprintf fmt "%a@,%a" pp_stmt s1 pp_stmt s2
   | If (e, then_s, else_s) -> (
       fprintf fmt "if %a then " pp_expr e;
