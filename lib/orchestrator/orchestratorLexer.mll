@@ -9,6 +9,7 @@ let var = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 let white = [' ' '\t' '\n' '\r']+ | "\r\n"
 
 rule read = parse
+  | '\n' { Lexing.new_line lexbuf; read lexbuf }
   | white { read lexbuf }
   | int as n { INT (int_of_string n) }
   | bool as b { BOOL (b = "true") }
