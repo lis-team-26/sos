@@ -1,7 +1,6 @@
 open Expr.TypedAST
 open Symbolic.Data
 open Symbolic.Runtime
-open StateMonad
 open StateMonad.FunctionalMonad
 open Utils.Data
 open Utils.Types

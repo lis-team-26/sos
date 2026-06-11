@@ -18,6 +18,8 @@ let () =
       Orchestrator.type_check contract_ast orchestrator_ast
       |> get_result Fmt.string
     in
+    Fmt.pr "\nSymbolic running...\n\n";
+    Format.print_flush ();
     let results =
       Orchestrator.symb_run (typed_contract_ast, typed_orchestrator_ast) ~mode
     in
