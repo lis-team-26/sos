@@ -20,6 +20,7 @@ while operations > 0 do {
     prod_id := int?;
     assume well_formed(prod_id);
     rcpt r := invoke GetPrice(prod_id);
+    assert r.successful;
     price := r.retval;
   } else {
     invoke Pay(price);

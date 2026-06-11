@@ -11,7 +11,7 @@ val type_check_bool :
 
 val type_check_expr :
   var_type ->
-  var_type scope_stack ->
+  var_type scope ->
   fun_type env ->
   expr ->
   (typed_expr, string) result

@@ -19,6 +19,7 @@
   orchestratorAST_pp
   orchestratorLexer
   orchestratorParser
+  exprInterpreter
   orchestratorInterpreter
   typedOrchestratorAST
   typedOrchestratorAST_pp

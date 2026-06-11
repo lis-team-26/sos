@@ -29,9 +29,9 @@ let rec pp_list pp fmt = function
   | [ x ] -> pp fmt x
   | x :: xs -> fprintf fmt "%a@,%a" pp x (pp_list pp) xs
 
-let pp_invocation fmt { service; actual_args; qos } =
+let pp_invocation fmt { service; actual_args; actual_qos } =
   fprintf fmt "%s(%a), QoS: %a" service.name pp_env_inline actual_args
-    pp_env_inline qos
+    pp_env_inline actual_qos
 
 let rec pp_stack fmt stack =
   match stack with
@@ -41,9 +41,9 @@ let rec pp_stack fmt stack =
       fprintf fmt "%a@,%a" pp_invocation invocation pp_stack rest
 
 let rec pp_path_condition fmt = function
-  | [] -> ()
+  | [] -> fprintf fmt "<empty>"
   | [ b ] -> Symex.Value.ppa fmt b
-  | b :: bs -> fprintf fmt "%a /\\ %a" Symex.Value.ppa b pp_path_condition bs
+  | b :: bs -> fprintf fmt "%a ∧@,%a" Symex.Value.ppa b pp_path_condition bs
 
 let pp_section fmt title is_empty pp_content content =
   if is_empty then fprintf fmt "%s: <empty>" title
@@ -52,17 +52,17 @@ let pp_section fmt title is_empty pp_content content =
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
   (match Compo_res.to_result_opt state with
-  | Some (Ok { env; ok_stack }) ->
+  | Some (Ok { scope; ok_stack }) ->
+      let public_env = get_public_env scope in
       fprintf fmt "@{<green>SUCCESS@}@,";
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
       pp_section fmt "Public environment"
-        (StringMap.is_empty (List.hd env))
-        pp_env (List.hd env);
+        (StringMap.is_empty public_env)
+        pp_env public_env;
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (ok_stack = []) pp_stack ok_stack;
-      fprintf fmt "@]@,}"
   | Some (Error { msg; err_stack }) ->
       fprintf fmt "@{<red>ERROR@}: %s@," msg;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition

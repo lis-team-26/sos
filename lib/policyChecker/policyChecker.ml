@@ -188,7 +188,7 @@ let update_policy (c : invocation) policy =
   let s = c.service in
   match policy with
   | QosAggregate (sint, initial, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
-      match StringMap.find_opt aggrField c.qos with
+      match StringMap.find_opt aggrField c.actual_qos with
       | None -> Symex.Result.ok policy
       | Some current_val -> (
           match current_val with
@@ -209,7 +209,7 @@ let update_policy (c : invocation) policy =
                    (next, initial, aggrOp, aggrField, cmp, cmpInt, verNow))
           | _ -> failwith "Expected integer QoS field for aggregate policy"))
   | QosAvg (sint_count, cmp, avgField, cmpInt) -> (
-      match StringMap.find_opt avgField c.qos with
+      match StringMap.find_opt avgField c.actual_qos with
       | None ->
           (* Service doesn't report this QoS field; skip policy update *)
           Symex.Result.ok policy
@@ -247,7 +247,7 @@ let update_policy (c : invocation) policy =
       in
       Symex.Result.ok (Dfa (start, result, servMap, transition, finalStates))
   | Ascending (maximum, field) -> (
-      match StringMap.find_opt field c.qos with
+      match StringMap.find_opt field c.actual_qos with
       | None -> Symex.Result.ok policy
       | Some current_val -> (
           match current_val with
@@ -265,7 +265,7 @@ let update_policy (c : invocation) policy =
               Symex.Result.ok (Ascending (next, field))
           | _ -> failwith "Expected integer QoS field for ascending policy"))
   | Descending (minimum, field) -> (
-      match StringMap.find_opt field c.qos with
+      match StringMap.find_opt field c.actual_qos with
       | None -> Symex.Result.ok policy
       | Some current_val -> (
           match current_val with

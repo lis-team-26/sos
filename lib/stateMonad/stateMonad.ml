@@ -27,7 +27,7 @@ module Make (S : S) = struct
   let run m state = m state
 
   let run_unit m state =
-    let++ _, state' = m state in
+    let++ (), state' = m state in
     state'
 
   let get = fun state -> Symex.Result.ok (state, state)
@@ -72,19 +72,18 @@ module OkStateMonad = Make (struct
 end)
 
 let lift_fm m =
-  let seal_error old_ok_state err_state =
+  let map_error old_ok_state err_state =
     Symex.Result.map_error err_state (fun msg ->
         { msg; err_stack = old_ok_state.ok_stack })
   in
   fun state ->
-    let++ v, function_envs = m state.function_envs |> seal_error state in
+    let++ v, function_envs = m state.function_envs |> map_error state in
     (v, { state with function_envs })
 
 let scoped m =
  fun state ->
-  let++ (), state = m { state with env = push_scope state.env } in
-  ((), { state with env = pop_scope state.env })
+  let++ (), state = m { state with scope = push_scope state.scope } in
+  ((), { state with scope = pop_scope state.scope })
 
 let branch b then_m else_m =
  fun state -> if%sat b then then_m state else else_m state
-

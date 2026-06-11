@@ -53,14 +53,14 @@ type invocation = {
   service : service;
   actual_args : symbolic_value env;
   successful : symb_bool;
-  qos : symbolic_value env;
+  actual_qos : symbolic_value env;
 }
 
 type stack = invocation list
 type function_envs = symbolic_value symbolic_list_env env
 
 type ok_state = {
-  env : symbolic_value scope_stack;
+  scope : symbolic_value scope;
   function_envs : function_envs;
   service_map : service env;
   ok_stack : stack;

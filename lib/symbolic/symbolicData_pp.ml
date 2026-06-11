@@ -13,14 +13,12 @@ and pp_env_entry fmt (key, value) = fprintf fmt "%s -> %a" key pp_value value
 
 and pp_env fmt env =
   let entries = StringMap.bindings env in
-  match entries with
-  | [] -> fprintf fmt "{}"
-  | _ ->
-      fprintf fmt "{\n";
-      List.iter
-        (fun (key, value) -> fprintf fmt "  %s -> %a\n" key pp_value value)
-        entries;
-      fprintf fmt "}"
+  let rec pp_entries fmt = function
+    | [] -> fprintf fmt "<empty>"
+    | [ entry ] -> pp_env_entry fmt entry
+    | entry :: rest -> fprintf fmt "%a@,%a" pp_env_entry entry pp_entries rest
+  in
+  pp_entries fmt entries
 
 let pp_env_inline fmt env =
   match StringMap.bindings env with

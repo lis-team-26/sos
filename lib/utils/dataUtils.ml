@@ -6,7 +6,7 @@ type ident = string
 type 'a env = 'a StringMap.t
 (** A mapping from variable names to their values *)
 
-type 'a scope_stack = 'a env list
+type 'a scope = 'a env list
 (** A stack of environments representing nested scopes. The head of the list is
     the innermost scope, and the tail represents outer scopes. *)
 
