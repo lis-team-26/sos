@@ -31,6 +31,6 @@ let group_by_id results =
                (match Compo_res.to_result_opt s with
                 | None | Some (Ok _) -> None
                 | Some (Error {id}) -> Some (id, List.map Symex.Value.Expr.of_value pc))) results in
-  xs
+  List.fold_left (fun m (id, pCond) -> ViolMap.update id (function None -> Some [pCond] | Some l -> Some (pCond :: l)) m) ViolMap.empty xs
 let absence_heuristic markedSet pathCondList = 0
 let split_heuristic markedSet pathCondList= 0
