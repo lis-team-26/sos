@@ -198,12 +198,12 @@ let rec symb_eval_stmt c stmt =
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&* () = Symex.assume [ b ] in
       return ()
-  | Assert (e, _) ->
+  | Assert (e, ln) ->
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&** () =
         Symex.assert_or_error b
           {
-            msg = Fmt.str "Assertion failed: %a" Typed.ppa b;
+            msg = Fmt.str "Assertion failed at line %d: %a" ln Typed.ppa b;
             err_stack = state.ok_stack;
           }
       in

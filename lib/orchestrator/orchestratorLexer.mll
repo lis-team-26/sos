@@ -37,7 +37,7 @@ rule read = parse
   | "while" { WHILE }
   | "do" { DO }
   | "assume" { ASSUME }
-  | "assert" { ASSERT (lexbuf.lex_curr_p.pos_lnum)}
+  | "assert" { ASSERT (lexbuf.lex_start_p.pos_lnum)}
   | "invoke" { INVOKE }
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
