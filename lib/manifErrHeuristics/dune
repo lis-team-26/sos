@@ -1,0 +1,6 @@
+(library
+ (name manifErrHeuristics)
+ (modules manifErrHeuristics)
+ (libraries symbolic)
+ (preprocess
+  (pps soteria.ppx)))
