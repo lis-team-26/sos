@@ -2,6 +2,7 @@ open Format
 open OrchestratorAST
 open Expr.AST_pp
 open Utils.Data
+open Utils.Types_pp
 
 let rec pp_stmt fmt = function
   | Skip -> fprintf fmt "skip;"

@@ -21,4 +21,6 @@ type symbolic_value =
 let cast = function
   | SymbInt v -> Typed.cast v
   | SymbBool v -> Typed.cast v
-  | SymbReceipt _ -> failwith "Unreachable"
+  | SymbReceipt _ ->
+      failwith
+        "Unreachable: trying to cast a receipt to a Soteria symbolic value"

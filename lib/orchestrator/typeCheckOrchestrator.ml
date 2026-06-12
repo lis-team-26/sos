@@ -5,13 +5,9 @@ open Expr.TypeCheck
 open Contract.AST
 open Utils.Data
 open Utils.Types
+open Utils.Types_pp
 
 let ( let* ) = Result.bind
-
-let rec string_of_var_type = function
-  | TInt -> "int"
-  | TBool -> "bool"
-  | TReceipt { ret_type } -> Fmt.str "rcpt(%s)" (string_of_var_type ret_type)
 
 (* Maps each service name to its parameter types and its return type. *)
 let service_map_of_services services =
@@ -62,16 +58,16 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
   | If (c, s1, s2) ->
       let* typed_c = type_check_bool scope fun_map c in
       let* typed_s1, _ =
-        type_check_stmt fun_map svc_map qos_map (push_scope scope) s1
+        type_check_stmt fun_map svc_map qos_map (push_env scope) s1
       in
       let* typed_s2, _ =
-        type_check_stmt fun_map svc_map qos_map (push_scope scope) s2
+        type_check_stmt fun_map svc_map qos_map (push_env scope) s2
       in
       Ok (T.If (typed_c, typed_s1, typed_s2), scope)
   | While (c, body) ->
       let* typed_c = type_check_bool scope fun_map c in
       let* typed_body, _ =
-        type_check_stmt fun_map svc_map qos_map (push_scope scope) body
+        type_check_stmt fun_map svc_map qos_map (push_env scope) body
       in
       Ok (T.While (typed_c, typed_body), scope)
   | Invoke (svc, args) ->
@@ -97,8 +93,8 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
           Ok (T.AssignInvoke (x, svc, typed_args), scope)
       | Some t ->
           Error
-            (Fmt.str "Variable %s expected receipt but found %s" x
-               (string_of_var_type t)))
+            (Fmt.str "Variable %s expected receipt but found %a" x pp_var_type t)
+      )
 
 (* Type-checks an orchestrator against a contract, which supplies the function
    signatures (for calls inside expressions), the service signatures (for

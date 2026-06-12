@@ -3,18 +3,8 @@ open TypedContractAST
 open ContractAST_pp
 open Expr.AST_pp
 open Expr.TypedAST_pp
-
-let rec pp_list pp fmt = function
-  | [] -> fprintf fmt "<empty>"
-  | [ x ] -> pp fmt x
-  | x :: xs -> fprintf fmt "%a@,%a" pp x (pp_list pp) xs
-
-and pp_var_type_list fmt = function
-  | [] -> ()
-  | [ t ] -> pp_var_type fmt t
-  | t :: ts -> fprintf fmt "%a -> %a" pp_var_type t pp_var_type_list ts
-
-let pp_typed_var fmt (x, t) = fprintf fmt "%s: %a" x pp_var_type t
+open Utils.Data_pp
+open Utils.Types_pp
 
 let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt "[";
@@ -58,8 +48,9 @@ let pp_service fmt s =
 let pp_contract fmt c =
   pp_open_vbox fmt 0;
   fprintf fmt "globals {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_var) c.globals;
-  (* fprintf fmt "functions {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_fun)
-    c.functions; *)
+  fprintf fmt "functions {@,@[<v 2>  %a@]@,}@,"
+    (pp_list_inline Fmt.string)
+    c.functions;
   fprintf fmt "policies {@,@[<v 2>  %a@]@,}@," (pp_list pp_policy) c.policies;
   fprintf fmt "qos {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_var) c.qos;
   fprintf fmt "services {@,@[<v 2>  %a@]@,}@," (pp_list pp_service) c.services;

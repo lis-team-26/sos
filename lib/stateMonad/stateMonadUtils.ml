@@ -15,9 +15,9 @@ let lift_fm m =
 let scoped m =
  fun (state, policy_checkers) ->
   let++ (), (state, policy_checkers) =
-    m ({ state with scope = push_scope state.scope }, policy_checkers)
+    m ({ state with scope = push_env state.scope }, policy_checkers)
   in
-  ((), ({ state with scope = pop_scope state.scope }, policy_checkers))
+  ((), ({ state with scope = pop_env state.scope }, policy_checkers))
 
 let branch b then_m else_m =
  fun state -> if%sat b then then_m state else else_m state

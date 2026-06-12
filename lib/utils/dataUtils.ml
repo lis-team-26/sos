@@ -10,6 +10,9 @@ type 'a scope = 'a env list
 (** A stack of environments representing nested scopes. The head of the list is
     the innermost scope, and the tail represents outer scopes. *)
 
+type pos = { line : int; column : int }
+(** A position in the source code, used for error reporting *)
+
 (** Looks up a variable in the scope stack, starting from the innermost scope.
     Returns None if the variable is not found in any of the scopes *)
 let rec lookup x = function
@@ -28,33 +31,38 @@ let rec update x v = function
       else env :: update x v rest
 
 (** Introduces [x |-> v] in the innermost scope, shadowing any binding of [x] in
-    an outer scope (or overwriting it in the innermost one). Starts a new
-    innermost scope if the stack is empty. Unlike {!update}, which rewrites an
-    existing binding wherever it lives, this always binds in the head scope —
-    the behaviour a block-scoped declaration needs. *)
+    an outer scope (or overwriting it in the innermost one). Fails if the stack
+    is empty. Unlike {!update}, which rewrites an existing binding wherever it
+    lives, this always binds in the head scope — the behaviour a block-scoped
+    declaration needs. *)
 let declare x v = function
   | [] -> failwith "Empty scope stack"
   | env :: rest -> StringMap.add x v env :: rest
 
-(** Adds a new variable to the innermost scope. Fails if the scope stack is
-    empty. *)
-let push_scope s = StringMap.empty :: s
+(** Adds a new environment on top of the scope stack. *)
+let push_env s = StringMap.empty :: s
 
-(** Removes the innermost scope from the scope stack. Returns None if the scope
+(** Removes the innermost environment from the scope stack. Fails if the scope
     stack is empty. *)
-let pop_scope s =
+let pop_env s =
   match s with [] -> failwith "Scope stack is empty" | _ :: rest -> rest
 
+(** Returns the public environment from the scope stack, corresponding to the
+    outermost scope. Fails if the scope stack is empty. *)
 let rec get_public_env = function
   | [] -> failwith "Scope stack is empty"
   | [ env ] -> env
   | _ :: rest -> get_public_env rest
 
-let rec set_public_env env = function
+(** Sets the public environment for the scope stack. Fails if the scope stack is
+    empty. *)
+let rec set_public_env public_env = function
   | [] -> failwith "Scope stack is empty"
-  | [ _ ] -> [ env ]
-  | env :: rest -> env :: set_public_env env rest
+  | [ _ ] -> [ public_env ]
+  | env :: rest -> env :: set_public_env public_env rest
 
+(** Extracts the value from a result, or fails with a formatted error message if
+    it's an error. *)
 let get_result pp = function
   | Ok v -> v
   | Error msg -> failwith (Fmt.str "%a" pp msg)

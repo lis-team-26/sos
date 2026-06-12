@@ -1,5 +1,6 @@
-open TypedExprAST
 open Format
+open TypedExprAST
+open Utils.Data_pp
 
 let pp_aop fmt = function
   | Add -> fprintf fmt "+"
@@ -49,7 +50,4 @@ and pp_typed_expr fmt = function
   | AExpr e -> pp_aexpr fmt e
   | BExpr e -> pp_bexpr fmt e
 
-and pp_typed_expr_list fmt = function
-  | [] -> ()
-  | [ e ] -> pp_typed_expr fmt e
-  | e :: es -> fprintf fmt "%a, %a" pp_typed_expr e pp_typed_expr_list es
+and pp_typed_expr_list fmt = pp_list_inline pp_typed_expr fmt

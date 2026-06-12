@@ -113,7 +113,7 @@ let symb_eval_invoke svc args qos_fields =
     | _ -> failwith "Unreachable: service return type must be int or bool"
   in
   let postcond_scope =
-    qos_scope |> pop_scope |> push_scope |> declare ret_var nondet_ret_val
+    qos_scope |> pop_env |> push_env |> declare ret_var nondet_ret_val
   in
   let&* successful =
     match service.err_postcond with
@@ -234,7 +234,6 @@ let rec symb_eval_stmt c stmt =
 
 (* contract is only needed by build_symb_process, not to evaluate statements *)
 let build_symb_process stmt contract policy_init_states =
-  let private_env = StringMap.empty in
   let* public_env =
     Symex.fold_list contract.globals ~init:StringMap.empty ~f:(fun acc (x, t) ->
         let* v =
@@ -250,7 +249,7 @@ let build_symb_process stmt contract policy_init_states =
         in
         Symex.return (StringMap.add x v acc))
   in
-  let scope = [ private_env; public_env ] in
+  let scope = [ StringMap.empty; public_env ] in
   let service_map =
     List.fold_left
       (fun m s -> StringMap.add s.name s m)

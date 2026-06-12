@@ -1,6 +1,7 @@
 open ExprAST
 open Format
 open Utils.Data
+open Utils.Data_pp
 open Utils.Types
 
 let pp_bin_op fmt = function
@@ -35,12 +36,4 @@ let rec pp_expr fmt = function
   | EBinOp (e1, op, e2) ->
       fprintf fmt "(%a %a %a)" pp_expr e1 pp_bin_op op pp_expr e2
 
-and pp_expr_list fmt = function
-  | [] -> ()
-  | [ e ] -> pp_expr fmt e
-  | e :: es -> fprintf fmt "%a, %a" pp_expr e pp_expr_list es
-
-let rec pp_var_type fmt = function
-  | TInt -> fprintf fmt "int"
-  | TBool -> fprintf fmt "bool"
-  | TReceipt _ -> fprintf fmt "rcpt"
+and pp_expr_list fmt = pp_list_inline pp_expr fmt

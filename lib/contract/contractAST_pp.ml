@@ -2,29 +2,15 @@ open Format
 open ContractAST
 open Expr.AST_pp
 open Utils.Data
+open Utils.Data_pp
 open Utils.Types
-
-let rec pp_list pp fmt = function
-  | [] -> fprintf fmt "<empty>"
-  | [ x ] -> pp fmt x
-  | x :: xs -> fprintf fmt "%a@,%a" pp x (pp_list pp) xs
-
-let rec pp_fun_type fmt = function
-  | TFun (ts, t) -> fprintf fmt "%a -> %a" pp_var_type_list ts pp_var_type t
-
-and pp_var_type_list fmt = function
-  | [] -> ()
-  | [ t ] -> pp_var_type fmt t
-  | t :: ts -> fprintf fmt "%a -> %a" pp_var_type t pp_var_type_list ts
+open Utils.Types_pp
 
 let pp_aggr_op fmt = function
   | Sum -> fprintf fmt "sum"
   | Avg -> fprintf fmt "avg"
   | Min -> fprintf fmt "min"
   | Max -> fprintf fmt "max"
-
-let pp_typed_var fmt (x, t) = fprintf fmt "%s: %a" x pp_var_type t
-let pp_typed_fun fmt (f, t) = fprintf fmt "%s: %a" f pp_fun_type t
 
 let rec pp_regex fmt (s2letter, regex) =
   fprintf fmt "[";
