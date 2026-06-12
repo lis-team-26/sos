@@ -41,10 +41,18 @@ let get_vars expr =
       fun v -> vars := IntSet.add (v |> fst |> Soteria.Symex.Var.to_int) !vars
     ); !vars
 
-let absence_heuristic markedSet pathCondList =
-  List.for_all (List.for_all (fun exp -> IntSet.is_empty (IntSet.inter markedSet (get_vars exp)))) pathCondList
-  
-let split_heuristic markedSet pathCondList = false
+let split_heuristic markedSet pathCondList =
+  if List.for_all (List.for_all(fun exp -> (*ensure the split can take place*)
+                       let vars = get_vars exp
+                       in
+                       (IntSet.subset vars markedSet) || (IntSet.disjoint vars markedSet)
+       )) pathCondList
+  then
+    (*let disjNormalForm = List.map (List.filter (fun exp -> IntSet.subset (get_vars exp) markedSet))
+    in (*TODO: check if UNSAT(not disjNormalForm). If it is SAT, then there exists an assignment to the
+             variables marked as initial that makes the violation impossible, so it is not a manifest error.
+             If it is UNSAT, then one of the path conditions must be SAT no matter the assignment to the marked variables*)*) false
+  else false
 
 (*Takes a set of variables marked as "initial" (markedSet) and the results of symbolic executions.
  Returns a list of bugs that may happen indipendently of what value is assigned to the variables in markedSet*)
@@ -55,7 +63,7 @@ let find_manif markedSet results =
   |> ViolMap.to_seq
   |> Seq.filter_map (
          fun (viol, pathOr) ->
-         if (absence_heuristic markedSet pathOr) || (split_heuristic markedSet pathOr) then
+         if split_heuristic markedSet pathOr then
            Some viol
          else None
        )
