@@ -30,7 +30,34 @@ let group_by_id results =
   let xs = List.filter_map (fun (s, pc) ->
                (match Compo_res.to_result_opt s with
                 | None | Some (Ok _) -> None
-                | Some (Error {id}) -> Some (id, List.map Symex.Value.Expr.of_value pc))) results in
+                | Some (Error {id}) -> Some (id, pc))) results in
   List.fold_left (fun m (id, pCond) -> ViolMap.update id (function None -> Some [pCond] | Some l -> Some (pCond :: l)) m) ViolMap.empty xs
-let absence_heuristic markedSet pathCondList = 0
-let split_heuristic markedSet pathCondList= 0
+
+module IntSet = Set.Make(Int)
+let get_vars expr =
+  let vars = ref IntSet.empty
+  in
+  Typed.iter_vars expr (
+      fun v -> vars := IntSet.add (v |> fst |> Soteria.Symex.Var.to_int) !vars
+    ); !vars
+
+let absence_heuristic markedSet pathCondList =
+  List.for_all (List.for_all (fun exp -> IntSet.is_empty (IntSet.inter markedSet (get_vars exp)))) pathCondList
+  
+let split_heuristic markedSet pathCondList = false
+
+(*Takes a set of variables marked as "initial" (markedSet) and the results of symbolic executions.
+ Returns a list of bugs that may happen indipendently of what value is assigned to the variables in markedSet*)
+let find_manif markedSet results =
+  let groups = group_by_id results
+  in
+  groups
+  |> ViolMap.to_seq
+  |> Seq.filter_map (
+         fun (viol, pathOr) ->
+         if (absence_heuristic markedSet pathOr) || (split_heuristic markedSet pathOr) then
+           Some viol
+         else None
+       )
+  |> List.of_seq
+
