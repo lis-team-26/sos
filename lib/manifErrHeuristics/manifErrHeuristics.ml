@@ -48,10 +48,20 @@ let split_heuristic markedSet pathCondList =
                        (IntSet.subset vars markedSet) || (IntSet.disjoint vars markedSet)
        )) pathCondList
   then
-    (*let disjNormalForm = List.map (List.filter (fun exp -> IntSet.subset (get_vars exp) markedSet))
-    in (*TODO: check if UNSAT(not disjNormalForm). If it is SAT, then there exists an assignment to the
-             variables marked as initial that makes the violation impossible, so it is not a manifest error.
-             If it is UNSAT, then one of the path conditions must be SAT no matter the assignment to the marked variables*)*) false
+    let disjNormalForm = List.map (List.filter (fun exp -> IntSet.subset (get_vars exp) markedSet)) pathCondList
+  (*check if UNSAT(not disjNormalForm). If it is SAT, then there exists an assignment to the
+    variables marked as initial that makes the violation impossible, so it is not a manifest error.
+    If it is UNSAT, then one of the path conditions must be SAT no matter the assignment to the marked variables*)
+    in
+    let formula = List.fold_left (fun f pc -> Typed.or_ f (Typed.conj pc)) Typed.v_false disjNormalForm
+    in
+    let negFormula = Typed.not formula
+    in
+    let solv = Soteria.Tiny_values.Tiny_solver.Z3_solver.init ()
+    in
+    let () = Soteria.Tiny_values.Tiny_solver.Z3_solver.add_constraints solv [negFormula]
+    in
+    Soteria.Symex.Solver_result.is_unsat (Soteria.Tiny_values.Tiny_solver.Z3_solver.sat solv)
   else false
 
 (*Takes a set of variables marked as "initial" (markedSet) and the results of symbolic executions.
