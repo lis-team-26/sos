@@ -19,4 +19,6 @@ let () =
         (typed_contract_ast, typed_orchestrator_ast)
         ~mode:Soteria.Symex.Approx.OX
     in
-    Fmt.pr "%a" Symbolic.Runtime_pp.pp_results results
+    let manifestErrors = ManifErrHeuristics.find_manif [] results
+    in
+    Fmt.pr "%a@.Manifest errors:@.%a" Symbolic.Runtime_pp.pp_results results Symbolic.Runtime_pp.pp_manifest_errors manifestErrors

@@ -1,12 +1,10 @@
 open Symbolic.Runtime
 open Symbolic.Data
-open Utils.Data
 
-type violation_id = ServicePrecond of string | Policy of int | Assert of int
-
-(*replace actual err_state with this in symbolic.runtime once finished*)
-type err_state = { msg : string; err_stack : stack; id : violation_id }
-type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition
+let viol_id_hash = function
+  | DivByZero | ServicePrecond _ -> (0, 0)
+  | Policy n -> (1, n)
+  | AssertFail line -> (2, line)
 
 module Violation = struct
   type t = violation_id
@@ -14,14 +12,12 @@ module Violation = struct
   let compare a b =
     match (a, b) with
     | ServicePrecond sa, ServicePrecond sb -> String.compare sa sb
-    | Policy pa, Policy pb -> Int.compare pa pb
-    | Assert aa, Assert ab -> Int.compare aa ab
-    | ServicePrecond _, Policy _ -> -1
-    | ServicePrecond _, Assert _ -> -1
-    | Policy _, ServicePrecond _ -> 1
-    | Assert _, ServicePrecond _ -> 1
-    | Policy _, Assert _ -> -1
-    | Assert _, Policy _ -> 1
+    | ServicePrecond _, _ -> -1
+    | _, ServicePrecond _ -> 1
+    | a, b ->
+        let a1, a2 = viol_id_hash a in
+        let b1, b2 = viol_id_hash b in
+        if a1 == b1 then Int.compare a2 b2 else Int.compare a1 b1
 end
 
 module ViolMap = Map.Make (Violation)
@@ -32,7 +28,7 @@ let group_by_id results =
       (fun (s, pc) ->
         match Compo_res.to_result_opt s with
         | None | Some (Ok _) -> None
-        | Some (Error { id }) -> Some (id, pc))
+        | Some (Error { vid }) -> Some (vid, pc))
       results
   in
   List.fold_left
@@ -84,7 +80,9 @@ let split_heuristic markedSet pathCondList =
 
 (*Takes a set of variables marked as "initial" (markedSet) and the results of symbolic executions.
  Returns a list of bugs that may happen indipendently of what value is assigned to the variables in markedSet*)
-let find_manif markedSet results =
+let find_manif marked results =
+  let markedSet = IntSet.of_list marked
+  in
   let groups = group_by_id results in
   groups |> ViolMap.to_seq
   |> Seq.filter_map (fun (viol, pathOr) ->

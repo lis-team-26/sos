@@ -67,6 +67,12 @@ type ok_state = {
   ok_stack : stack;
 }
 
-type err_state = { msg : string; err_stack : stack }
+type violation_id =
+  | DivByZero
+  | ServicePrecond of string
+  | Policy of int
+  | AssertFail of int
+
+type err_state = { err_stack : stack; vid : violation_id }
 type path_condition = Typed.sbool list
 type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition

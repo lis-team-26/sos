@@ -28,7 +28,7 @@ let type_check contract ast =
 let symb_run (contract, program) ~mode =
   (* initialize each policy checker *)
   let policy_init_states =
-    List.map PolicyChecker.init_policy contract.policies
+    List.mapi PolicyChecker.init_policy contract.policies
   in
   OrchestratorInterpreter.build_symb_process program contract policy_init_states
   |> Symbolic.Runtime.Symex.run ~mode

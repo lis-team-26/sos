@@ -41,13 +41,13 @@ end
 module FunctionalMonad : sig
   include module type of Make (struct
     type ok = function_env env
-    type err = string
+    type err = violation_id
   end)
 end
 
 module OkStateMonad : sig
   include module type of Make (struct
-    type ok = ok_state * pChecker list
+    type ok = ok_state * policyChecker list
     type err = err_state
   end)
 end

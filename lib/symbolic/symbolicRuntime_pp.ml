@@ -77,6 +77,13 @@ let pp_section fmt title is_empty pp_content content =
   if is_empty then fprintf fmt "%s: <empty>" title
   else fprintf fmt "%s:@,@[<v 2>  %a@]" title pp_content content
 
+let pp_violation fmt = function
+  | DivByZero -> fprintf fmt "Division by zero"
+  | ServicePrecond service ->
+      fprintf fmt "Service %s precondition not satisfied" service
+  | Policy n -> fprintf fmt "Policy number %d violated" n
+  | AssertFail line -> fprintf fmt "Assertion failed at line %d" line
+
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
   (match Compo_res.to_result_opt state with
@@ -93,8 +100,8 @@ let pp_result fmt (idx, state, path_condition) =
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
         (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
-  | Some (Error { msg; err_stack }) ->
-      fprintf fmt "@{<red>ERROR@}: %s@," msg;
+  | Some (Error { vid; err_stack }) ->
+      fprintf fmt "@{<red>ERROR@}: %a@," pp_violation vid;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
@@ -113,3 +120,6 @@ let pp_results fmt results =
   in
   setup_color_tags fmt;
   fprintf fmt "@[<v 0>%a@,@]" (pp_list pp_result) results_with_idxs
+
+let pp_manifest_errors fmt vids =
+  fprintf fmt "@[<v 0>%a@,@]" (pp_list pp_violation) vids

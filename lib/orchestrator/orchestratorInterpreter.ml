@@ -81,10 +81,7 @@ let symb_eval_invoke svc args qos_fields =
   in
   let&** () =
     Symex.assert_or_error b
-      {
-        msg = Fmt.str "Precondition violated for service '%s'" svc;
-        err_stack = state.ok_stack;
-      }
+      { vid = ServicePrecond svc; err_stack = state.ok_stack }
   in
   let& qos_env =
     fold_list qos_fields ~init:StringMap.empty ~f:(fun env (x, t) ->
@@ -209,10 +206,7 @@ let rec symb_eval_stmt c stmt =
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&** () =
         Symex.assert_or_error b
-          {
-            msg = Fmt.str "Assertion failed at line %d: %a" ln Typed.ppa b;
-            err_stack = state.ok_stack;
-          }
+          { vid = AssertFail ln; err_stack = state.ok_stack }
       in
       return ()
   | Seq (s1, s2) ->
