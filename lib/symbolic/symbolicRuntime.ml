@@ -52,16 +52,17 @@ type 'a symbolic_list_env = 'a SymbolicListMap.t
 type invocation = {
   service : service;
   actual_args : symbolic_value env;
+  ret_val : symbolic_value;
   successful : symb_bool;
   actual_qos : symbolic_value env;
 }
 
 type stack = invocation list
-type function_envs = symbolic_value symbolic_list_env env
+type function_env = symbolic_value symbolic_list_env
 
 type ok_state = {
   scope : symbolic_value scope;
-  function_envs : function_envs;
+  function_envs : function_env env;
   service_map : service env;
   ok_stack : stack;
 }

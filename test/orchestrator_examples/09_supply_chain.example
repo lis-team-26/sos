@@ -1,0 +1,44 @@
+int supplier := int?;
+int destination := int?;
+int batches := int?;
+int shipped := 0;
+
+assume MAX_BATCH >= 1;
+assume MIN_CAPACITY >= 0;
+assume supplier > 0 && destination > 0;
+assume supplier_ok(supplier) && warehouse_ok(destination);
+assume capacity(destination) >= MIN_CAPACITY;
+assume batches >= 1 && batches <= 3;
+
+while batches > 0 do {
+  int qty := int?;
+  assume qty > 0 && qty <= MAX_BATCH;
+  rcpt quote := invoke SupplierQuote(supplier, qty, destination);
+  assert quote.successful;
+  assert quote.retval > 0;
+
+  rcpt allocation := invoke Allocate(destination, qty);
+  if allocation.successful then {
+    rcpt shipment := invoke Ship(supplier, destination, qty);
+    if shipment.successful then {
+      assert shipment.retval > 0;
+      rcpt receive := invoke Receive(destination, qty);
+      assert receive.successful;
+      assert receive.retval;
+      shipped := shipped + qty;
+    } else {
+      assert shipment.retval == 0;
+      rcpt reorder := invoke Reorder(supplier, destination, qty);
+      assert reorder.successful;
+      assert reorder.retval;
+    }
+  } else {
+    assert !allocation.retval;
+    rcpt reorder_again := invoke Reorder(supplier, destination, qty);
+    assert reorder_again.successful;
+    assert reorder_again.retval;
+  }
+  batches := batches - 1;
+}
+
+assert shipped >= 0;

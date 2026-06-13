@@ -3,7 +3,6 @@ open Utils.Data
 type arithm_op = Add | Sub | Mul | Div
 type cmp_op = Eq | Neq | Lt | Le | Gt | Ge
 type bool_op = And | Or
-
 type arithm_field = AReturnValue | AQosField of ident
 type bool_field = BReturnValue | BSuccessful | BQosField of ident
 

@@ -32,7 +32,6 @@ module Make (S : S) = struct
     state'
 
   let get = fun state -> Symex.Result.ok (state, state)
-  let put state = fun _ -> Symex.Result.ok ((), state)
   let modify f = fun state -> Symex.Result.ok ((), f state)
 
   let lift_symex_result m =
@@ -63,7 +62,7 @@ module Make (S : S) = struct
 end
 
 module FunctionalMonad = Make (struct
-  type ok = function_envs
+  type ok = function_env env
   type err = string
 end)
 

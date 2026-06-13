@@ -1,0 +1,92 @@
+{
+    globals: [
+        MAX_RETRIES: int
+    ],
+    functions: [
+        well_formed: int -> bool,
+        valid_password: int -> int -> bool,
+        failures: int -> int,
+        locked: int -> bool
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    policies: [
+        sum(cost) < 30,
+        max(latency) <= 5,
+        { Login -> l, LockAccount -> k } "kl"
+    ],
+    services: [
+        {
+            name: Login,
+            params: [
+                user_id: int,
+                password: int
+            ],
+            returns: {
+                token: int
+            },
+            precond: [
+                well_formed(user_id),
+                well_formed(password),
+                !locked(user_id),
+                failures(user_id) < MAX_RETRIES
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 2,
+                    trust := 65
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    failures(user_id) := 0,
+                    token := user_id + password
+                ],
+                constraints: [
+                    valid_password(user_id, password),
+                    token > 0
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    failures(user_id) := failures(user_id) + 1,
+                    token := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: LockAccount,
+            params: [
+                user_id: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                well_formed(user_id),
+                failures(user_id) >= MAX_RETRIES
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 80
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    locked(user_id) := true,
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

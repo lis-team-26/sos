@@ -1,0 +1,218 @@
+{
+    globals: [
+        MAX_BUDGET: int
+    ],
+    functions: [
+        valid_trip: int -> bool,
+        seat_available: int -> bool,
+        room_available: int -> bool,
+        flight_price: int -> int,
+        hotel_price: int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        reliability: int
+    ],
+    policies: [
+        sum(cost) < 90,
+        avg(latency) <= 7,
+        min(reliability) >= 45,
+        { SearchFlight -> f, HoldFlight -> h, SearchHotel -> s, HoldHotel -> o, PayTrip -> p, CancelHold -> c } "pc"
+    ],
+    services: [
+        {
+            name: SearchFlight,
+            params: [
+                trip: int
+            ],
+            returns: {
+                price: int
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip),
+                flight_price(trip) > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 3,
+                    reliability := 60
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    price := flight_price(trip)
+                ],
+                constraints: [
+                    price > 0
+                ]
+            }
+        },
+        {
+            name: HoldFlight,
+            params: [
+                trip: int
+            ],
+            returns: {
+                held: bool
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 4,
+                    reliability := 55
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    seat_available(trip) := false,
+                    held := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    held := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: SearchHotel,
+            params: [
+                trip: int
+            ],
+            returns: {
+                price: int
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip),
+                hotel_price(trip) > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 3,
+                    reliability := 58
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    price := hotel_price(trip)
+                ],
+                constraints: [
+                    price > 0
+                ]
+            }
+        },
+        {
+            name: HoldHotel,
+            params: [
+                trip: int
+            ],
+            returns: {
+                held: bool
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 4,
+                    reliability := 57
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    room_available(trip) := false,
+                    held := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    held := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: PayTrip,
+            params: [
+                trip: int,
+                amount: int
+            ],
+            returns: {
+                paid: bool
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip),
+                amount > 0,
+                amount <= MAX_BUDGET
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 6,
+                    cost := 6,
+                    reliability := 70
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    paid := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    paid := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: CancelHold,
+            params: [
+                trip: int
+            ],
+            returns: {
+                cancelled: bool
+            },
+            precond: [
+                trip > 0,
+                valid_trip(trip)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 1,
+                    reliability := 50
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    seat_available(trip) := true,
+                    room_available(trip) := true,
+                    cancelled := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

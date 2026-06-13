@@ -1,5 +1,6 @@
 open Format
 open SymbolicRuntime
+open SymbolicData
 open SymbolicData_pp
 open Utils.Data
 open Utils.Data_pp
@@ -39,17 +40,38 @@ let pp_scope fmt scope =
         env)
     fmt scope_with_idxs
 
-let pp_invocation fmt { service; actual_args; actual_qos } =
-  fprintf fmt "%s(%a), QoS: %a" service.name
+let pp_invocation fmt (idx, invocation) =
+  fprintf fmt
+    "(#%d) %s@,\
+     @[<v 2>  Args: { %a }@,\
+     Returned: %a@,\
+     Successful: %a@,\
+     QoS: { %a }@]"
+    idx invocation.service.name
     (pp_env_inline Fmt.string pp_value)
-    actual_args
+    invocation.actual_args pp_value invocation.ret_val Symex.Value.ppa
+    invocation.successful
     (pp_env_inline Fmt.string pp_value)
-    actual_qos
+    invocation.actual_qos
 
 let rec pp_stack fmt stack = pp_list pp_invocation fmt stack
 
 let rec pp_path_condition fmt pc =
   pp_list_with_sep Symex.Value.ppa (fun fmt () -> fprintf fmt " ∧@,") fmt pc
+
+let pp_function_env fmt function_env =
+  fprintf fmt "  @,@[<v 2>  ";
+  pp_list
+    (fun fmt (key_args, value) ->
+      fprintf fmt "[ %a ] -> %a"
+        (pp_list_inline Symex.Value.ppa)
+        key_args pp_value value)
+    fmt
+    (function_env |> SymbolicListMap.syntactic_bindings |> List.of_seq);
+  fprintf fmt "@]"
+
+let pp_function_envs fmt function_envs =
+  pp_env Fmt.string pp_function_env fmt function_envs
 
 let pp_section fmt title is_empty pp_content content =
   if is_empty then fprintf fmt "%s: <empty>" title
@@ -58,20 +80,26 @@ let pp_section fmt title is_empty pp_content content =
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
   (match Compo_res.to_result_opt state with
-  | Some (Ok { scope; ok_stack }) ->
+  | Some (Ok { scope; function_envs; ok_stack }) ->
       fprintf fmt "@{<green>SUCCESS@}@,";
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
       pp_section fmt "Scope stack" (scope = []) pp_scope scope;
       fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack ok_stack
+      pp_section fmt "Functions environment"
+        (StringMap.is_empty function_envs)
+        pp_function_envs function_envs;
+      fprintf fmt "@,";
+      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
+        (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
   | Some (Error { msg; err_stack }) ->
       fprintf fmt "@{<red>ERROR@}: %s@," msg;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (err_stack = []) pp_stack err_stack
+      pp_section fmt "Invocation stack" (err_stack = []) pp_stack
+        (List.mapi (fun idx inv -> (idx + 1, inv)) err_stack)
   | None ->
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;

@@ -1,0 +1,183 @@
+{
+    globals: [
+        MAX_PLAN: int
+    ],
+    functions: [
+        active_user: int -> bool,
+        password_ok: int -> int -> bool,
+        plan: int -> int,
+        coupon_ok: int -> bool,
+        plan_price: int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    policies: [
+        sum(cost) < 70 group-by user_id,
+        avg(latency) <= 5,
+        min(trust) >= 55,
+        { Authenticate -> a, ReadPlan -> r, ApplyCoupon -> c, Bill -> b, UpgradePlan -> u } "uba"
+    ],
+    services: [
+        {
+            name: Authenticate,
+            params: [
+                user_id: int,
+                password: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                user_id > 0,
+                active_user(user_id)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 1,
+                    trust := 80
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := password_ok(user_id, password)
+                ],
+                constraints: [
+                    ok
+                ]
+            }
+        },
+        {
+            name: ReadPlan,
+            params: [
+                user_id: int
+            ],
+            returns: {
+                current_plan: int
+            },
+            precond: [
+                user_id > 0,
+                active_user(user_id)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 60
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    current_plan := plan(user_id)
+                ],
+                constraints: [
+                    current_plan >= 0,
+                    current_plan <= MAX_PLAN
+                ]
+            }
+        },
+        {
+            name: ApplyCoupon,
+            params: [
+                coupon: int,
+                amount: int
+            ],
+            returns: {
+                discounted: int
+            },
+            precond: [
+                coupon > 0,
+                amount > 0,
+                coupon_ok(coupon)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 2,
+                    trust := 65
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    discounted := amount - 1
+                ],
+                constraints: [
+                    discounted >= 0,
+                    discounted < amount
+                ]
+            }
+        },
+        {
+            name: Bill,
+            params: [
+                user_id: int,
+                amount: int
+            ],
+            returns: {
+                paid: bool
+            },
+            precond: [
+                user_id > 0,
+                active_user(user_id),
+                amount >= 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 4,
+                    trust := 70
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    paid := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    paid := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: UpgradePlan,
+            params: [
+                user_id: int,
+                target_plan: int
+            ],
+            returns: {
+                upgraded: bool
+            },
+            precond: [
+                user_id > 0,
+                active_user(user_id),
+                target_plan > 0,
+                target_plan <= MAX_PLAN
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 3,
+                    trust := 75
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    plan(user_id) := target_plan,
+                    upgraded := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

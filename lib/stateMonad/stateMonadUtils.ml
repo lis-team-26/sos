@@ -30,12 +30,6 @@ let get_policy_checkers =
  fun (state, policy_checkers) ->
   Symex.Result.ok (policy_checkers, (state, policy_checkers))
 
-let put_state state =
- fun (_, policy_checkers) -> Symex.Result.ok ((), (state, policy_checkers))
-
-let put_policy_checkers policy_checkers =
- fun (state, _) -> Symex.Result.ok ((), (state, policy_checkers))
-
 let modify_state f =
  fun (state, policy_checkers) ->
   let new_state = f state in

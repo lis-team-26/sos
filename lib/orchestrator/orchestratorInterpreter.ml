@@ -40,7 +40,8 @@ let symb_apply_effects scope effects =
           let fun_env = SymbolicListMap.syntactic_add actual_args v fun_env in
           let fun_envs = StringMap.add f fun_env state.function_envs in
           let& () =
-            put ({ state with function_envs = fun_envs }, policy_checkers)
+            modify (fun (state, policy_checkers) ->
+                ({ state with function_envs = fun_envs }, policy_checkers))
           in
           return scope)
 
@@ -142,8 +143,20 @@ let symb_eval_invoke svc args qos_fields =
   let post_invoke_scope =
     pre_invoke_scope |> set_public_env (get_public_env postcond_scope)
   in
+  let ret_val =
+    match lookup ret_var postcond_scope with
+    | Some v -> v
+    | None ->
+        failwith "Unreachable: return variable not found in postcondition scope"
+  in
   let invocation =
-    { service; actual_args = actual_args_env; successful; actual_qos = qos_env }
+    {
+      service;
+      actual_args = actual_args_env;
+      ret_val;
+      successful;
+      actual_qos = qos_env;
+    }
   in
   let& () =
     modify_state (fun state ->
@@ -153,19 +166,13 @@ let symb_eval_invoke svc args qos_fields =
           ok_stack = invocation :: state.ok_stack;
         })
   in
-  let ret_val =
-    match lookup ret_var postcond_scope with
-    | Some v -> v
-    | None ->
-        failwith "Unreachable: return variable not found in postcondition scope"
-  in
   let& state, policy_checkers = get in
   let& policy_checkers =
     map_list policy_checkers ~f:(fun pc ->
         let&** pc = update_policy invocation pc |> map_error state in
         return pc)
   in
-  let& () = put_policy_checkers policy_checkers in
+  let& () = modify_policy_checkers (fun _ -> policy_checkers) in
   return (SymbReceipt { ret_val; successful; qos_fields = qos_env })
 
 let rec symb_eval_stmt c stmt =
@@ -182,7 +189,7 @@ let rec symb_eval_stmt c stmt =
             let& v = symb_eval_bexpr state.scope e |> lift_fm in
             return (SymbBool v)
       in
-      put_state { state with scope = declare x v state.scope }
+      modify_state (fun state -> { state with scope = declare x v state.scope })
   | Assign (x, e) ->
       let& v =
         match e with
@@ -193,7 +200,7 @@ let rec symb_eval_stmt c stmt =
             let& v = symb_eval_bexpr state.scope e |> lift_fm in
             return (SymbBool v)
       in
-      put_state { state with scope = update x v state.scope }
+      modify_state (fun state -> { state with scope = update x v state.scope })
   | Assume e ->
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&* () = Symex.assume [ b ] in
@@ -227,10 +234,12 @@ let rec symb_eval_stmt c stmt =
       return ()
   | DeclareInvoke (x, svc, args) ->
       let& receipt = symb_eval_invoke svc args c.qos in
-      put_state { state with scope = declare x receipt state.scope }
+      modify_state (fun state ->
+          { state with scope = declare x receipt state.scope })
   | AssignInvoke (x, serv, args) ->
       let& receipt = symb_eval_invoke serv args c.qos in
-      put_state { state with scope = update x receipt state.scope }
+      modify_state (fun state ->
+          { state with scope = update x receipt state.scope })
 
 (* contract is only needed by build_symb_process, not to evaluate statements *)
 let build_symb_process stmt contract policy_init_states =

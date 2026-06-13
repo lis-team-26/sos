@@ -1,0 +1,35 @@
+int account := int?;
+int items := int?;
+int total := 0;
+int failed := 0;
+
+assume CART_LIMIT >= 1;
+assume account > 0 && account_open(account);
+assume items >= 1 && items <= 3;
+
+while items > 0 do {
+  int item := int?;
+  assume item > 0 && stock(item) >= 0 && price_of(item) > 0;
+  rcpt reserve := invoke Reserve(item, 1);
+  if reserve.successful then {
+    rcpt price := invoke Price(item);
+    assert price.successful;
+    total := total + price.retval;
+    rcpt charge := invoke Charge(account, price.retval);
+    if charge.successful then {
+      assert charge.retval;
+    } else {
+      rcpt release := invoke Release(item, 1);
+      assert release.successful;
+      assert release.retval;
+      failed := failed + 1;
+    }
+  } else {
+    assert !reserve.retval;
+    failed := failed + 1;
+  }
+  items := items - 1;
+}
+
+assert total >= 0;
+assert failed >= 0;

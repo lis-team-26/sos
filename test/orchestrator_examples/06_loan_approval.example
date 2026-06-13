@@ -1,0 +1,31 @@
+int applicant := int?;
+int amount := int?;
+
+assume MIN_SCORE >= 300 && MIN_SCORE <= 850;
+assume MIN_INCOME >= 0;
+assume MAX_RATIO >= 0;
+assume applicant > 0 && known_customer(applicant);
+assume amount > 0;
+
+rcpt credit := invoke PullCredit(applicant);
+assert credit.successful;
+assert credit.retval >= 300;
+assert credit.retval <= 850;
+
+rcpt income := invoke VerifyIncome(applicant);
+assert income.successful;
+assert income.retval >= 0;
+
+if credit.retval >= MIN_SCORE && income.retval >= MIN_INCOME && debt_ratio(applicant) <= MAX_RATIO then {
+  rcpt offer := invoke MakeOffer(applicant, amount);
+  if offer.successful then {
+    assert offer.retval > 0;
+    assert offer.retval <= 30;
+  } else {
+    assert offer.retval == 0;
+  }
+} else {
+  rcpt reject := invoke RejectApplication(applicant);
+  assert reject.successful;
+  assert reject.retval;
+}

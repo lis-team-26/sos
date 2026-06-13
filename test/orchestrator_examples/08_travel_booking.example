@@ -1,0 +1,27 @@
+int trip := int?;
+
+assume trip > 0 && valid_trip(trip);
+assume flight_price(trip) > 0 && hotel_price(trip) > 0;
+assume flight_price(trip) + hotel_price(trip) <= MAX_BUDGET;
+
+rcpt flight_price_r := invoke SearchFlight(trip);
+rcpt hotel_price_r := invoke SearchHotel(trip);
+assert flight_price_r.successful;
+assert hotel_price_r.successful;
+
+rcpt flight_hold := invoke HoldFlight(trip);
+rcpt hotel_hold := invoke HoldHotel(trip);
+
+if flight_hold.successful && hotel_hold.successful then {
+  int total := flight_price_r.retval + hotel_price_r.retval;
+  rcpt payment := invoke PayTrip(trip, total);
+  if payment.successful then {
+    assert payment.retval;
+  } else {
+    assert !payment.retval;
+  }
+} else {
+  rcpt cancel := invoke CancelHold(trip);
+  assert cancel.successful;
+  assert cancel.retval;
+}

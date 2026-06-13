@@ -1,0 +1,149 @@
+{
+    globals: [
+        MAX_WEIGHT: int,
+        MAX_BUDGET: int
+    ],
+    functions: [
+        valid_address: int -> bool,
+        zone: int -> int,
+        quote_price: int -> int -> int,
+        insurable: int -> bool
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    policies: [
+        sum(cost) < 35,
+        max(latency) <= 8,
+        min(trust) >= 50,
+        { ValidateAddress -> v, QuoteShipment -> q, AddInsurance -> i, BookShipment -> b } "bv"
+    ],
+    services: [
+        {
+            name: ValidateAddress,
+            params: [
+                address: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                address > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 55
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := valid_address(address)
+                ],
+                constraints: [
+                    ok
+                ]
+            }
+        },
+        {
+            name: QuoteShipment,
+            params: [
+                address: int,
+                weight: int
+            ],
+            returns: {
+                quote: int
+            },
+            precond: [
+                valid_address(address),
+                weight > 0,
+                weight <= MAX_WEIGHT
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 2,
+                    trust := 65
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    quote := quote_price(zone(address), weight)
+                ],
+                constraints: [
+                    quote > 0,
+                    quote <= MAX_BUDGET
+                ]
+            }
+        },
+        {
+            name: AddInsurance,
+            params: [
+                package_id: int,
+                quote: int
+            ],
+            returns: {
+                insured_quote: int
+            },
+            precond: [
+                package_id > 0,
+                quote > 0,
+                insurable(package_id)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 2,
+                    trust := 80
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    insured_quote := quote + 5
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: BookShipment,
+            params: [
+                address: int,
+                amount: int
+            ],
+            returns: {
+                booked: bool
+            },
+            precond: [
+                valid_address(address),
+                amount > 0,
+                amount <= MAX_BUDGET + 5
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 5,
+                    trust := 75
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    booked := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    booked := false
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

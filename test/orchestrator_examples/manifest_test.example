@@ -1,8 +1,0 @@
-int x := int?;
-assume input(x);
-int y := int?;
-if x > 0 then
-    y := y + 10;
-else
-    skip;
-assert y > 1;

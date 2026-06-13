@@ -1,0 +1,119 @@
+{
+    globals: [
+        DAILY_LIMIT: int
+    ],
+    functions: [
+        balance: int -> int,
+        active: int -> bool
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    policies: [
+        sum(cost) < 20,
+        avg(latency) <= 4,
+        min(trust) > 50,
+        { CheckBalance -> b, Debit -> d, Credit -> c } "cd"
+    ],
+    services: [
+        {
+            name: CheckBalance,
+            params: [
+                account: int
+            ],
+            returns: {
+                amount: int
+            },
+            precond: [
+                account > 0,
+                active(account),
+                balance(account) >= 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 70
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    amount := balance(account)
+                ],
+                constraints: [
+                    amount >= 0
+                ]
+            }
+        },
+        {
+            name: Debit,
+            params: [
+                account: int,
+                amount: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                account > 0,
+                active(account),
+                amount > 0,
+                amount <= DAILY_LIMIT
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 3,
+                    trust := 75
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    balance(account) := balance(account) - amount,
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Credit,
+            params: [
+                account: int,
+                amount: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                account > 0,
+                active(account),
+                amount > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 2,
+                    trust := 80
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    balance(account) := balance(account) + amount,
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,8 @@
+int x := int?;
+assume x >= 0 && x <= LIMIT;
+
+rcpt r := invoke Echo(x);
+assert r.successful;
+assert r.retval == x + 1;
+assert r.qos.cost == 1;
+assert r.qos.trust > 80;

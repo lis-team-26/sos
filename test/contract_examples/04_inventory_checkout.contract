@@ -1,0 +1,156 @@
+{
+    globals: [
+        CART_LIMIT: int
+    ],
+    functions: [
+        stock: int -> int,
+        reserved: int -> int,
+        price_of: int -> int,
+        account_open: int -> bool
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    policies: [
+        sum(cost) < 50,
+        avg(latency) <= 6,
+        min(trust) > 40,
+        { Reserve -> r, Price -> p, Charge -> c, Release -> x } "cx"
+    ],
+    services: [
+        {
+            name: Reserve,
+            params: [
+                item: int,
+                qty: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                item > 0,
+                qty > 0,
+                qty <= CART_LIMIT,
+                stock(item) >= 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 3,
+                    trust := 60
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    stock(item) := stock(item) - qty,
+                    reserved(item) := reserved(item) + qty,
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Price,
+            params: [
+                item: int
+            ],
+            returns: {
+                amount: int
+            },
+            precond: [
+                item > 0,
+                price_of(item) > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 55
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    amount := price_of(item)
+                ],
+                constraints: [
+                    amount > 0
+                ]
+            }
+        },
+        {
+            name: Charge,
+            params: [
+                account: int,
+                amount: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                account > 0,
+                account_open(account),
+                amount > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 4,
+                    trust := 70
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Release,
+            params: [
+                item: int,
+                qty: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                item > 0,
+                qty > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 1,
+                    trust := 65
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    stock(item) := stock(item) + qty,
+                    reserved(item) := reserved(item) - qty,
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}

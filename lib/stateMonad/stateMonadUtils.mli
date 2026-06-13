@@ -20,8 +20,6 @@ val branch :
 
 val get_state : (ok_state, 'fix) OkStateMonad.t
 val get_policy_checkers : (pChecker list, 'fix) OkStateMonad.t
-val put_state : ok_state -> (unit, 'fix) OkStateMonad.t
-val put_policy_checkers : pChecker list -> (unit, 'fix) OkStateMonad.t
 val modify_state : (ok_state -> ok_state) -> (unit, 'fix) OkStateMonad.t
 
 val modify_policy_checkers :

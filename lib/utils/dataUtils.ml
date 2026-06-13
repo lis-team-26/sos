@@ -10,9 +10,6 @@ type 'a scope = 'a env list
 (** A stack of environments representing nested scopes. The head of the list is
     the innermost scope, and the tail represents outer scopes. *)
 
-type pos = { line : int; column : int }
-(** A position in the source code, used for error reporting *)
-
 (** Looks up a variable in the scope stack, starting from the innermost scope.
     Returns None if the variable is not found in any of the scopes *)
 let rec lookup x = function
@@ -63,7 +60,7 @@ let rec set_public_env public_env = function
 
 (** Extracts the value from a result, or fails with a formatted error message if
     it's an error. *)
-let get_result pp = function
+let get_or_fail ?(pp = Fmt.string) = function
   | Ok v -> v
   | Error msg -> failwith (Fmt.str "%a" pp msg)
 

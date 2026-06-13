@@ -1,0 +1,200 @@
+{
+    globals: [
+        MAX_BATCH: int,
+        MIN_CAPACITY: int
+    ],
+    functions: [
+        supplier_ok: int -> bool,
+        warehouse_ok: int -> bool,
+        inventory: int -> int,
+        capacity: int -> int,
+        quote_cost: int -> int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        confidence: int
+    ],
+    policies: [
+        sum(cost) < 140 group-by destination,
+        avg(latency) <= 8,
+        min(confidence) >= 40,
+        { SupplierQuote -> q, Allocate -> a, Ship -> s, Receive -> v, Reorder -> r } "vr"
+    ],
+    services: [
+        {
+            name: SupplierQuote,
+            params: [
+                supplier: int,
+                qty: int,
+                destination: int
+            ],
+            returns: {
+                amount: int
+            },
+            precond: [
+                supplier > 0,
+                destination > 0,
+                qty > 0,
+                qty <= MAX_BATCH,
+                supplier_ok(supplier),
+                warehouse_ok(destination)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 4,
+                    confidence := 60
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    amount := quote_cost(supplier, qty)
+                ],
+                constraints: [
+                    amount > 0
+                ]
+            }
+        },
+        {
+            name: Allocate,
+            params: [
+                destination: int,
+                qty: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                destination > 0,
+                qty > 0,
+                warehouse_ok(destination),
+                capacity(destination) >= MIN_CAPACITY
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 6,
+                    cost := 5,
+                    confidence := 55
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    capacity(destination) := capacity(destination) - qty,
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Ship,
+            params: [
+                supplier: int,
+                destination: int,
+                qty: int
+            ],
+            returns: {
+                tracking: int
+            },
+            precond: [
+                supplier > 0,
+                destination > 0,
+                qty > 0,
+                supplier_ok(supplier),
+                warehouse_ok(destination)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 7,
+                    cost := 8,
+                    confidence := 65
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    tracking := supplier + destination + qty
+                ],
+                constraints: [
+                    tracking > 0
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    tracking := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Receive,
+            params: [
+                destination: int,
+                qty: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                destination > 0,
+                qty > 0,
+                warehouse_ok(destination)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 2,
+                    confidence := 75
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    inventory(destination) := inventory(destination) + qty,
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Reorder,
+            params: [
+                supplier: int,
+                destination: int,
+                qty: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                supplier > 0,
+                destination > 0,
+                qty > 0,
+                supplier_ok(supplier),
+                warehouse_ok(destination)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 8,
+                    cost := 6,
+                    confidence := 50
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ]
+}
