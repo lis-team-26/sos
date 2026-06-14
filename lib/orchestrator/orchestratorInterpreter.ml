@@ -15,7 +15,7 @@ let symb_eval_constraints scope constraints =
       let& b = lift_fm (symb_eval_bexpr scope e) in
       return (acc &&@ b))
 
-let symb_apply_effects scope effects =
+let symb_eval_effects scope effects =
   fold_list effects ~init:scope ~f:(fun scope (lhs, rhs) ->
       match lhs with
       | LVar x ->
@@ -47,7 +47,7 @@ let symb_apply_effects scope effects =
 
 let symb_eval_postcond postcond scope service =
   let effects, constraints = postcond in
-  let& scope = symb_apply_effects scope effects in
+  let& scope = symb_eval_effects scope effects in
   let& constraints = symb_eval_constraints scope constraints in
   let&* () = Symex.assume [ constraints ] in
   return scope
@@ -81,7 +81,7 @@ let symb_eval_invoke svc args qos_fields =
   in
   let&** () =
     Symex.assert_or_error b
-      { vid = ServicePrecond svc; err_stack = state.ok_stack }
+      { cause = ServicePrecond svc; err_stack = state.ok_stack }
   in
   let& qos_env =
     fold_list qos_fields ~init:StringMap.empty ~f:(fun env (x, t) ->
@@ -206,7 +206,7 @@ let rec symb_eval_stmt c stmt =
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&** () =
         Symex.assert_or_error b
-          { vid = AssertFail ln; err_stack = state.ok_stack }
+          { cause = AssertFail (ln, e); err_stack = state.ok_stack }
       in
       return ()
   | Seq (s1, s2) ->

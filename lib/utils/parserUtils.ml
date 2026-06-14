@@ -30,9 +30,6 @@ module MakeParser (P : Parser) = struct
     let lexbuf = Lexing.from_channel input_file in
     try
       let ast = P.parser lexer_with_history lexbuf in
-      let fmt = Format.std_formatter in
-      P.pp fmt ast;
-      Format.pp_print_flush fmt ();
       close_in input_file;
       ast
     with

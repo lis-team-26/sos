@@ -4,8 +4,8 @@ open PolicyChecker
 open Utils.Data
 
 let map_error old_ok_state err_state =
-  Symex.Result.map_error err_state (fun vid ->
-      { vid; err_stack = old_ok_state.ok_stack })
+  Symex.Result.map_error err_state (fun cause ->
+      { cause; err_stack = old_ok_state.ok_stack })
 
 let lift_fm m =
  fun (state, policy_checkers) ->

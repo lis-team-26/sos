@@ -41,7 +41,7 @@ end
 module FunctionalMonad : sig
   include module type of Make (struct
     type ok = function_env env
-    type err = violation_id
+    type err = error_cause
   end)
 end
 

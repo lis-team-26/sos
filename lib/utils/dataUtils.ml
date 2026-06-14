@@ -1,3 +1,5 @@
+module IntSet = Set.Make (Int)
+module CharSet = Set.Make (Char)
 module StringSet = Set.Make (String)
 module StringMap = Map.Make (String)
 

@@ -1,49 +1,29 @@
 open Symbolic.Runtime
 open Symbolic.Data
+open Soteria.Tiny_values.Tiny_solver.Z3_solver
+open Utils.Data
 
-let viol_id_hash = function
-  | DivByZero | ServicePrecond _ -> (0, 0)
-  | Policy n -> (1, n)
-  | AssertFail line -> (2, line)
-
-module Violation = struct
-  type t = violation_id
-
-  let compare a b =
-    match (a, b) with
-    | ServicePrecond sa, ServicePrecond sb -> String.compare sa sb
-    | ServicePrecond _, _ -> -1
-    | _, ServicePrecond _ -> 1
-    | a, b ->
-        let a1, a2 = viol_id_hash a in
-        let b1, b2 = viol_id_hash b in
-        if a1 == b1 then Int.compare a2 b2 else Int.compare a1 b1
-end
-
-module ViolMap = Map.Make (Violation)
-
-let group_by_id results =
-  let xs =
+let group_by_error_cause results =
+  let error_results =
     List.filter_map
-      (fun (s, pc) ->
-        match Compo_res.to_result_opt s with
+      (fun (state, path_cond) ->
+        match Soteria.Symex.Compo_res.to_result_opt state with
         | None | Some (Ok _) -> None
-        | Some (Error { vid }) -> Some (vid, pc))
+        | Some (Error { cause }) -> Some (cause, path_cond))
       results
   in
   List.fold_left
-    (fun m (id, pCond) ->
-      ViolMap.update id
-        (function None -> Some [ pCond ] | Some l -> Some (pCond :: l))
-        m)
-    ViolMap.empty xs
-
-module IntSet = Set.Make (Int)
+    (fun error_cause_map (cause, path_cond) ->
+      ErrorCauseMap.update cause
+        (function
+          | None -> Some [ path_cond ] | Some l -> Some (path_cond :: l))
+        error_cause_map)
+    ErrorCauseMap.empty error_results
 
 let get_vars expr =
   let vars = ref IntSet.empty in
-  Typed.iter_vars expr (fun v ->
-      vars := IntSet.add (v |> fst |> Soteria.Symex.Var.to_int) !vars);
+  Typed.iter_vars expr (fun (id, _) ->
+      vars := IntSet.add (id |> Soteria.Symex.Var.to_int) !vars);
   !vars
 
 let split_heuristic markedSet pathCondList =
@@ -69,22 +49,17 @@ let split_heuristic markedSet pathCondList =
         Typed.v_false disjNormalForm
     in
     let negFormula = Typed.not formula in
-    let solv = Soteria.Tiny_values.Tiny_solver.Z3_solver.init () in
-    let () =
-      Soteria.Tiny_values.Tiny_solver.Z3_solver.add_constraints solv
-        [ negFormula ]
-    in
-    Soteria.Symex.Solver_result.is_unsat
-      (Soteria.Tiny_values.Tiny_solver.Z3_solver.sat solv)
+    let solv = init () in
+    let () = add_constraints solv [ negFormula ] in
+    Soteria.Symex.Solver_result.is_unsat (sat solv)
   else false
 
-(*Takes a set of variables marked as "initial" (markedSet) and the results of symbolic executions.
- Returns a list of bugs that may happen indipendently of what value is assigned to the variables in markedSet*)
-let find_manif marked results =
-  let markedSet = IntSet.of_list marked
-  in
-  let groups = group_by_id results in
-  groups |> ViolMap.to_seq
-  |> Seq.filter_map (fun (viol, pathOr) ->
-      if split_heuristic markedSet pathOr then Some viol else None)
-  |> List.of_seq
+(** Takes a list of variables marked as "initial" [marked] and the results of
+    symbolic executions. Returns a list of bugs that may happen indipendently of
+    what value is assigned to the variables in [marked]*)
+let find_manifest_errors marked results =
+  let marked_set = IntSet.of_list marked in
+  let groups = group_by_error_cause results in
+  groups |> ErrorCauseMap.bindings
+  |> List.filter_map (fun (cause, path_cond_list) ->
+      if split_heuristic marked_set path_cond_list then Some cause else None)

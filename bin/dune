@@ -1,6 +1,13 @@
 (executable
  (public_name run)
  (name main)
- (libraries contract orchestrator symbolic policyChecker utils manifErrHeuristics)
+ (libraries
+  contract
+  orchestrator
+  symbolic
+  policyChecker
+  utils
+  manifErrHeuristics
+  htmlReport)
  (preprocess
   (pps soteria.ppx)))

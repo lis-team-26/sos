@@ -1,0 +1,4 @@
+(library
+ (name htmlReport)
+ (modules htmlReport)
+ (libraries soteria fmt symbolic))

@@ -63,7 +63,7 @@ end
 
 module FunctionalMonad = Make (struct
   type ok = function_env env
-  type err = violation_id
+  type err = error_cause
 end)
 
 module OkStateMonad = Make (struct
