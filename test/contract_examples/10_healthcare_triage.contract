@@ -16,12 +16,6 @@
         privacy: int,
         encrypted: bool
     ],
-    policies: [
-        sum(cost) < 160 group-by patient,
-        avg(latency) <= 8,
-        min(privacy) >= 70,
-        { RegisterVisit -> r, Assess -> a, RunLab -> l, Prescribe -> p, EscalateCare -> e, Discharge -> d, FollowUp -> f } "de"
-    ],
     services: [
         {
             name: RegisterVisit,
@@ -241,5 +235,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 160 group-by patient,
+        avg(latency) <= 8,
+        min(privacy) >= 70,
+        { RegisterVisit -> r, Assess -> a, RunLab -> l, Prescribe -> p, EscalateCare -> e, Discharge -> d, FollowUp -> f } "de"
     ]
 }

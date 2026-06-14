@@ -8,11 +8,6 @@
         cost: int,
         trust: int
     ],
-    policies: [
-        sum(cost) < 5,
-        max(latency) <= 2,
-        min(trust) > 80
-    ],
     services: [
         {
             name: Echo,
@@ -41,5 +36,10 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 5,
+        max(latency) <= 2,
+        min(trust) > 80
     ]
 }

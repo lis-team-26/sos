@@ -11,12 +11,6 @@
         cost: int,
         trust: int
     ],
-    policies: [
-        sum(cost) < 20,
-        avg(latency) <= 4,
-        min(trust) > 50,
-        { CheckBalance -> b, Debit -> d, Credit -> c } "cd"
-    ],
     services: [
         {
             name: CheckBalance,
@@ -115,5 +109,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 20,
+        avg(latency) <= 4,
+        min(trust) > 50,
+        { CheckBalance -> b, Debit -> d, Credit -> c } "cd"
     ]
 }

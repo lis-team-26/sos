@@ -34,12 +34,20 @@ contract:
       GLOBALS ; COLON ; globals = items ; COMMA
       FUNCTIONS ; COLON ; functions = functions ; COMMA
       QOS ; COLON ; qos = items ; COMMA
-      POLICIES ; COLON ; policies = policies ; COMMA
-      SERVICES ; COLON ; services = services ;  
+      tail = contract_tail ;
     RBRACE ; EOF
   {
+    let services, policies = tail in
     { globals; functions; qos; policies; services }
   }
+
+contract_tail:
+  | SERVICES ; COLON ; services = services ; COMMA
+    POLICIES ; COLON ; policies = policies
+  { (services, policies) }
+  | POLICIES ; COLON ; policies = policies ; COMMA
+    SERVICES ; COLON ; services = services
+  { (services, policies) }
 
 (* Generic items definition *)
 

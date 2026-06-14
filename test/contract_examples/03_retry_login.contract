@@ -13,11 +13,6 @@
         cost: int,
         trust: int
     ],
-    policies: [
-        sum(cost) < 30,
-        max(latency) <= 5,
-        { Login -> l, LockAccount -> k } "kl"
-    ],
     services: [
         {
             name: Login,
@@ -88,5 +83,10 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 30,
+        max(latency) <= 5,
+        { Login -> l, LockAccount -> k } "kl"
     ]
 }

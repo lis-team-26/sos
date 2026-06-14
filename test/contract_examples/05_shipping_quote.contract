@@ -14,12 +14,6 @@
         cost: int,
         trust: int
     ],
-    policies: [
-        sum(cost) < 35,
-        max(latency) <= 8,
-        min(trust) >= 50,
-        { ValidateAddress -> v, QuoteShipment -> q, AddInsurance -> i, BookShipment -> b } "bv"
-    ],
     services: [
         {
             name: ValidateAddress,
@@ -145,5 +139,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 35,
+        max(latency) <= 8,
+        min(trust) >= 50,
+        { ValidateAddress -> v, QuoteShipment -> q, AddInsurance -> i, BookShipment -> b } "bv"
     ]
 }

@@ -16,12 +16,6 @@
         cost: int,
         risk: int
     ],
-    policies: [
-        sum(cost) < 45 group-by applicant,
-        avg(latency) <= 6,
-        max(risk) <= 9,
-        { PullCredit -> c, VerifyIncome -> i, MakeOffer -> o, RejectApplication -> r } "oc"
-    ],
     services: [
         {
             name: PullCredit,
@@ -147,5 +141,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 45 group-by applicant,
+        avg(latency) <= 6,
+        max(risk) <= 9,
+        { PullCredit -> c, VerifyIncome -> i, MakeOffer -> o, RejectApplication -> r } "oc"
     ]
 }

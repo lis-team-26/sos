@@ -18,13 +18,6 @@
         cost: int,
         trust: int
     ], 
-    policies: [
-        sum(cost) < 100,
-        avg(latency) < 50,
-        sorted(trust),
-        min(trust) > 10,
-        { Auth -> a, Pay -> p, GetPrice -> g } "[^a]|a[apg]*pp"
-    ],
     services: [
         {
             name: Auth,
@@ -137,5 +130,12 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 100,
+        avg(latency) < 50,
+        sorted(trust),
+        min(trust) > 10,
+        { Auth -> a, Pay -> p, GetPrice -> g } "[^a]|a[apg]*pp"
     ]
 }

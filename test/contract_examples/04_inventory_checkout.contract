@@ -13,12 +13,6 @@
         cost: int,
         trust: int
     ],
-    policies: [
-        sum(cost) < 50,
-        avg(latency) <= 6,
-        min(trust) > 40,
-        { Reserve -> r, Price -> p, Charge -> c, Release -> x } "cx"
-    ],
     services: [
         {
             name: Reserve,
@@ -152,5 +146,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 50,
+        avg(latency) <= 6,
+        min(trust) > 40,
+        { Reserve -> r, Price -> p, Charge -> c, Release -> x } "cx"
     ]
 }

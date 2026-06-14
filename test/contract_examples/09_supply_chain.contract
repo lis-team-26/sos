@@ -15,12 +15,6 @@
         cost: int,
         confidence: int
     ],
-    policies: [
-        sum(cost) < 140 group-by destination,
-        avg(latency) <= 8,
-        min(confidence) >= 40,
-        { SupplierQuote -> q, Allocate -> a, Ship -> s, Receive -> v, Reorder -> r } "vr"
-    ],
     services: [
         {
             name: SupplierQuote,
@@ -196,5 +190,11 @@
                 constraints: [ ]
             }
         }
+    ],
+    policies: [
+        sum(cost) < 140 group-by destination,
+        avg(latency) <= 8,
+        min(confidence) >= 40,
+        { SupplierQuote -> q, Allocate -> a, Ship -> s, Receive -> v, Reorder -> r } "vr"
     ]
 }
