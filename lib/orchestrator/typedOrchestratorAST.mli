@@ -9,7 +9,7 @@ type stmt =
   | If of bexpr * stmt * stmt
   | While of bexpr * stmt
   | Assume of bexpr
-  | Assert of bexpr * int (*add line number*)
-  | Invoke of ident * typed_expr list
-  | DeclareInvoke of ident * ident * typed_expr list
-  | AssignInvoke of ident * ident * typed_expr list
+  | Assert of bexpr * loc
+  | Invoke of ident * typed_expr list * loc
+  | DeclareInvoke of ident * ident * typed_expr list * loc
+  | AssignInvoke of ident * ident * typed_expr list * loc

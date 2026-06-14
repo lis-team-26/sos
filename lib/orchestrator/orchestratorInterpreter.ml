@@ -52,7 +52,7 @@ let symb_eval_postcond postcond scope service =
   let&* () = Symex.assume [ constraints ] in
   return scope
 
-let symb_eval_invoke svc args qos_fields =
+let symb_eval_invoke svc args qos_fields loc =
   let& state = get_state in
   let pre_invoke_scope = state.scope in
   let service =
@@ -81,7 +81,10 @@ let symb_eval_invoke svc args qos_fields =
   in
   let&** () =
     Symex.assert_or_error b
-      { cause = ServicePrecond svc; err_stack = state.ok_stack }
+      {
+        cause = { value = PrecondError service; loc };
+        err_stack = state.ok_stack;
+      }
   in
   let& qos_env =
     fold_list qos_fields ~init:StringMap.empty ~f:(fun env (x, t) ->
@@ -166,7 +169,9 @@ let symb_eval_invoke svc args qos_fields =
   let& state, policy_checkers = get in
   let& policy_checkers =
     map_list policy_checkers ~f:(fun pc ->
-        let&** pc = update_policy invocation pc |> map_error state in
+        let&** pc =
+          update_policy invocation pc |> map_error state ~loc:(Some loc)
+        in
         return pc)
   in
   let& () = modify_policy_checkers (fun _ -> policy_checkers) in
@@ -202,11 +207,14 @@ let rec symb_eval_stmt c stmt =
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&* () = Symex.assume [ b ] in
       return ()
-  | Assert (e, ln) ->
+  | Assert (e, loc) ->
       let& b = lift_fm (symb_eval_bexpr state.scope e) in
       let&** () =
         Symex.assert_or_error b
-          { cause = AssertFail (ln, e); err_stack = state.ok_stack }
+          {
+            cause = { value = AssertionError e; loc };
+            err_stack = state.ok_stack;
+          }
       in
       return ()
   | Seq (s1, s2) ->
@@ -223,15 +231,15 @@ let rec symb_eval_stmt c stmt =
         (let& () = scoped (symb_eval_stmt c s) in
          symb_eval_stmt c (While (e, s)))
         (return ())
-  | Invoke (svc, args) ->
-      let& _ = symb_eval_invoke svc args c.qos in
+  | Invoke (svc, args, loc) ->
+      let& _ = symb_eval_invoke svc args c.qos loc in
       return ()
-  | DeclareInvoke (x, svc, args) ->
-      let& receipt = symb_eval_invoke svc args c.qos in
+  | DeclareInvoke (x, svc, args, loc) ->
+      let& receipt = symb_eval_invoke svc args c.qos loc in
       modify_state (fun state ->
           { state with scope = declare x receipt state.scope })
-  | AssignInvoke (x, serv, args) ->
-      let& receipt = symb_eval_invoke serv args c.qos in
+  | AssignInvoke (x, serv, args, loc) ->
+      let& receipt = symb_eval_invoke serv args c.qos loc in
       modify_state (fun state ->
           { state with scope = update x receipt state.scope })
 

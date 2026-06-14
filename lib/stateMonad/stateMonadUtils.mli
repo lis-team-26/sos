@@ -7,6 +7,7 @@ open Utils.Data
 val map_error :
   ok_state ->
   ('a, error_cause, 'fix) Symex.Result.t ->
+  loc:loc option ->
   ('a, err_state, 'fix) Symex.Result.t
 
 val lift_fm : ('a, 'fix) FunctionalMonad.t -> ('a, 'fix) OkStateMonad.t

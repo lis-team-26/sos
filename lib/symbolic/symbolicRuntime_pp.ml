@@ -79,15 +79,17 @@ let pp_section fmt title is_empty pp_content content =
   if is_empty then fprintf fmt "%s: <empty>" title
   else fprintf fmt "%s:@,@[<v 2>  %a@]" title pp_content content
 
-let pp_error_cause fmt = function
-  | DivByZero -> fprintf fmt "Division by zero"
-  | ServicePrecond service ->
-      fprintf fmt "%s service precondition not satisfied" service
-  | Policy (n, policy) ->
-      fprintf fmt "Policy %d violated: %a" n pp_policy policy
-  | AssertFail (line, assertion) ->
-      fprintf fmt "Assertion failed at line %d: assert %a" line pp_bexpr
-        assertion
+let pp_located_error_cause fmt = function
+  | { value = DivByZeroError } -> fprintf fmt "Division by zero"
+  | { value = PrecondError svc; loc = { line; col } } ->
+      fprintf fmt "%s service precondition not satisfied at line %d, column %d"
+        svc.name line col
+  | { value = PolicyError (idx, policy); loc = { line; col } } ->
+      fprintf fmt "Policy violation at line %d, column %d: %a" line col
+        pp_policy policy
+  | { value = AssertionError bexpr; loc = { line; col } } ->
+      fprintf fmt "Assertion failed at line %d, column %d: %a" line col pp_bexpr
+        bexpr
 
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
@@ -106,7 +108,7 @@ let pp_result fmt (idx, state, path_condition) =
       pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
         (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
   | Some (Error { cause; err_stack }) ->
-      fprintf fmt "@{<red>ERROR@}: %a@," pp_error_cause cause;
+      fprintf fmt "@{<red>ERROR@}: %a@," pp_located_error_cause cause;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
@@ -127,4 +129,4 @@ let pp_results fmt results =
   fprintf fmt "@[<v 0>%a@,@]" (pp_list pp_result) results_with_idxs
 
 let pp_manifest_errors fmt vids =
-  fprintf fmt "@[<v 0>%a@,@]" (pp_list pp_error_cause) vids
+  fprintf fmt "@[<v 0>%a@,@]" (pp_list pp_located_error_cause) vids

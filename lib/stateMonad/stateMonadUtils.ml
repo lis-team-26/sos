@@ -3,13 +3,17 @@ open Soteria.Symex
 open PolicyChecker
 open Utils.Data
 
-let map_error old_ok_state err_state =
-  Symex.Result.map_error err_state (fun cause ->
-      { cause; err_stack = old_ok_state.ok_stack })
+let map_error old_ok_state err_state ~loc =
+  let loc = match loc with Some l -> l | None -> { line = -1; col = -1 } in
+  Symex.Result.map_error err_state (fun error_cause ->
+      {
+        cause = { value = error_cause; loc };
+        err_stack = old_ok_state.ok_stack;
+      })
 
 let lift_fm m =
  fun (state, policy_checkers) ->
-  let++ v, function_envs = m state.function_envs |> map_error state in
+  let++ v, function_envs = m state.function_envs |> map_error state ~loc:None in
   (v, ({ state with function_envs }, policy_checkers))
 
 let scoped m =

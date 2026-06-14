@@ -11,7 +11,7 @@ let symb_eval_arithm_op v1 op v2 =
   | Sub -> Symex.Result.ok (v1 -@ v2)
   | Mul -> Symex.Result.ok (v1 *@ v2)
   | Div ->
-      if%sat v2 ==@ Typed.int 0 then Symex.Result.error DivByZero
+      if%sat v2 ==@ Typed.int 0 then Symex.Result.error DivByZeroError
       else
         let v2 = Typed.cast v2 in
         Symex.Result.ok (v1 /@ v2)

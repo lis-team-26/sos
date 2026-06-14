@@ -74,6 +74,37 @@ type invocation = {
 type stack = invocation list
 type function_env = symbolic_value symbolic_list_env
 
+type error_cause =
+  | DivByZeroError
+  | PrecondError of service
+  | PolicyError of int * policy
+  | AssertionError of bexpr
+
+module ErrorCauseMap = Map.Make (struct
+  type t = error_cause located
+
+  let compare a b =
+    match (a, b) with
+    | { value = DivByZeroError }, { value = DivByZeroError } -> 0
+    | { value = DivByZeroError }, _ -> -1
+    | _, { value = DivByZeroError } -> 1
+    | ( { value = PrecondError svc1; loc = loc1 },
+        { value = PrecondError svc2; loc = loc2 } ) ->
+        let c = compare loc1 loc2 in
+        if c <> 0 then c else compare svc1.name svc2.name
+    | { value = PrecondError _ }, _ -> -1
+    | _, { value = PrecondError _ } -> 1
+    | ( { value = PolicyError (idx1, _); loc = loc1 },
+        { value = PolicyError (idx2, _); loc = loc2 } ) ->
+        let c = compare loc1 loc2 in
+        if c <> 0 then c else compare idx1 idx2
+    | { value = PolicyError _ }, _ -> -1
+    | _, { value = PolicyError _ } -> 1
+    | ( { value = AssertionError _; loc = loc1 },
+        { value = AssertionError _; loc = loc2 } ) ->
+        compare loc1 loc2
+end)
+
 type ok_state = {
   scope : symbolic_value scope;
   function_envs : function_env env;
@@ -81,31 +112,6 @@ type ok_state = {
   ok_stack : stack;
 }
 
-type error_cause =
-  | DivByZero
-  | ServicePrecond of string
-  | Policy of int * policy
-  | AssertFail of int * bexpr
-
-module ErrorCauseMap = Map.Make (struct
-  type t = error_cause
-
-  let viol_id_hash = function
-    | DivByZero | ServicePrecond _ -> (0, 0)
-    | Policy (n, _) -> (1, n)
-    | AssertFail (line, _) -> (2, line)
-
-  let compare a b =
-    match (a, b) with
-    | ServicePrecond sa, ServicePrecond sb -> String.compare sa sb
-    | ServicePrecond _, _ -> -1
-    | _, ServicePrecond _ -> 1
-    | a, b ->
-        let a1, a2 = viol_id_hash a in
-        let b1, b2 = viol_id_hash b in
-        if a1 == b1 then Int.compare a2 b2 else Int.compare a1 b1
-end)
-
-type err_state = { err_stack : stack; cause : error_cause }
+type err_state = { err_stack : stack; cause : error_cause located }
 type path_condition = Typed.sbool list
 type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition

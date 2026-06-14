@@ -1,5 +1,6 @@
 {
   open OrchestratorParser
+  open Utils.Data
   exception LexerError of string
 }
 
@@ -39,8 +40,8 @@ rule read = parse
   | "while" { WHILE }
   | "do" { DO }
   | "assume" { ASSUME }
-  | "assert" { ASSERT (lexbuf.lex_start_p.pos_lnum)}
-  | "invoke" { INVOKE }
+  | "assert" { ASSERT ({ line = lexbuf.lex_curr_p.pos_lnum; col = lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol + 1 }) }
+  | "invoke" { INVOKE ({ line = lexbuf.lex_curr_p.pos_lnum; col = lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol + 1 }) }
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
   | "rcpt" { RECEIPT_TYPE }

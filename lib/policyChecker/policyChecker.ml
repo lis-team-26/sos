@@ -187,7 +187,8 @@ let update_policy invocation policy =
                       let policy_holds = cmp new_aggregate (Typed.int cmpInt) in
                       if%sat policy_holds then Symex.Result.ok new_aggregate
                       else
-                        Symex.Result.error (Policy (policy.id, policy.policy))
+                        Symex.Result.error
+                          (PolicyError (policy.id, policy.policy))
                     else Symex.Result.ok new_aggregate)
                   invocation svc sint
               in
@@ -233,7 +234,8 @@ let update_policy invocation policy =
                 | None -> Symex.Result.ok nextState
                 | Some nextState ->
                     if List.mem nextState finalStates then
-                      Symex.Result.error (Policy (policy.id, policy.policy))
+                      Symex.Result.error
+                        (PolicyError (policy.id, policy.policy))
                     else Symex.Result.ok (Some nextState)))
           invocation svc curState
       in
@@ -253,7 +255,8 @@ let update_policy invocation policy =
                   (fun current_max ->
                     let violation = Typed.lt cv current_max in
                     if%sat violation then
-                      Symex.Result.error (Policy (policy.id, policy.policy))
+                      Symex.Result.error
+                        (PolicyError (policy.id, policy.policy))
                     else Symex.Result.ok cv)
                   invocation svc maximum
               in
@@ -270,7 +273,8 @@ let update_policy invocation policy =
                   (fun current_min ->
                     let violation = Typed.gt cv current_min in
                     if%sat violation then
-                      Symex.Result.error (Policy (policy.id, policy.policy))
+                      Symex.Result.error
+                        (PolicyError (policy.id, policy.policy))
                     else Symex.Result.ok cv)
                   invocation svc minimum
               in

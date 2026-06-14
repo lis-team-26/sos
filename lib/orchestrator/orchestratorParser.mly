@@ -5,8 +5,8 @@
 
 %token ANONDET BNONDET
 %token SKIP ASSIGN SEMICOLON IF THEN ELSE WHILE DO
-%token <int> ASSERT (*add line number*)
-%token ASSUME INVOKE
+%token <Utils.Data.loc> ASSERT INVOKE
+%token ASSUME
 %token DOT LBRACE RBRACE EOF
 %token INT_TYPE BOOL_TYPE RECEIPT_TYPE
 %token RETVAL SUCCESSFUL QOS
@@ -49,13 +49,13 @@ atom_stmt:
   | t = var_type ; x = VAR ; ASSIGN ; e = orchestrator_expr ; SEMICOLON { Declare (t, x, e) }
   | x = VAR ; ASSIGN ; e = orchestrator_expr ; SEMICOLON { Assign (x, e) }
   | ASSUME ; e = orchestrator_expr ; SEMICOLON { Assume e }
-  | ln = ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert (e, ln) }
-  | INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
-    { Invoke (f, args) }
-  | RECEIPT_TYPE ; x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
-    { DeclareInvoke (x, f, args) }
-  | x = VAR ; ASSIGN ; INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
-    { AssignInvoke (x, f, args) }
+  | loc = ASSERT ; e = orchestrator_expr ; SEMICOLON { Assert (e, loc) }
+  | loc = INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
+    { Invoke (f, args, loc) }
+  | RECEIPT_TYPE ; x = VAR ; ASSIGN ; loc = INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
+    { DeclareInvoke (x, f, args, loc) }
+  | x = VAR ; ASSIGN ; loc = INVOKE ; f = VAR ; LPAREN ; args = orchestrator_exprs ; RPAREN ; SEMICOLON
+    { AssignInvoke (x, f, args, loc) }
 
 structured_stmt:
   | IF ; e = orchestrator_expr ; THEN ; b1 = block ; ELSE ; b2 = block { If (e, b1, b2) }

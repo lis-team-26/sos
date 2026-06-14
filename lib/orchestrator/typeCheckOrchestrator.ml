@@ -48,9 +48,9 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
   | Assume e ->
       let* typed_e = type_check_bool scope fun_map e in
       Ok (T.Assume typed_e, scope)
-  | Assert (e, ln) ->
+  | Assert (e, loc) ->
       let* typed_e = type_check_bool scope fun_map e in
-      Ok (T.Assert (typed_e, ln), scope)
+      Ok (T.Assert (typed_e, loc), scope)
   | Seq (s1, s2) ->
       let* typed_s1, scope = type_check_stmt fun_map svc_map qos_map scope s1 in
       let* typed_s2, scope = type_check_stmt fun_map svc_map qos_map scope s2 in
@@ -70,10 +70,10 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
         type_check_stmt fun_map svc_map qos_map (push_env scope) body
       in
       Ok (T.While (typed_c, typed_body), scope)
-  | Invoke (svc, args) ->
+  | Invoke (svc, args, loc) ->
       let* _, typed_args = type_check_invoke svc svc_map scope fun_map args in
-      Ok (T.Invoke (svc, typed_args), scope)
-  | DeclareInvoke (x, svc, args) -> (
+      Ok (T.Invoke (svc, typed_args, loc), scope)
+  | DeclareInvoke (x, svc, args, loc) -> (
       match lookup x [ List.hd scope ] with
       | Some _ -> Error (Fmt.str "Variable %s already declared in this scope" x)
       | None ->
@@ -82,15 +82,15 @@ let rec type_check_stmt fun_map svc_map qos_map scope = function
           in
           let t = TReceipt { ret_type; qos_types = qos_map } in
           let scope = declare x t scope in
-          Ok (T.DeclareInvoke (x, svc, args'), scope))
-  | AssignInvoke (x, svc, args) -> (
+          Ok (T.DeclareInvoke (x, svc, args', loc), scope))
+  | AssignInvoke (x, svc, args, loc) -> (
       let* ret_type, typed_args =
         type_check_invoke svc svc_map scope fun_map args
       in
       match lookup x scope with
       | None -> Error (Fmt.str "Variable %s assigned before declaration" x)
       | Some (TReceipt { ret_type }) ->
-          Ok (T.AssignInvoke (x, svc, typed_args), scope)
+          Ok (T.AssignInvoke (x, svc, typed_args, loc), scope)
       | Some t ->
           Error
             (Fmt.str "Variable %s expected receipt but found %a" x pp_var_type t)

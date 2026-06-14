@@ -5,6 +5,12 @@ module StringMap = Map.Make (String)
 
 type ident = string
 
+type loc = { line : int; col : int }
+(** A location in the source code, used for error reporting *)
+
+type 'a located = { loc : loc; value : 'a }
+(** A value annotated with its source code location *)
+
 type 'a env = 'a StringMap.t
 (** A mapping from variable names to their values *)
 
