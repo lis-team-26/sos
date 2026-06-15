@@ -1,4 +1,6 @@
+(data_only_dirs res)
+
 (library
  (name htmlReport)
  (modules htmlReport)
- (libraries soteria fmt symbolic))
+ (libraries soteria fmt symbolic unix))

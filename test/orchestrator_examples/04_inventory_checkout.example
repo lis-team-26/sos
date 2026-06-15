@@ -1,15 +1,13 @@
-int account := int?;
-int items := int?;
 int total := 0;
 int failed := 0;
+int remaining_items := items;
 
 assume CART_LIMIT >= 1;
 assume account > 0 && account_open(account);
 assume items >= 1 && items <= 3;
+assume item > 0 && stock(item) >= 0 && price_of(item) > 0;
 
-while items > 0 do {
-  int item := int?;
-  assume item > 0 && stock(item) >= 0 && price_of(item) > 0;
+while remaining_items > 0 do {
   rcpt reserve := invoke Reserve(item, 1);
   if reserve.successful then {
     rcpt price := invoke Price(item);
@@ -28,7 +26,7 @@ while items > 0 do {
     assert !reserve.retval;
     failed := failed + 1;
   }
-  items := items - 1;
+  remaining_items := remaining_items - 1;
 }
 
 assert total >= 0;

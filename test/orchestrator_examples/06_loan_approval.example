@@ -1,6 +1,3 @@
-int applicant := int?;
-int amount := int?;
-
 assume MIN_SCORE >= 300 && MIN_SCORE <= 850;
 assume MIN_INCOME >= 0;
 assume MAX_RATIO >= 0;

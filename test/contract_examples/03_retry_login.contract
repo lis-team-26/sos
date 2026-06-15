@@ -1,5 +1,8 @@
 {
     globals: [
+        user_id: int,
+        password: int,
+        tries: int,
         MAX_RETRIES: int
     ],
     functions: [

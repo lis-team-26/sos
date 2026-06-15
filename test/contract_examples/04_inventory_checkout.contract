@@ -1,5 +1,8 @@
 {
     globals: [
+        account: int,
+        items: int,
+        item: int,
         CART_LIMIT: int
     ],
     functions: [

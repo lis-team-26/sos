@@ -1,5 +1,7 @@
 {
     globals: [
+        applicant: int,
+        amount: int,
         MIN_SCORE: int,
         MIN_INCOME: int,
         MAX_RATIO: int

@@ -1,5 +1,6 @@
 {
     globals: [
+        trip: int,
         MAX_BUDGET: int
     ],
     functions: [

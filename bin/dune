@@ -7,7 +7,7 @@
   symbolic
   policyChecker
   utils
-  manifErrHeuristics
+  manifestErrorHeuristics
   htmlReport)
  (preprocess
   (pps soteria.ppx)))

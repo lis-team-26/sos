@@ -1,5 +1,9 @@
 {
     globals: [
+        address: int,
+        package_id: int,
+        weight: int,
+        wants_insurance: bool,
         MAX_WEIGHT: int,
         MAX_BUDGET: int
     ],

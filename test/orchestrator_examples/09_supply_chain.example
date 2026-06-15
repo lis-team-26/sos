@@ -1,7 +1,5 @@
-int supplier := int?;
-int destination := int?;
-int batches := int?;
 int shipped := 0;
+int remaining_batches := batches;
 
 assume MAX_BATCH >= 1;
 assume MIN_CAPACITY >= 0;
@@ -9,10 +7,9 @@ assume supplier > 0 && destination > 0;
 assume supplier_ok(supplier) && warehouse_ok(destination);
 assume capacity(destination) >= MIN_CAPACITY;
 assume batches >= 1 && batches <= 3;
+assume qty > 0 && qty <= MAX_BATCH;
 
-while batches > 0 do {
-  int qty := int?;
-  assume qty > 0 && qty <= MAX_BATCH;
+while remaining_batches > 0 do {
   rcpt quote := invoke SupplierQuote(supplier, qty, destination);
   assert quote.successful;
   assert quote.retval > 0;
@@ -38,7 +35,7 @@ while batches > 0 do {
     assert reorder_again.successful;
     assert reorder_again.retval;
   }
-  batches := batches - 1;
+  remaining_batches := remaining_batches - 1;
 }
 
 assert shipped >= 0;

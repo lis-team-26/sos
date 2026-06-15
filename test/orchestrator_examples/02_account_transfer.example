@@ -1,7 +1,3 @@
-int from_account := int?;
-int to_account := int?;
-int amount := int?;
-
 assume from_account > 0 && to_account > 0 && from_account != to_account;
 assume active(from_account) && active(to_account);
 assume balance(from_account) >= 0;

@@ -243,8 +243,7 @@ let rec symb_eval_stmt c stmt =
       modify_state (fun state ->
           { state with scope = update x receipt state.scope })
 
-(* contract is only needed by build_symb_process, not to evaluate statements *)
-let build_symb_process stmt contract policy_init_states =
+let build_symb_process orchestrator contract =
   let* public_env =
     Symex.fold_list contract.globals ~init:StringMap.empty ~f:(fun acc (x, t) ->
         let* v =
@@ -271,8 +270,11 @@ let build_symb_process stmt contract policy_init_states =
       (fun m f -> StringMap.add f SymbolicListMap.empty m)
       StringMap.empty contract.functions
   in
+  let policy_init_states =
+    List.mapi PolicyChecker.init_policy contract.policies
+  in
   ({ scope; function_envs; service_map; ok_stack = [] }, policy_init_states)
-  |> run_unit (symb_eval_stmt contract stmt)
+  |> run_unit (symb_eval_stmt contract orchestrator)
   |> Fun.flip Symex.Result.map (fun (s, _) ->
       { s with ok_stack = List.rev s.ok_stack })
   |> Fun.flip Symex.Result.map_error (fun s ->

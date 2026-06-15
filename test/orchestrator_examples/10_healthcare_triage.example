@@ -1,6 +1,4 @@
-int patient := int?;
-int drug := int?;
-int tests := int?;
+int remaining_tests := tests;
 
 assume HIGH_SEVERITY >= 1 && HIGH_SEVERITY <= 5;
 assume MAX_TESTS >= 1 && MAX_TESTS <= 3;
@@ -24,7 +22,7 @@ if assessment.retval >= HIGH_SEVERITY then {
   rcpt escalation := invoke EscalateCare(patient);
   assert escalation.successful;
   assert escalation.retval;
-  while tests > 0 do {
+  while remaining_tests > 0 do {
     assume needs_lab(patient);
     rcpt lab := invoke RunLab(patient);
     if lab.successful then {
@@ -33,7 +31,7 @@ if assessment.retval >= HIGH_SEVERITY then {
     } else {
       assert lab.retval == 0;
     }
-    tests := tests - 1;
+    remaining_tests := remaining_tests - 1;
   }
   rcpt follow := invoke FollowUp(patient);
   assert follow.successful;

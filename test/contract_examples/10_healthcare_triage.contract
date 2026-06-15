@@ -1,5 +1,8 @@
 {
     globals: [
+        patient: int,
+        drug: int,
+        tests: int,
         HIGH_SEVERITY: int,
         MAX_TESTS: int
     ],

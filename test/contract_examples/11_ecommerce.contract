@@ -1,7 +1,12 @@
 {
     globals: [
-        MAX_ATTEMPTS: int,
-        budget: int
+        user: int,
+        pass: int,
+        operations: int,
+        op: int,
+        prod_id: int,
+        budget: int,
+        MAX_ATTEMPTS: int
     ],
     functions: [
         attempts: int -> int,

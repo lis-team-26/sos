@@ -1,5 +1,8 @@
 {
     globals: [
+        from_account: int,
+        to_account: int,
+        amount: int,
         DAILY_LIMIT: int
     ],
     functions: [

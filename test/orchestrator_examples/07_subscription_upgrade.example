@@ -1,9 +1,3 @@
-int user_id := int?;
-int password := int?;
-int target_plan := int?;
-int coupon := int?;
-bool use_coupon := bool?;
-
 assume MAX_PLAN >= 1;
 assume user_id > 0 && active_user(user_id);
 assume password_ok(user_id, password);

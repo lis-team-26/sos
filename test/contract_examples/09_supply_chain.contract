@@ -1,5 +1,9 @@
 {
     globals: [
+        supplier: int,
+        destination: int,
+        batches: int,
+        qty: int,
         MAX_BATCH: int,
         MIN_CAPACITY: int
     ],

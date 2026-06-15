@@ -1,5 +1,10 @@
 {
     globals: [
+        user_id: int,
+        password: int,
+        target_plan: int,
+        coupon: int,
+        use_coupon: bool,
         MAX_PLAN: int
     ],
     functions: [
