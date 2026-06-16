@@ -53,23 +53,23 @@ let split_heuristic global_vars path_cond_list =
     IntSet.subset vars global_vals_set || IntSet.disjoint vars global_vals_set
   in
   (* Ensure that the split can take place *)
-  if List.for_all (List.for_all splittable) path_cond_list then
-    let formula =
-      path_cond_list
-      |> List.map
-           (List.filter (fun b -> IntSet.subset (get_vars b) global_vals_set))
-      |> List.map (List.fold_left Typed.and_ Typed.v_true)
-      |> List.fold_left Typed.or_ Typed.v_false
-    in
-    let results =
-      Symex.run
-        (build_symex_assertion global_vars formula)
-        ~mode:Soteria.Symex.Approx.OX
-      |> List.map fst
-    in
-    (* TODO: what should we return when the list of results is empty? *)
-    List.for_all (fun x -> x) results
-  else false
+  let path_cond_list = List.filter (List.for_all splittable) path_cond_list
+  in
+  let formula =
+    path_cond_list
+    |> List.map
+         (List.filter (fun b -> IntSet.subset (get_vars b) global_vals_set))
+    |> List.map (List.fold_left Typed.and_ Typed.v_true)
+    |> List.fold_left Typed.or_ Typed.v_false
+  in
+  let results =
+    Symex.run
+      (build_symex_assertion global_vars formula)
+      ~mode:Soteria.Symex.Approx.OX
+    |> List.map fst
+  in
+  (* TODO: what should we return when the list of results is empty? *)
+  List.for_all (fun x -> x) results
 
 let find_manifest_errors global_vars results =
   let groups = group_by_error_cause results in
