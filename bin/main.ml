@@ -1,8 +1,13 @@
+open Soteria.Stats
+open Symbolic.Runtime
 open Utils.Data
 
 let contract_file = ref ""
 let orchestrator_file = ref ""
 let report_dir = ref "out"
+let steps_fuel = ref Fuel.Infinite
+let branching_fuel = ref Fuel.Infinite
+let unroll_fuel = ref Fuel.Infinite
 let print_contract = ref false
 let print_orchestrator = ref false
 let print_results = ref false
@@ -18,6 +23,8 @@ let anon_fun anon_arg =
   | _ -> ());
   incr anon_cnt
 
+let set_fuel fuel_ref fuel_value = fuel_ref := Fuel.Finite fuel_value
+
 let specs =
   [
     ( "contract_spec",
@@ -29,6 +36,11 @@ let specs =
     ( "-o",
       Arg.Set_string report_dir,
       "Path to the output report directory (default: out)" );
+    ("-sf", Arg.Int (set_fuel steps_fuel), "Steps fuel (default: infinite)");
+    ( "-bf",
+      Arg.Int (set_fuel branching_fuel),
+      "Branching fuel (default: infinite)" );
+    ("-uf", Arg.Int (set_fuel unroll_fuel), "Unroll fuel (default: infinite)");
     ("-pc", Arg.Set print_contract, "Print the parsed contract before analysis");
     ( "-po",
       Arg.Set print_orchestrator,
@@ -36,6 +48,15 @@ let specs =
     ( "-pr",
       Arg.Set print_results,
       "Print the symbolic execution results after analysis" );
+    ( "--steps-fuel",
+      Arg.Int (set_fuel steps_fuel),
+      "Steps fuel (default: infinite)" );
+    ( "--branching-fuel",
+      Arg.Int (set_fuel branching_fuel),
+      "Branching fuel (default: infinite)" );
+    ( "--unroll-fuel",
+      Arg.Int (set_fuel unroll_fuel),
+      "Unroll fuel (default: infinite)" );
     ( "--print-contract",
       Arg.Set print_contract,
       "Print the parsed contract before analysis" );
@@ -77,10 +98,12 @@ let () =
     Fmt.pr "@[Orchestrator code:@,@[<v 2>  %a@]@]@."
       Orchestrator.AST_pp.pp_program orchestrator_ast;
   Fmt.pr "@,Symbolic executing...@,%a" Fmt.flush ();
-  let results =
-    Orchestrator.symb_run
-      (typed_contract_ast, typed_orchestrator_ast)
-      ~mode:Soteria.Symex.Approx.OX
+  let { res = results; stats } =
+    let steps_fuel = !steps_fuel in
+    let branching_fuel = !branching_fuel in
+    let unroll_fuel = !unroll_fuel in
+    Orchestrator.run ~steps_fuel ~branching_fuel ~unroll_fuel typed_contract_ast
+      typed_orchestrator_ast
   in
   if !print_results then
     Fmt.pr "@[Results:@,@[<v 2>  %a@]@]@." Symbolic.Runtime_pp.pp_results

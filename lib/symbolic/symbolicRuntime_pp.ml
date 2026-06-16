@@ -107,13 +107,26 @@ let pp_result fmt (idx, state, path_condition) =
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
         (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
-  | Some (Error { cause; err_stack }) ->
+  | Some (Error (Err { cause; err_stack })) ->
       fprintf fmt "@{<red>ERROR@}: %a@," pp_located_error_cause cause;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (err_stack = []) pp_stack
         (List.mapi (fun idx inv -> (idx + 1, inv)) err_stack)
+  | Some (Error (Unexplored { scope; function_envs; ok_stack })) ->
+      fprintf fmt "@{<yellow>UNEXPLORED@}@,";
+      pp_section fmt "Scope stack" (scope = []) pp_scope scope;
+      fprintf fmt "@,";
+      pp_section fmt "Functions environment"
+        (StringMap.is_empty function_envs)
+        pp_function_envs function_envs;
+      fprintf fmt "@,";
+      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
+        (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack);
+      fprintf fmt "@,";
+      pp_section fmt "Path condition" (path_condition = []) pp_path_condition
+        path_condition
   | None ->
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;

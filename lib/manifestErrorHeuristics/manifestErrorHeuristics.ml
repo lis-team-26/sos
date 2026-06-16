@@ -7,8 +7,8 @@ let group_by_error_cause results =
     List.filter_map
       (fun (state, path_cond) ->
         match Soteria.Symex.Compo_res.to_result_opt state with
-        | None | Some (Ok _) -> None
-        | Some (Error { cause }) -> Some (cause, path_cond))
+        | None | Some (Ok _) | Some (Error (Unexplored _)) -> None
+        | Some (Error (Err { cause })) -> Some (cause, path_cond))
       results
   in
   List.fold_left
@@ -53,8 +53,7 @@ let split_heuristic global_vars path_cond_list =
     IntSet.subset vars global_vals_set || IntSet.disjoint vars global_vals_set
   in
   (* Ensure that the split can take place *)
-  let path_cond_list = List.filter (List.for_all splittable) path_cond_list
-  in
+  let path_cond_list = List.filter (List.for_all splittable) path_cond_list in
   let formula =
     path_cond_list
     |> List.map

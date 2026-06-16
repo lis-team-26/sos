@@ -48,6 +48,6 @@ end
 module OkStateMonad : sig
   include module type of Make (struct
     type ok = ok_state * policyChecker list
-    type err = err_state
+    type err = not_ok_state
   end)
 end

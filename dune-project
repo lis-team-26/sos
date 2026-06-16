@@ -11,7 +11,7 @@
 
 (maintainers "Students of the LIS course")
 
-(license GPL-3.0)
+(license GPL-3.0-or-later)
 
 (using menhir 3.0)
 

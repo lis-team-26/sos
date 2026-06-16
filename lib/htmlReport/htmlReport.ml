@@ -5,7 +5,7 @@ open Symbolic.Runtime
 open Utils.Data
 module IntMap = Map.Make (Int)
 
-type status = Success | Failure | Unknown
+type status = Success | Failure | Incomplete | Unknown
 type source_contents = Source_lines of string list | Source_error of string
 
 type source_file = {
@@ -17,7 +17,12 @@ type source_file = {
   policy_lines : int IntMap.t;
 }
 
-type counts = { successes : int; failures : int; unknown : int }
+type counts = {
+  successes : int;
+  failures : int;
+  incomplete : int;
+  unknown : int;
+}
 
 let bootstrap_css_href =
   "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -117,17 +122,20 @@ let normalize_for_search s =
 let status_of_state state =
   match Compo_res.to_result_opt state with
   | Some (Ok _) -> Success
-  | Some (Error _) -> Failure
+  | Some (Error (Err _)) -> Failure
+  | Some (Error (Unexplored _)) -> Incomplete
   | None -> Unknown
 
 let status_key = function
   | Success -> "success"
   | Failure -> "error"
+  | Incomplete -> "incomplete"
   | Unknown -> "unknown"
 
 let status_label = function
   | Success -> "Success"
   | Failure -> "Error"
+  | Incomplete -> "Incomplete"
   | Unknown -> "Unknown"
 
 let count_statuses results =
@@ -136,8 +144,9 @@ let count_statuses results =
       match status_of_state state with
       | Success -> { counts with successes = counts.successes + 1 }
       | Failure -> { counts with failures = counts.failures + 1 }
+      | Incomplete -> { counts with incomplete = counts.incomplete + 1 }
       | Unknown -> { counts with unknown = counts.unknown + 1 })
-    { successes = 0; failures = 0; unknown = 0 }
+    { successes = 0; failures = 0; incomplete = 0; unknown = 0 }
     results
 
 let plural count singular plural = if count = 1 then singular else plural
@@ -422,6 +431,16 @@ let json_path_conditions path_condition =
   |> json_list (fun condition ->
       json_string (pp_to_string Symex.Value.ppa condition))
 
+let json_fuel_value fuel_value = json_string (pp_to_string Fuel.pp fuel_value)
+
+let json_fuel fuel =
+  json_obj
+    [
+      field "steps" (json_fuel_value fuel.steps);
+      field "branching" (json_fuel_value fuel.branching);
+      field "unroll" (json_fuel_value fuel.unroll);
+    ]
+
 let invocation_search_text invocations =
   invocations
   |> List.map (fun invocation ->
@@ -449,7 +468,13 @@ let result_caption state path_condition =
         (plural count "invocation" "invocations")
         (List.length path_condition)
         (plural (List.length path_condition) "condition" "conditions")
-  | Some (Error err_state) -> error_title err_state.cause.value
+  | Some (Error (Err err_state)) -> error_title err_state.cause.value
+  | Some (Error (Unexplored ok_state)) ->
+      let count = List.length ok_state.ok_stack in
+      Fmt.str "Unexplored branch, %d %s, %d path %s" count
+        (plural count "invocation" "invocations")
+        (List.length path_condition)
+        (plural (List.length path_condition) "condition" "conditions")
   | None -> "No concrete result"
 
 let result_search_text state path_condition =
@@ -467,10 +492,21 @@ let result_search_text state path_condition =
         (scope_search_text ok_state.scope)
         (function_env_search_text ok_state.function_envs)
       |> normalize_for_search
-  | Some (Error err_state) ->
+  | Some (Error (Err err_state)) ->
       Fmt.str "%s %s %s" common
         (error_detail err_state.cause.value)
         (invocation_search_text err_state.err_stack)
+      |> normalize_for_search
+  | Some (Error (Unexplored ok_state)) ->
+      Fmt.str
+        "%s unexplored incomplete fuel steps %s branching %s unroll %s %s %s %s"
+        common
+        (pp_to_string Fuel.pp ok_state.fuel.steps)
+        (pp_to_string Fuel.pp ok_state.fuel.branching)
+        (pp_to_string Fuel.pp ok_state.fuel.unroll)
+        (invocation_search_text ok_state.ok_stack)
+        (scope_search_text ok_state.scope)
+        (function_env_search_text ok_state.function_envs)
       |> normalize_for_search
   | None -> normalize_for_search common
 
@@ -492,26 +528,51 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
     | Some (Ok ok_state) ->
         [
           field "error" json_null;
+          field "incomplete" json_null;
           field "invocations"
             (json_invocations contract_source ok_state.ok_stack);
           field "scope" (json_scope ok_state.scope);
           field "functionEnvs" (json_function_envs ok_state.function_envs);
+          field "fuel" (json_fuel ok_state.fuel);
         ]
-    | Some (Error err_state) ->
+    | Some (Error (Err err_state)) ->
         [
           field "error"
             (json_error contract_source orchestrator_source err_state.cause);
+          field "incomplete" json_null;
           field "invocations"
             (json_invocations contract_source err_state.err_stack);
           field "scope" "[]";
           field "functionEnvs" "[]";
+          field "fuel" json_null;
+        ]
+    | Some (Error (Unexplored ok_state)) ->
+        [
+          field "error" json_null;
+          field "incomplete"
+            (json_obj
+               [
+                 field "title" (json_string "Unexplored branch");
+                 field "detail"
+                   (json_string
+                      "Execution stopped before this branch was fully explored \
+                       because fuel was exhausted.");
+                 field "fuel" (json_fuel ok_state.fuel);
+               ]);
+          field "invocations"
+            (json_invocations contract_source ok_state.ok_stack);
+          field "scope" (json_scope ok_state.scope);
+          field "functionEnvs" (json_function_envs ok_state.function_envs);
+          field "fuel" (json_fuel ok_state.fuel);
         ]
     | None ->
         [
           field "error" json_null;
+          field "incomplete" json_null;
           field "invocations" "[]";
           field "scope" "[]";
           field "functionEnvs" "[]";
+          field "fuel" json_null;
         ]
   in
   json_obj (common_fields @ state_fields)
@@ -532,6 +593,7 @@ let json_report_data ~contract_source ~orchestrator_source ~contract_file
              field "total" (json_int (List.length results));
              field "success" (json_int counts.successes);
              field "error" (json_int counts.failures);
+             field "incomplete" (json_int counts.incomplete);
              field "unknown" (json_int counts.unknown);
            ]);
       field "results"
@@ -626,6 +688,7 @@ let render_overview counts total manifest_count contract_file orchestrator_file
           <div class="col-12 col-md-6 col-xl-3">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
+          <div class="col-12 col-md-6 col-xl-3">%s</div>
         </div>
         <div class="border rounded bg-body-tertiary p-3">
           <p class="mb-1 text-break">Contract: <code>%s</code></p>
@@ -636,6 +699,7 @@ let render_overview counts total manifest_count contract_file orchestrator_file
     (metric_card "results" "Total results" total "primary")
     (metric_card ~filter:"error" "results" "Error states" counts.failures
        "danger")
+    (metric_card "unexplored" "Unexplored branches" counts.incomplete "warning")
     (metric_card ~filter:"success" "results" "Success states" counts.successes
        "success")
     (metric_card ~filter:"unknown" "results" "Unknown states" counts.unknown
@@ -667,6 +731,7 @@ let render_results_section counts =
                 <button type="button" class="btn btn-outline-secondary active" data-report-filter="all" aria-pressed="true">All %d</button>
                 <button type="button" class="btn btn-outline-success" data-report-filter="success" aria-pressed="false">Success %d</button>
                 <button type="button" class="btn btn-outline-danger" data-report-filter="error" aria-pressed="false">Error %d</button>
+                <button type="button" class="btn btn-outline-warning" data-report-filter="incomplete" aria-pressed="false">Incomplete %d</button>
                 <button type="button" class="btn btn-outline-secondary" data-report-filter="unknown" aria-pressed="false">Unknown %d</button>
               </div>
               <span class="small text-body-secondary" data-results-count></span>
@@ -677,8 +742,8 @@ let render_results_section counts =
         <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-results-pagination></div>
       </div>
     </section>|}
-    (counts.successes + counts.failures + counts.unknown)
-    counts.successes counts.failures counts.unknown
+    (counts.successes + counts.failures + counts.incomplete + counts.unknown)
+    counts.successes counts.failures counts.incomplete counts.unknown
 
 let render_error_section () =
   {|
@@ -692,6 +757,22 @@ let render_error_section () =
         <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-error-pagination></div>
       </div>
     </section>|}
+
+let render_unexplored_section unexplored_count =
+  Fmt.str
+    {|
+    <section class="card mt-3 shadow-sm" data-report-section="unexplored" hidden>
+      <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="unexplored">
+        <span class="d-block h4 mb-1">Unexplored Branches</span>
+        <span class="text-body-secondary">%d %s stopped before completion because fuel was exhausted.</span>
+      </button>
+      <div class="card-body">
+        <div data-unexplored-branches></div>
+        <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-unexplored-pagination></div>
+      </div>
+    </section>|}
+    unexplored_count
+    (plural unexplored_count "branch" "branches")
 
 let render_manifest_section manifest_count =
   Fmt.str
@@ -744,11 +825,13 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
       %s
       %s
       %s
+      %s
     </nav>
     <div class="alert alert-secondary text-center mt-3 mb-0" data-section-empty hidden>
       <h2 class="h5 mb-1">Choose a section</h2>
       <p class="text-body-secondary mb-0">Section buttons stay visible. Selecting an active section closes it; selecting another opens only that section.</p>
     </div>
+    %s
     %s
     %s
     %s
@@ -771,6 +854,9 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     (section_card "errors" "Error Index"
        (Fmt.str "%d error %s" counts.failures
           (plural counts.failures "state" "states")))
+    (section_card "unexplored" "Unexplored"
+       (Fmt.str "%d incomplete %s" counts.incomplete
+          (plural counts.incomplete "branch" "branches")))
     (section_card "manifest" "Manifest"
        (Fmt.str "%d manifest %s"
           (List.length manifest_errors)
@@ -782,6 +868,7 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
        contract_file orchestrator_file)
     (render_results_section counts)
     (render_error_section ())
+    (render_unexplored_section counts.incomplete)
     (render_manifest_section (List.length manifest_errors))
     (render_source_file "orchestrator-source" orchestrator_source)
     (render_source_file "contract-source" contract_source)

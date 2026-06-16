@@ -5,5 +5,5 @@ open Symbolic.Runtime
 open PolicyChecker
 open Utils.Data
 
-val build_symb_process :
-  stmt -> contract -> (ok_state, err_state, 'a) Symex.Result.t
+val build_symex_process :
+  stmt -> contract -> fuel -> (ok_state, not_ok_state, 'a) Symex.Result.t

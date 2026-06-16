@@ -4,7 +4,7 @@ synopsis: "Symbolic framework for the analysis of service orchestration"
 description: "Symbolic framework for tha analysis of service orchestration"
 maintainer: ["Students of the LIS course"]
 authors: ["Students of the LIS course"]
-license: "GPL-3.0"
+license: "GPL-3.0-or-later"
 homepage: "https://github.com/lis-team-26/lis-project"
 bug-reports: "https://github.com/lis-team-26/lis-project/issues"
 depends: [

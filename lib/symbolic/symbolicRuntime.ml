@@ -7,6 +7,7 @@ open Utils.Types
 module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
 module Compo_res = Soteria.Symex.Compo_res
 include Symex.Syntax
+module Fuel = Soteria.Symex.Fuel_gauge.Fuel_value
 
 module SymbolicMap =
   Soteria.Data.S_map.Make
@@ -105,13 +106,17 @@ module ErrorCauseMap = Map.Make (struct
         compare loc1 loc2
 end)
 
+type fuel = { steps : Fuel.t; branching : Fuel.t; unroll : Fuel.t }
+type path_condition = Typed.sbool list
+
 type ok_state = {
   scope : symbolic_value scope;
   function_envs : function_env env;
   service_map : service env;
   ok_stack : stack;
+  fuel : fuel;
 }
 
 type err_state = { err_stack : stack; cause : error_cause located }
-type path_condition = Typed.sbool list
-type 'a result = (ok_state, err_state, 'a) Symex.Result.t * path_condition
+type not_ok_state = Unexplored of ok_state | Err of err_state
+type 'a result = (ok_state, not_ok_state, 'a) Symex.Result.t * path_condition

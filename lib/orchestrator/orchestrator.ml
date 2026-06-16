@@ -1,4 +1,5 @@
 open Contract.TypedAST
+open Symbolic.Runtime
 open Utils.Parser
 module AST = OrchestratorAST
 module AST_pp = OrchestratorAST_pp
@@ -25,6 +26,9 @@ let parse src =
 let type_check contract ast =
   TypeCheckOrchestrator.type_check_orchestrator contract ast
 
-let symb_run (contract, program) ~mode =
-  OrchestratorInterpreter.build_symb_process program contract
-  |> Symbolic.Runtime.Symex.run ~mode
+let run ~steps_fuel ~branching_fuel ~unroll_fuel contract program =
+  let fuel =
+    { steps = steps_fuel; branching = branching_fuel; unroll = unroll_fuel }
+  in
+  OrchestratorInterpreter.build_symex_process program contract fuel
+  |> Symbolic.Runtime.Symex.run_with_stats ~mode:Soteria.Symex.Approx.OX

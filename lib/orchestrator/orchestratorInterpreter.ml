@@ -12,22 +12,22 @@ open Utils.Types
 
 let symb_eval_constraints scope constraints =
   fold_list constraints ~init:Typed.v_true ~f:(fun acc e ->
-      let& b = lift_fm (symb_eval_bexpr scope e) in
-      return (acc &&@ b))
+      let&&+ b = symb_eval_bexpr scope e in
+      acc &&@ b)
 
 let symb_eval_effects scope effects =
   fold_list effects ~init:scope ~f:(fun scope (lhs, rhs) ->
       match lhs with
       | LVar x ->
-          let& v = lift_fm (symb_eval_expr scope rhs) in
-          return (update x v scope)
+          let&&+ v = symb_eval_expr scope rhs in
+          update x v scope
       | LApp (f, args) ->
           let& actual_args =
             map_list args ~f:(fun e ->
-                let& v = lift_fm (symb_eval_expr scope e) in
-                return (cast v))
+                let&&+ v = symb_eval_expr scope e in
+                cast v)
           in
-          let& v = lift_fm (symb_eval_expr scope rhs) in
+          let&&* v = symb_eval_expr scope rhs in
           let& state, policy_checkers = get in
           let fun_env =
             match StringMap.find_opt f state.function_envs with
@@ -65,26 +65,27 @@ let symb_eval_invoke svc args qos_fields loc =
     fold_list actual_args ~init:StringMap.empty ~f:(fun env (x, e) ->
         match e with
         | AExpr e ->
-            let& v = lift_fm (symb_eval_aexpr pre_invoke_scope e) in
+            let&&+ v = symb_eval_aexpr pre_invoke_scope e in
             let v = SymbInt v in
-            return (StringMap.add x v env)
+            StringMap.add x v env
         | BExpr e ->
-            let& v = lift_fm (symb_eval_bexpr pre_invoke_scope e) in
+            let&&+ v = symb_eval_bexpr pre_invoke_scope e in
             let v = SymbBool v in
-            return (StringMap.add x v env))
+            StringMap.add x v env)
   in
   let precond_scope = [ actual_args_env; get_public_env pre_invoke_scope ] in
   let& b =
     fold_list service.precond ~init:Typed.v_true ~f:(fun acc_precond e ->
-        let& b = lift_fm (symb_eval_bexpr precond_scope e) in
-        return (acc_precond &&@ b))
+        let&&+ b = symb_eval_bexpr precond_scope e in
+        acc_precond &&@ b)
   in
   let&** () =
     Symex.assert_or_error b
-      {
-        cause = { value = PrecondError service; loc };
-        err_stack = state.ok_stack;
-      }
+      (Err
+         {
+           cause = { value = PrecondError service; loc };
+           err_stack = state.ok_stack;
+         })
   in
   let& qos_env =
     fold_list qos_fields ~init:StringMap.empty ~f:(fun env (x, t) ->
@@ -179,56 +180,59 @@ let symb_eval_invoke svc args qos_fields loc =
 
 let rec symb_eval_stmt c stmt =
   let& state = get_state in
+  let& () = match stmt with Seq _ -> return () | _ -> consume_steps_fuel 1 in
   match stmt with
   | Skip -> return ()
   | Declare (x, e) ->
       let& v =
         match e with
         | AExpr e ->
-            let& v = symb_eval_aexpr state.scope e |> lift_fm in
-            return (SymbInt v)
+            let&&+ v = symb_eval_aexpr state.scope e in
+            SymbInt v
         | BExpr e ->
-            let& v = symb_eval_bexpr state.scope e |> lift_fm in
-            return (SymbBool v)
+            let&&+ v = symb_eval_bexpr state.scope e in
+            SymbBool v
       in
       modify_state (fun state -> { state with scope = declare x v state.scope })
   | Assign (x, e) ->
       let& v =
         match e with
         | AExpr e ->
-            let& v = symb_eval_aexpr state.scope e |> lift_fm in
-            return (SymbInt v)
+            let&&+ v = symb_eval_aexpr state.scope e in
+            SymbInt v
         | BExpr e ->
-            let& v = symb_eval_bexpr state.scope e |> lift_fm in
-            return (SymbBool v)
+            let&&+ v = symb_eval_bexpr state.scope e in
+            SymbBool v
       in
       modify_state (fun state -> { state with scope = update x v state.scope })
   | Assume e ->
-      let& b = lift_fm (symb_eval_bexpr state.scope e) in
+      let&&* b = symb_eval_bexpr state.scope e in
       let&* () = Symex.assume [ b ] in
       return ()
   | Assert (e, loc) ->
-      let& b = lift_fm (symb_eval_bexpr state.scope e) in
+      let&&* b = symb_eval_bexpr state.scope e in
       let&** () =
         Symex.assert_or_error b
-          {
-            cause = { value = AssertionError e; loc };
-            err_stack = state.ok_stack;
-          }
+          (Err
+             {
+               cause = { value = AssertionError e; loc };
+               err_stack = state.ok_stack;
+             })
       in
       return ()
   | Seq (s1, s2) ->
       let& () = symb_eval_stmt c s1 in
       symb_eval_stmt c s2
   | If (e, then_s, else_s) ->
-      let& b = lift_fm (symb_eval_bexpr state.scope e) in
+      let&&* b = symb_eval_bexpr state.scope e in
       branch b
         (scoped (symb_eval_stmt c then_s))
         (scoped (symb_eval_stmt c else_s))
   | While (e, s) ->
-      let& b = lift_fm (symb_eval_bexpr state.scope e) in
+      let&&* b = symb_eval_bexpr state.scope e in
       branch b
         (let& () = scoped (symb_eval_stmt c s) in
+         let& () = consume_unroll_fuel 1 in
          symb_eval_stmt c (While (e, s)))
         (return ())
   | Invoke (svc, args, loc) ->
@@ -243,7 +247,7 @@ let rec symb_eval_stmt c stmt =
       modify_state (fun state ->
           { state with scope = update x receipt state.scope })
 
-let build_symb_process orchestrator contract =
+let build_symex_process orchestrator contract fuel =
   let* public_env =
     Symex.fold_list contract.globals ~init:StringMap.empty ~f:(fun acc (x, t) ->
         let* v =
@@ -270,12 +274,16 @@ let build_symb_process orchestrator contract =
       (fun m f -> StringMap.add f SymbolicListMap.empty m)
       StringMap.empty contract.functions
   in
+  let initial_state =
+    { scope; function_envs; service_map; ok_stack = []; fuel }
+  in
   let policy_init_states =
     List.mapi PolicyChecker.init_policy contract.policies
   in
-  ({ scope; function_envs; service_map; ok_stack = [] }, policy_init_states)
+  (initial_state, policy_init_states)
   |> run_unit (symb_eval_stmt contract orchestrator)
   |> Fun.flip Symex.Result.map (fun (s, _) ->
       { s with ok_stack = List.rev s.ok_stack })
-  |> Fun.flip Symex.Result.map_error (fun s ->
-      { s with err_stack = List.rev s.err_stack })
+  |> Fun.flip Symex.Result.map_error (function
+    | Err s -> Err { s with err_stack = List.rev s.err_stack }
+    | Unexplored s -> Unexplored { s with ok_stack = List.rev s.ok_stack })

@@ -1,15 +1,36 @@
+open StateMonadCore
 open Symbolic.Runtime
-open Soteria.Symex
-open PolicyChecker
+open Soteria.Symex.Fuel_gauge.Fuel_value
 open Utils.Data
+
+let consume_steps_fuel n =
+ fun (state, policy_checkers) ->
+  match state.fuel.steps with
+  | Finite 0 -> Symex.Result.error (Unexplored state)
+  | steps_fuel ->
+      let fuel = { state.fuel with steps = decrease steps_fuel n } in
+      Symex.Result.ok ((), ({ state with fuel }, policy_checkers))
+
+let consume_branching_fuel n =
+ fun (state, policy_checkers) ->
+  match state.fuel.branching with
+  | Finite 0 -> Symex.Result.error (Unexplored state)
+  | branching_fuel ->
+      let fuel = { state.fuel with branching = decrease branching_fuel n } in
+      Symex.Result.ok ((), ({ state with fuel }, policy_checkers))
+
+let consume_unroll_fuel n =
+ fun (state, policy_checkers) ->
+  match state.fuel.unroll with
+  | Finite 0 -> Symex.Result.error (Unexplored state)
+  | unroll_fuel ->
+      let fuel = { state.fuel with unroll = decrease unroll_fuel n } in
+      Symex.Result.ok ((), ({ state with fuel }, policy_checkers))
 
 let map_error old_ok_state err_state ~loc =
   let loc = match loc with Some l -> l | None -> { line = -1; col = -1 } in
-  Symex.Result.map_error err_state (fun error_cause ->
-      {
-        cause = { value = error_cause; loc };
-        err_stack = old_ok_state.ok_stack;
-      })
+  Symex.Result.map_error err_state (fun cause ->
+      Err { cause = { value = cause; loc }; err_stack = old_ok_state.ok_stack })
 
 let lift_fm m =
  fun (state, policy_checkers) ->
@@ -24,7 +45,13 @@ let scoped m =
   ((), ({ state with scope = pop_env state.scope }, policy_checkers))
 
 let branch b then_m else_m =
- fun state -> if%sat b then then_m state else else_m state
+  let open OkStateMonad in
+  fun state ->
+    if%sat b then then_m state
+    else
+      (let& () = consume_branching_fuel 1 in
+       else_m)
+        state
 
 let get_state =
  fun (state, policy_checkers) ->
@@ -43,3 +70,6 @@ let modify_policy_checkers f =
  fun (state, policy_checkers) ->
   let new_policy_checkers = f policy_checkers in
   Symex.Result.ok ((), (state, new_policy_checkers))
+
+let ( let&&* ) m f = OkStateMonad.bind (lift_fm m) f
+let ( let&&+ ) m f = OkStateMonad.map (lift_fm m) f
