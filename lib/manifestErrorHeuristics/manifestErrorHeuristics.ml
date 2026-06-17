@@ -4,50 +4,27 @@ open Utils.Data
 
 type error_result = {
   err_stack : stack;
-  rev_function_map : IntSet.t IntMap.t;
+  initial_returns : IntSet.t;
   path_condition : symb_bool list;
 }
 
-let get_toplevel_vars expr =
+(* After creating a symbolic value with nondet, get the id of the value*)
+let get_var_as_int sv =
+  match Typed.kind sv with
+  | Var v -> Soteria.Symex.Var.to_int v
+  | _ -> failwith "this wasn't a nondet, it was another expression"
+
+let get_vars expr =
   let vars = ref IntSet.empty in
   Typed.iter_vars expr (fun (x, _) ->
       vars := IntSet.add (Soteria.Symex.Var.to_int x) !vars);
   !vars
 
-let get_toplevel_typed_vars expr =
+let get_typed_vars expr =
   let vars = ref IntMap.empty in
   Typed.iter_vars expr (fun (x, t) ->
       vars := IntMap.add (Soteria.Symex.Var.to_int x) t !vars);
   !vars
-
-let get_toplevel_vars_symbolic_value = function
-  | SymbInt i -> get_toplevel_vars i
-  | SymbBool b -> get_toplevel_vars b
-  | SymbReceipt _ -> failwith "Unsupported type for manifest error heuristic"
-
-let reverse_function_map function_envs =
-  StringMap.fold
-    (fun fname symb_map rev_map ->
-      SymbolicListMap.syntactic_bindings symb_map
-      |> Seq.fold_left
-           (fun rev_map (args, return) ->
-             let value = get_toplevel_vars_symbolic_value return in
-             let argsSet =
-               args |> List.map get_toplevel_vars
-               |> List.fold_left IntSet.union IntSet.empty
-             in
-             if IntSet.cardinal value != 1 then
-               failwith
-                 "There should be a single nondet as the domain of the \
-                  function map"
-             else
-               IntMap.update (IntSet.choose value)
-                 (function
-                   | None -> Some argsSet
-                   | Some args -> Some (IntSet.union args argsSet))
-                 rev_map)
-           rev_map)
-    function_envs IntMap.empty
 
 let group_by_error_cause results =
   let error_results =
@@ -55,14 +32,8 @@ let group_by_error_cause results =
       (fun (state, path_condition) ->
         match Soteria.Symex.Compo_res.to_result_opt state with
         | None | Some (Ok _) | Some (Error (Unexplored _)) -> None
-        | Some (Error (Err { err_stack; function_envs; cause })) ->
-            Some
-              ( cause,
-                {
-                  err_stack;
-                  rev_function_map = reverse_function_map function_envs;
-                  path_condition;
-                } ))
+        | Some (Error (Err { err_stack; initial_returns; cause })) ->
+            Some (cause, { err_stack; initial_returns; path_condition }))
       results
   in
   List.fold_left
@@ -72,23 +43,8 @@ let group_by_error_cause results =
         error_cause_map)
     ErrorCauseMap.empty error_results
 
-let expand_vars variables reverse_function_map =
-  let rec ev_rec vars =
-    IntSet.fold
-      (fun variable collected ->
-        match IntMap.find_opt variable reverse_function_map with
-        | None -> IntSet.add variable collected
-        | Some arguments -> IntSet.union (ev_rec arguments) collected)
-      vars IntSet.empty
-  in
-  ev_rec variables
-
-let get_all_vars expr reverse_function_map =
-  let vars = get_toplevel_vars expr in
-  expand_vars vars reverse_function_map
-
 let build_symex_assertion formula =
-  let var_types = get_toplevel_typed_vars formula in
+  let var_types = get_typed_vars formula in
   let var_idx =
     Seq.ints 0
     |> Seq.take
@@ -117,15 +73,15 @@ let build_symex_assertion formula =
   Symex.assert_ formula
 
 let split_heuristic global_vars error_list =
-  let global_vals_set =
+  let global_vals =
     Seq.ints 0 |> Seq.take (List.length global_vars) |> IntSet.of_seq
   in
   let splittable error =
     List.for_all
       (fun expr ->
-        let vars = get_all_vars expr error.rev_function_map in
-        IntSet.subset vars global_vals_set
-        || IntSet.disjoint vars global_vals_set)
+        let initial = IntSet.union global_vals error.initial_returns in
+        let vars = get_vars expr in
+        IntSet.subset vars initial || IntSet.disjoint vars initial)
       error.path_condition
   in
   (* Ensure that the split can take place *)
@@ -133,21 +89,10 @@ let split_heuristic global_vars error_list =
   let formula =
     error_list
     |> List.map (fun error ->
-        let depends_only_on_globals =
-          (*set of symb values that depend only on globals*)
-          error.rev_function_map |> IntMap.bindings |> List.map fst
-          |> IntSet.of_list
-          (*if all the leaves are globals, then the root depends only on globals*)
-          |> IntSet.filter (fun var ->
-              IntSet.subset
-                (expand_vars (IntSet.singleton var) error.rev_function_map)
-                global_vals_set)
-          |> IntSet.union global_vals_set
-          (*globals values also depend on globals, of course*)
-        in
         List.filter
           (fun expr ->
-            IntSet.subset (get_toplevel_vars expr) depends_only_on_globals)
+            IntSet.subset (get_vars expr)
+              (IntSet.union global_vals error.initial_returns))
           error.path_condition)
     |> List.map (List.fold_left Typed.and_ Typed.v_true)
     |> List.fold_left Typed.or_ Typed.v_false

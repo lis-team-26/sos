@@ -112,6 +112,7 @@ type path_condition = Typed.sbool list
 type ok_state = {
   scope : symbolic_value scope;
   function_envs : function_env env;
+  initial_returns : IntSet.t;
   service_map : service env;
   ok_stack : stack;
   fuel : fuel;
@@ -120,6 +121,7 @@ type ok_state = {
 type err_state = {
   err_stack : stack;
   function_envs : function_env env;
+  initial_returns : IntSet.t;
   cause : error_cause located;
 }
 

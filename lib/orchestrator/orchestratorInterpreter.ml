@@ -85,6 +85,7 @@ let symb_eval_invoke svc args qos_fields loc =
          {
            cause = { value = PrecondError service; loc };
            function_envs = state.function_envs;
+           initial_returns = state.initial_returns;
            err_stack = state.ok_stack;
          })
   in
@@ -218,6 +219,7 @@ let rec symb_eval_stmt c stmt =
              {
                cause = { value = AssertionError e; loc };
                function_envs = state.function_envs;
+               initial_returns = state.initial_returns;
                err_stack = state.ok_stack;
              })
       in
@@ -277,7 +279,14 @@ let build_symex_process orchestrator contract fuel =
       StringMap.empty contract.functions
   in
   let initial_state =
-    { scope; function_envs; service_map; ok_stack = []; fuel }
+    {
+      scope;
+      function_envs;
+      initial_returns = IntSet.empty;
+      service_map;
+      ok_stack = [];
+      fuel;
+    }
   in
   let policy_init_states =
     List.mapi PolicyChecker.init_policy contract.policies
