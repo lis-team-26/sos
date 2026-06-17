@@ -27,46 +27,49 @@ let set_fuel fuel_ref fuel_value = fuel_ref := Fuel.Finite fuel_value
 
 let specs =
   [
-    ( "contract_spec",
+    ( [ "contract_spec" ],
       Arg.String anon_fun,
       "Path to the contract specification file" );
-    ( "orchestrator_code",
+    ( [ "orchestrator_code" ],
       Arg.String anon_fun,
       "Path to the orchestrator code file" );
-    ( "-o",
+    ( [ "-o" ],
       Arg.Set_string report_dir,
       "Path to the output report directory (default: out)" );
-    ("-sf", Arg.Int (set_fuel steps_fuel), "Steps fuel (default: infinite)");
-    ( "-bf",
-      Arg.Int (set_fuel branching_fuel),
-      "Branching fuel (default: infinite)" );
-    ("-uf", Arg.Int (set_fuel unroll_fuel), "Unroll fuel (default: infinite)");
-    ("-pc", Arg.Set print_contract, "Print the parsed contract before analysis");
-    ( "-po",
-      Arg.Set print_orchestrator,
-      "Print the parsed orchestrator before analysis" );
-    ( "-pr",
-      Arg.Set print_results,
-      "Print the symbolic execution results after analysis" );
-    ( "--steps-fuel",
+    ( [ "-sf"; "--steps-fuel" ],
       Arg.Int (set_fuel steps_fuel),
-      "Steps fuel (default: infinite)" );
-    ( "--branching-fuel",
+      "Steps fuel (default: infinite), must be greater than 0" );
+    ( [ "-bf"; "--branching-fuel" ],
       Arg.Int (set_fuel branching_fuel),
-      "Branching fuel (default: infinite)" );
-    ( "--unroll-fuel",
+      "Branching fuel (default: infinite), must be greater than 0" );
+    ( [ "-uf"; "--unroll-fuel" ],
       Arg.Int (set_fuel unroll_fuel),
-      "Unroll fuel (default: infinite)" );
-    ( "--print-contract",
+      "Unroll fuel (default: infinite), must be greater than 0" );
+    ( [ "-pc"; "--print-contract" ],
       Arg.Set print_contract,
       "Print the parsed contract before analysis" );
-    ( "--print-orchestrator",
+    ( [ "-po"; "--print-orchestrator" ],
       Arg.Set print_orchestrator,
       "Print the parsed orchestrator before analysis" );
-    ( "--print-results",
+    ( [ "-pr"; "--print-results" ],
       Arg.Set print_results,
       "Print the symbolic execution results after analysis" );
   ]
+
+let flatten_specs specs =
+  List.fold_left
+    (fun acc (flag_list, spec, str) ->
+      List.fold_left (fun acc flag -> (flag, spec, str) :: acc) acc flag_list)
+    [] specs
+
+let simplify_specs specs =
+  List.map
+    (fun (flag_list, spec, str) ->
+      (String.concat "," flag_list, spec, ": " ^ str))
+    specs
+
+let not_valid_fuel fuel_ref =
+  match !fuel_ref with Fuel.Finite n when n <= 0 -> true | _ -> false
 
 let validate_args () =
   if
@@ -74,12 +77,15 @@ let validate_args () =
     || String.equal !contract_file ""
     || String.equal !orchestrator_file ""
     || String.equal !report_dir ""
+    || not_valid_fuel steps_fuel
+    || not_valid_fuel branching_fuel
+    || not_valid_fuel unroll_fuel
   then (
-    Arg.usage specs usage;
+    Arg.usage (simplify_specs specs) usage;
     exit 1)
 
 let () =
-  Arg.parse specs anon_fun usage;
+  Arg.parse (flatten_specs specs) anon_fun usage;
   validate_args ();
   let contract_file = !contract_file in
   let orchestrator_file = !orchestrator_file in
