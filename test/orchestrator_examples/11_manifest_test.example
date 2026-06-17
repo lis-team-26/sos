@@ -1,0 +1,7 @@
+int y := int?;
+int id := 1;
+if attempts(id) > 0 then
+    y := y + 10;
+else
+    skip;
+assert y != 1;
