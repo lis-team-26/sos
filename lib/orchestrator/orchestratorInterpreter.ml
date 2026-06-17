@@ -84,6 +84,7 @@ let symb_eval_invoke svc args qos_fields loc =
       (Err
          {
            cause = { value = PrecondError service; loc };
+           function_envs = state.function_envs;
            err_stack = state.ok_stack;
          })
   in
@@ -216,6 +217,7 @@ let rec symb_eval_stmt c stmt =
           (Err
              {
                cause = { value = AssertionError e; loc };
+               function_envs = state.function_envs;
                err_stack = state.ok_stack;
              })
       in

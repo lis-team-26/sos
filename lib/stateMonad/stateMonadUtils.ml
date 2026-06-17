@@ -30,7 +30,9 @@ let consume_unroll_fuel n =
 let map_error old_ok_state err_state ~loc =
   let loc = match loc with Some l -> l | None -> { line = -1; col = -1 } in
   Symex.Result.map_error err_state (fun cause ->
-      Err { cause = { value = cause; loc }; err_stack = old_ok_state.ok_stack })
+    Err { cause = { value = cause; loc };
+          function_envs = old_ok_state.function_envs;
+          err_stack = old_ok_state.ok_stack })
 
 let lift_fm m =
  fun (state, policy_checkers) ->

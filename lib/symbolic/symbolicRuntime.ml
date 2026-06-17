@@ -117,6 +117,6 @@ type ok_state = {
   fuel : fuel;
 }
 
-type err_state = { err_stack : stack; cause : error_cause located }
+type err_state = { err_stack : stack; function_envs : function_env env; cause : error_cause located }
 type not_ok_state = Unexplored of ok_state | Err of err_state
 type 'a result = (ok_state, not_ok_state, 'a) Symex.Result.t * path_condition

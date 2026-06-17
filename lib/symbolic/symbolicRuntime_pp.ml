@@ -107,7 +107,7 @@ let pp_result fmt (idx, state, path_condition) =
       fprintf fmt "@,";
       pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
         (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
-  | Some (Error (Err { cause; err_stack })) ->
+  | Some (Error (Err { cause; function_envs; err_stack })) ->
       fprintf fmt "@{<red>ERROR@}: %a@," pp_located_error_cause cause;
       pp_section fmt "Path condition" (path_condition = []) pp_path_condition
         path_condition;
