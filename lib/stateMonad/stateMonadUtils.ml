@@ -30,9 +30,12 @@ let consume_unroll_fuel n =
 let map_error old_ok_state err_state ~loc =
   let loc = match loc with Some l -> l | None -> { line = -1; col = -1 } in
   Symex.Result.map_error err_state (fun cause ->
-    Err { cause = { value = cause; loc };
+      Err
+        {
+          cause = { value = cause; loc };
           function_envs = old_ok_state.function_envs;
-          err_stack = old_ok_state.ok_stack })
+          err_stack = old_ok_state.ok_stack;
+        })
 
 let lift_fm m =
  fun (state, policy_checkers) ->
@@ -49,11 +52,18 @@ let scoped m =
 let branch b then_m else_m =
   let open OkStateMonad in
   fun state ->
-    if%sat b then then_m state
-    else
-      (let& () = consume_branching_fuel 1 in
-       else_m)
-        state
+    let* b_sat = Symex.map (Symex.assert_ (Symex.Value.not b)) not in
+    let* not_b_sat = Symex.map (Symex.assert_ b) not in
+    match (b_sat, not_b_sat) with
+    | true, true ->
+        if%sat b then then_m state
+        else
+          (let& () = consume_branching_fuel 1 in
+           else_m)
+            state
+    | true, false -> then_m state
+    | false, true -> else_m state
+    | false, false -> failwith "Unreachable: both branches are unsatisfiable"
 
 let get_state =
  fun (state, policy_checkers) ->

@@ -3,7 +3,6 @@ open Expr.TypedAST_pp
 open Symbolic.Data_pp
 open Symbolic.Runtime
 open Utils.Data
-module IntMap = Map.Make (Int)
 
 type status = Success | Failure | Incomplete | Unknown
 type source_contents = Source_lines of string list | Source_error of string
