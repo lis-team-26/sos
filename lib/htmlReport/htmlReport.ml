@@ -3,8 +3,10 @@ open Expr.TypedAST_pp
 open Symbolic.Data_pp
 open Symbolic.Runtime
 open Utils.Data
+module Stats = Soteria.Stats
+module StatKeys = Soteria.Symex.StatKeys
 
-type status = Success | Failure | Incomplete | Unknown
+type status = Success | Failure | Unexplored
 type source_contents = Source_lines of string list | Source_error of string
 
 type source_file = {
@@ -16,12 +18,7 @@ type source_file = {
   policy_lines : int IntMap.t;
 }
 
-type counts = {
-  successes : int;
-  failures : int;
-  incomplete : int;
-  unknown : int;
-}
+type counts = { successes : int; failures : int; unexplored : int }
 
 let bootstrap_css_href =
   "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
@@ -120,33 +117,39 @@ let normalize_for_search s =
 
 let status_of_state state =
   match Compo_res.to_result_opt state with
-  | Some (Ok _) -> Success
-  | Some (Error (Err _)) -> Failure
-  | Some (Error (Unexplored _)) -> Incomplete
-  | None -> Unknown
+  | Some (Ok _) -> Some Success
+  | Some (Error (Err _)) -> Some Failure
+  | Some (Error (Unexplored _)) -> Some Unexplored
+  | None -> None
+
+let status_of_state_exn state =
+  match status_of_state state with
+  | Some status -> status
+  | None -> invalid_arg "HTML report cannot render missing/unknown states"
 
 let status_key = function
   | Success -> "success"
   | Failure -> "error"
-  | Incomplete -> "incomplete"
-  | Unknown -> "unknown"
+  | Unexplored -> "unexplored"
 
 let status_label = function
   | Success -> "Success"
   | Failure -> "Error"
-  | Incomplete -> "Incomplete"
-  | Unknown -> "Unknown"
+  | Unexplored -> "Unexplored"
 
 let count_statuses results =
   List.fold_left
     (fun counts (state, _) ->
       match status_of_state state with
-      | Success -> { counts with successes = counts.successes + 1 }
-      | Failure -> { counts with failures = counts.failures + 1 }
-      | Incomplete -> { counts with incomplete = counts.incomplete + 1 }
-      | Unknown -> { counts with unknown = counts.unknown + 1 })
-    { successes = 0; failures = 0; incomplete = 0; unknown = 0 }
+      | Some Success -> { counts with successes = counts.successes + 1 }
+      | Some Failure -> { counts with failures = counts.failures + 1 }
+      | Some Unexplored -> { counts with unexplored = counts.unexplored + 1 }
+      | None -> counts)
+    { successes = 0; failures = 0; unexplored = 0 }
     results
+
+let reportable_results results =
+  List.filter (fun (state, _) -> Option.is_some (status_of_state state)) results
 
 let plural count singular plural = if count = 1 then singular else plural
 
@@ -479,7 +482,7 @@ let result_caption state path_condition =
 let result_search_text state path_condition =
   let common =
     Fmt.str "%s %s %d path %s"
-      (status_label (status_of_state state))
+      (status_label (status_of_state_exn state))
       (result_caption state path_condition)
       (List.length path_condition)
       (plural (List.length path_condition) "condition" "conditions")
@@ -492,13 +495,15 @@ let result_search_text state path_condition =
         (function_env_search_text ok_state.function_envs)
       |> normalize_for_search
   | Some (Error (Err err_state)) ->
-      Fmt.str "%s %s %s" common
+      Fmt.str "%s %s %s %s %s" common
         (error_detail err_state.cause.value)
         (invocation_search_text err_state.err_stack)
+        (scope_search_text err_state.err_scope)
+        (function_env_search_text err_state.function_envs)
       |> normalize_for_search
   | Some (Error (Unexplored ok_state)) ->
       Fmt.str
-        "%s unexplored incomplete fuel steps %s branching %s unroll %s %s %s %s"
+        "%s unexplored unexplored fuel steps %s branching %s unroll %s %s %s %s"
         common
         (pp_to_string Fuel.pp ok_state.fuel.steps)
         (pp_to_string Fuel.pp ok_state.fuel.branching)
@@ -511,7 +516,7 @@ let result_search_text state path_condition =
 
 let json_result contract_source orchestrator_source idx (state, path_condition)
     =
-  let status = status_of_state state in
+  let status = status_of_state_exn state in
   let common_fields =
     [
       field "id" (json_int idx);
@@ -527,7 +532,7 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
     | Some (Ok ok_state) ->
         [
           field "error" json_null;
-          field "incomplete" json_null;
+          field "unexplored" json_null;
           field "invocations"
             (json_invocations contract_source ok_state.ok_stack);
           field "scope" (json_scope ok_state.scope);
@@ -538,17 +543,17 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
         [
           field "error"
             (json_error contract_source orchestrator_source err_state.cause);
-          field "incomplete" json_null;
+          field "unexplored" json_null;
           field "invocations"
             (json_invocations contract_source err_state.err_stack);
-          field "scope" "[]";
-          field "functionEnvs" "[]";
+          field "scope" (json_scope err_state.err_scope);
+          field "functionEnvs" (json_function_envs err_state.function_envs);
           field "fuel" json_null;
         ]
     | Some (Error (Unexplored ok_state)) ->
         [
           field "error" json_null;
-          field "incomplete"
+          field "unexplored"
             (json_obj
                [
                  field "title" (json_string "Unexplored branch");
@@ -567,7 +572,7 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
     | None ->
         [
           field "error" json_null;
-          field "incomplete" json_null;
+          field "unexplored" json_null;
           field "invocations" "[]";
           field "scope" "[]";
           field "functionEnvs" "[]";
@@ -579,8 +584,91 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
 let json_manifest_error contract_source orchestrator_source cause =
   json_error contract_source orchestrator_source cause
 
+let json_error_group_occurrence idx err_state path_condition =
+  json_obj
+    [
+      field "resultId" (json_int idx);
+      field "pathConditionCount" (json_int (List.length path_condition));
+      field "invocationCount" (json_int (List.length err_state.err_stack));
+    ]
+
+let error_cause_groups results =
+  results
+  |> List.mapi (fun idx result -> (idx + 1, result))
+  |> List.fold_left
+       (fun groups (idx, (state, path_condition)) ->
+         match Compo_res.to_result_opt state with
+         | Some (Error (Err err_state)) ->
+             ErrorCauseMap.update err_state.cause
+               (function
+                 | None -> Some [ (idx, err_state, path_condition) ]
+                 | Some occurrences ->
+                     Some ((idx, err_state, path_condition) :: occurrences))
+               groups
+         | Some (Ok _) | Some (Error (Unexplored _)) | None -> groups)
+       ErrorCauseMap.empty
+
+let error_cause_count results =
+  ErrorCauseMap.cardinal (error_cause_groups results)
+
+let json_error_groups contract_source orchestrator_source results =
+  let grouped = error_cause_groups results in
+  grouped |> ErrorCauseMap.bindings
+  |> json_list (fun (cause, occurrences) ->
+      let occurrences = List.rev occurrences in
+      json_obj
+        [
+          field "error" (json_error contract_source orchestrator_source cause);
+          field "count" (json_int (List.length occurrences));
+          field "results"
+            (json_list
+               (fun (idx, err_state, path_condition) ->
+                 json_error_group_occurrence idx err_state path_condition)
+               occurrences);
+        ])
+
+let format_seconds seconds =
+  if seconds < 1. then Fmt.str "%.2f ms" (seconds *. 1000.)
+  else Fmt.str "%.3f s" seconds
+
+let format_percentage numerator denominator =
+  if denominator <= 0. then "0.00%"
+  else Fmt.str "%.2f%%" (numerator /. denominator *. 100.)
+
+let stat_metrics stats =
+  let exec_time = Stats.get_float stats StatKeys.exec_time in
+  let sat_time = Stats.get_float stats StatKeys.sat_time in
+  let sat_checks = Stats.get_int stats StatKeys.sat_checks in
+  let sat_unknowns = Stats.get_int stats StatKeys.sat_unknowns in
+  let branch_on_calls = Stats.get_int stats StatKeys.branch_on_calls in
+  let branch_on_branched = Stats.get_int stats StatKeys.branch_on_branched in
+  [
+    ("Execution time", format_seconds exec_time, StatKeys.exec_time);
+    ("SAT solving time", format_seconds sat_time, StatKeys.sat_time);
+    ( "SAT solving share",
+      format_percentage sat_time exec_time,
+      Fmt.str "%s/%s" StatKeys.sat_time StatKeys.exec_time );
+    ("SAT checks", string_of_int sat_checks, StatKeys.sat_checks);
+    ("SAT unknowns", string_of_int sat_unknowns, StatKeys.sat_unknowns);
+    ("branch_on calls", string_of_int branch_on_calls, StatKeys.branch_on_calls);
+    ( "branch_on branched",
+      string_of_int branch_on_branched,
+      StatKeys.branch_on_branched );
+  ]
+
+let json_stats stats =
+  let metric_json (label, value, key) =
+    json_obj
+      [
+        field "label" (json_string label);
+        field "value" (json_string value);
+        field "key" (json_string key);
+      ]
+  in
+  json_obj [ field "metrics" (json_list metric_json (stat_metrics stats)) ]
+
 let json_report_data ~contract_source ~orchestrator_source ~contract_file
-    ~orchestrator_file ~results ~manifest_errors =
+    ~orchestrator_file ~results ~manifest_errors ~stats =
   let counts = count_statuses results in
   json_obj
     [
@@ -592,14 +680,16 @@ let json_report_data ~contract_source ~orchestrator_source ~contract_file
              field "total" (json_int (List.length results));
              field "success" (json_int counts.successes);
              field "error" (json_int counts.failures);
-             field "incomplete" (json_int counts.incomplete);
-             field "unknown" (json_int counts.unknown);
+             field "unexplored" (json_int counts.unexplored);
            ]);
+      field "stats" (json_stats stats);
       field "results"
         (results
         |> List.mapi (fun idx result ->
             json_result contract_source orchestrator_source (idx + 1) result)
         |> String.concat "," |> Fmt.str "[%s]");
+      field "errorGroups"
+        (json_error_groups contract_source orchestrator_source results);
       field "manifestErrors"
         (json_list
            (json_manifest_error contract_source orchestrator_source)
@@ -631,14 +721,14 @@ let render_source_file section_id source =
   in
   Fmt.str
     {|
-    <section class="card mt-3 shadow-sm" data-report-section="%s" hidden>
+    <section id="%s" class="card mt-3 shadow-sm" data-report-section="%s" hidden>
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="%s">
         <span class="d-block h4 mb-1">%s</span>
         <span class="text-body-secondary">Line numbers are anchors for report links.</span>
       </button>
       <div class="card-body">%s</div>
     </section>|}
-    section_id section_id (html_escape source.label) source_body
+    section_id section_id section_id (html_escape source.label) source_body
 
 let section_card ?filter section title meta =
   let filter_attr =
@@ -648,13 +738,13 @@ let section_card ?filter section title meta =
   in
   Fmt.str
     {|
-    <div class="col-12 col-sm-6 col-xl-2 d-grid">
-      <button type="button" class="btn btn-outline-primary text-start p-3 shadow-sm h-100" data-section-target="%s" aria-pressed="false"%s>
-        <span class="d-block fw-semibold">%s</span>
+    <div class="col d-grid">
+      <a class="btn btn-outline-secondary btn-sm text-start px-2 py-2 shadow-sm h-100" href="#%s" data-section-target="%s" aria-pressed="false"%s>
+        <span class="d-block fw-semibold small">%s</span>
         <span class="d-block small opacity-75 mt-1">%s</span>
-      </button>
+      </a>
     </div>|}
-    section filter_attr (html_escape title) (html_escape meta)
+    section section filter_attr (html_escape title) (html_escape meta)
 
 let metric_card ?filter section title value tone =
   let filter_attr =
@@ -670,48 +760,67 @@ let metric_card ?filter section title value tone =
     </button>|}
     tone section filter_attr (html_escape title) value
 
-let render_overview counts total manifest_count contract_file orchestrator_file
-    =
+let render_overview counts total error_cause_count manifest_count =
   Fmt.str
     {|
-    <section class="card mt-3 shadow-sm" data-report-section="overview">
+    <section id="overview" class="card mt-3 shadow-sm" data-report-section="overview">
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="overview">
         <span class="d-block h4 mb-1">Overview</span>
         <span class="text-body-secondary">Summary for this symbolic execution run.</span>
       </button>
       <div class="card-body">
-        <div class="row g-3 mb-3">
+        <div class="row g-3">
           <div class="col-12 col-md-6">%s</div>
           <div class="col-12 col-md-6">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
           <div class="col-12 col-md-6 col-xl-3">%s</div>
-          <div class="col-12 col-md-6 col-xl-3">%s</div>
-        </div>
-        <div class="border rounded bg-body-tertiary p-3">
-          <p class="mb-1 text-break">Contract: <code>%s</code></p>
-          <p class="mb-0 text-break">Orchestrator: <code>%s</code></p>
         </div>
       </div>
     </section>|}
     (metric_card "results" "Total results" total "primary")
     (metric_card ~filter:"error" "results" "Error states" counts.failures
        "danger")
-    (metric_card "unexplored" "Unexplored branches" counts.incomplete "warning")
+    (metric_card "unexplored" "Unexplored branches" counts.unexplored "warning")
     (metric_card ~filter:"success" "results" "Success states" counts.successes
        "success")
-    (metric_card ~filter:"unknown" "results" "Unknown states" counts.unknown
-       "secondary")
-    (metric_card "errors" "Error index" counts.failures "danger")
+    (metric_card "errors" "Error index" error_cause_count "danger")
     (metric_card "manifest" "Manifest errors" manifest_count "warning")
-    (html_escape contract_file)
-    (html_escape orchestrator_file)
+
+let render_stat_card (label, value, key) =
+  Fmt.str
+    {|
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="border rounded bg-body-tertiary p-3 h-100">
+        <span class="d-block small text-uppercase fw-semibold text-body-secondary">%s</span>
+        <span class="d-block h4 mb-1">%s</span>
+        <code class="small text-break">%s</code>
+      </div>
+    </div>|}
+    (html_escape label) (html_escape value) (html_escape key)
+
+let render_stats_section stats =
+  let metrics =
+    stat_metrics stats |> List.map render_stat_card |> String.concat ""
+  in
+  Fmt.str
+    {|
+    <section id="statistics" class="card mt-3 shadow-sm" data-report-section="statistics" hidden>
+      <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="statistics">
+        <span class="d-block h4 mb-1">Statistics</span>
+        <span class="text-body-secondary">Execution metrics collected by Soteria.</span>
+      </button>
+      <div class="card-body">
+        <div class="row g-3">%s</div>
+      </div>
+    </section>|}
+    metrics
 
 let render_results_section counts =
   Fmt.str
     {|
-    <section class="card mt-3 shadow-sm" data-report-section="results" hidden>
+    <section id="results" class="card mt-3 shadow-sm" data-report-section="results" hidden>
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="results">
         <span class="d-block h4 mb-1">Execution Results</span>
         <span class="text-body-secondary">Only one page of results is rendered at a time.</span>
@@ -730,8 +839,7 @@ let render_results_section counts =
                 <button type="button" class="btn btn-outline-secondary active" data-report-filter="all" aria-pressed="true">All %d</button>
                 <button type="button" class="btn btn-outline-success" data-report-filter="success" aria-pressed="false">Success %d</button>
                 <button type="button" class="btn btn-outline-danger" data-report-filter="error" aria-pressed="false">Error %d</button>
-                <button type="button" class="btn btn-outline-warning" data-report-filter="incomplete" aria-pressed="false">Incomplete %d</button>
-                <button type="button" class="btn btn-outline-secondary" data-report-filter="unknown" aria-pressed="false">Unknown %d</button>
+                <button type="button" class="btn btn-outline-warning" data-report-filter="unexplored" aria-pressed="false">Unexplored %d</button>
               </div>
               <span class="small text-body-secondary" data-results-count></span>
             </div>
@@ -741,12 +849,12 @@ let render_results_section counts =
         <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-results-pagination></div>
       </div>
     </section>|}
-    (counts.successes + counts.failures + counts.incomplete + counts.unknown)
-    counts.successes counts.failures counts.incomplete counts.unknown
+    (counts.successes + counts.failures + counts.unexplored)
+    counts.successes counts.failures counts.unexplored
 
 let render_error_section () =
   {|
-    <section class="card mt-3 shadow-sm" data-report-section="errors" hidden>
+    <section id="errors" class="card mt-3 shadow-sm" data-report-section="errors" hidden>
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="errors">
         <span class="d-block h4 mb-1">Error Index</span>
         <span class="text-body-secondary">Runtime errors link to source locations and their result details.</span>
@@ -760,7 +868,7 @@ let render_error_section () =
 let render_unexplored_section unexplored_count =
   Fmt.str
     {|
-    <section class="card mt-3 shadow-sm" data-report-section="unexplored" hidden>
+    <section id="unexplored" class="card mt-3 shadow-sm" data-report-section="unexplored" hidden>
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="unexplored">
         <span class="d-block h4 mb-1">Unexplored Branches</span>
         <span class="text-body-secondary">%d %s stopped before completion because fuel was exhausted.</span>
@@ -776,7 +884,7 @@ let render_unexplored_section unexplored_count =
 let render_manifest_section manifest_count =
   Fmt.str
     {|
-    <section class="card mt-3 shadow-sm" data-report-section="manifest" hidden>
+    <section id="manifest" class="card mt-3 shadow-sm" data-report-section="manifest" hidden>
       <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="manifest">
         <span class="d-block h4 mb-1">Manifest Errors</span>
         <span class="text-body-secondary">%d %s detected by the manifest-error heuristic.</span>
@@ -790,9 +898,10 @@ let render_manifest_section manifest_count =
     (plural manifest_count "error" "errors")
 
 let render_page ~contract_source ~orchestrator_source ~contract_file
-    ~orchestrator_file ~results ~manifest_errors ~report_data_json =
+    ~orchestrator_file ~results ~manifest_errors ~stats ~report_data_json =
   let counts = count_statuses results in
   let total = List.length results in
+  let error_cause_count = error_cause_count results in
   Fmt.str
     {|<!doctype html>
 <html lang="en">
@@ -817,7 +926,8 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     </div>
   </header>
   <main class="container-xxl py-4">
-    <nav class="row g-3" aria-label="Report sections">
+    <nav class="row row-cols-2 row-cols-md-4 g-2" aria-label="Report sections">
+      %s
       %s
       %s
       %s
@@ -830,6 +940,7 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
       <h2 class="h5 mb-1">Choose a section</h2>
       <p class="text-body-secondary mb-0">Section buttons stay visible. Selecting an active section closes it; selecting another opens only that section.</p>
     </div>
+    %s
     %s
     %s
     %s
@@ -851,23 +962,24 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     (section_card "overview" "Overview" (Fmt.str "%d total results" total))
     (section_card "results" "Results" (Fmt.str "%d at a time" 50))
     (section_card "errors" "Error Index"
-       (Fmt.str "%d error %s" counts.failures
-          (plural counts.failures "state" "states")))
+       (Fmt.str "%d located %s" error_cause_count
+          (plural error_cause_count "cause" "causes")))
     (section_card "unexplored" "Unexplored"
-       (Fmt.str "%d incomplete %s" counts.incomplete
-          (plural counts.incomplete "branch" "branches")))
+       (Fmt.str "%d unexplored %s" counts.unexplored
+          (plural counts.unexplored "branch" "branches")))
+    (section_card "statistics" "Statistics" "Soteria metrics")
     (section_card "manifest" "Manifest"
        (Fmt.str "%d manifest %s"
           (List.length manifest_errors)
           (plural (List.length manifest_errors) "error" "errors")))
     (section_card "orchestrator-source" "Orchestrator" "source anchors")
     (section_card "contract-source" "Contract" "specification anchors")
-    (render_overview counts total
-       (List.length manifest_errors)
-       contract_file orchestrator_file)
+    (render_overview counts total error_cause_count
+       (List.length manifest_errors))
     (render_results_section counts)
     (render_error_section ())
-    (render_unexplored_section counts.incomplete)
+    (render_unexplored_section counts.unexplored)
+    (render_stats_section stats)
     (render_manifest_section (List.length manifest_errors))
     (render_source_file "orchestrator-source" orchestrator_source)
     (render_source_file "contract-source" contract_source)
@@ -876,7 +988,7 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     report_js_filename report_data_filename
 
 let write ~report_dir ~contract_file ~orchestrator_file ~results
-    ~manifest_errors =
+    ~manifest_errors ~stats =
   ensure_dir report_dir;
   copy_report_res_file ~filename:report_js_filename
     ~dst:(Filename.concat report_dir report_js_filename);
@@ -887,14 +999,15 @@ let write ~report_dir ~contract_file ~orchestrator_file ~results
     load_source ~label:"Orchestrator Code" ~prefix:"orchestrator"
       orchestrator_file
   in
+  let results = reportable_results results in
   let data =
     json_report_data ~contract_source ~orchestrator_source ~contract_file
-      ~orchestrator_file ~results ~manifest_errors
+      ~orchestrator_file ~results ~manifest_errors ~stats
   in
   write_file
     (Filename.concat report_dir report_data_filename)
     (Fmt.str "%s@." data);
   let html_report_file = Filename.concat report_dir report_html_filename in
   render_page ~contract_source ~orchestrator_source ~contract_file
-    ~orchestrator_file ~results ~manifest_errors ~report_data_json:data
+    ~orchestrator_file ~results ~manifest_errors ~stats ~report_data_json:data
   |> write_file html_report_file

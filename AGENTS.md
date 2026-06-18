@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-This is an OCaml/Dune project for symbolic analysis of service orchestration. Source code lives under `lib/`, split into libraries such as `contract`, `orchestrator`, `expr`, `symbolic`, `policyChecker`, `reg2dfa`, `stateMonad`, and `utils`. The CLI entry point is `bin/main.ml`, exposed as the public executable `run`. Example inputs live in `test/contract_examples/` (`*.contract`) and `test/orchestrator_examples/` (`*.example`). Generated build output and local switches stay in `_build/` and `_opam/`.
+This is an OCaml/Dune project for symbolic analysis of service orchestration. Source code lives under `lib/`, split into libraries such as `contract`, `orchestrator`, `expr`, `symbolic`, `policyChecker`, `reg2dfa`, `stateMonad`, and `utils`. The CLI entry point is `bin/main.ml`, exposed as the public executable `run`. Example inputs live in `test/contract_examples/` (`*.contract`) and `test/orchestrator_examples/` (`*.sos`). Generated build output and local switches stay in `_build/` and `_opam/`.
 
 ## Build, Test, and Development Commands
 
 - `opam switch create . --deps-only --with-dev-setup`: create the local switch with development tools.
 - `eval $(opam env)`: load the local switch into the shell.
 - `dune build`: compile all libraries, Menhir parsers, ocamllex lexers, and the CLI.
-- `dune exec -- run test/contract_examples/ecommerce.contract test/orchestrator_examples/ecommerce.example`: run the ecommerce sample.
+- `dune exec -- run test/contract_examples/01_simple_echo.contract test/orchestrator_examples/01_simple_echo.sos`: run the simple echo sample.
 - `dune runtest`: run Dune test aliases when present.
 - `dune fmt`: format OCaml files with the project `ocamlformat` settings.
 
@@ -21,7 +21,7 @@ Use OCaml formatted by `ocamlformat` version `0.29.0` with the default profile f
 
 ## Testing Guidelines
 
-Current tests are example-driven. Add contract samples under `test/contract_examples/` and matching orchestrator programs under `test/orchestrator_examples/`, using descriptive lowercase names such as `division_by_zero.example`. For behavior changes, include a runnable example and verify it with `dune exec -- run ...`. Add Dune test aliases or expect tests for automated regressions.
+Current tests are example-driven. Add contract samples under `test/contract_examples/` and matching orchestrator programs under `test/orchestrator_examples/`, using descriptive lowercase names such as `division_by_zero.sos`. For behavior changes, include a runnable example and verify it with `dune exec -- run ...`. Add Dune test aliases or expect tests for automated regressions.
 
 ## Commit & Pull Request Guidelines
 
@@ -29,4 +29,4 @@ Recent commits use short, imperative summaries such as `fixed incorrect line num
 
 ## Agent-Specific Instructions
 
-Before editing, check `git status --short` and preserve unrelated local changes. Prefer Dune and OPAM workflows, and avoid touching `_build/`, `_opam/`, or generated `lis-project.opam` unless the change originates in `dune-project`.
+Before editing, check `git status --short` and preserve unrelated local changes. Prefer Dune and OPAM workflows, and avoid touching `_build/`, `_opam/`, or generated `sos.opam` unless the change originates in `dune-project`.

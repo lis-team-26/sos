@@ -1,4 +1,5 @@
 open Soteria.Stats
+open Soteria.Symex.StatKeys
 open Symbolic.Runtime
 open Utils.Data
 
@@ -115,9 +116,8 @@ let () =
     Fmt.pr "@[Results:@,@[<v 2>  %a@]@]@." Symbolic.Runtime_pp.pp_results
       results;
   let manifest_errors =
-    ManifestError.find_manifest_errors typed_contract_ast.globals
-      results
+    ManifestError.find_manifest_errors typed_contract_ast.globals results
   in
   HtmlReport.write ~report_dir ~contract_file ~orchestrator_file ~results
-    ~manifest_errors;
+    ~manifest_errors ~stats;
   Fmt.pr "Symbolic execution report written to folder '%s'@." report_dir

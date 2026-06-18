@@ -1,0 +1,74 @@
+int remaining_reviews := int?;
+bool dispatch_without_auth := bool?;
+bool try_bad_authorization := bool?;
+bool strict_diagnosis := bool?;
+bool strict_privacy := bool?;
+
+assume patient > 0 && provider > 0 && claim > 0 && drug > 0;
+assume known_patient(patient) && active_provider(provider);
+assume eligible(patient) && covered_drug(patient, drug) && low_risk(patient);
+assume MAX_AMOUNT > 0 && budget > 0;
+assume requested_amount > 0 && requested_amount <= MAX_AMOUNT && requested_amount <= budget;
+assume MIN_PRIVACY >= 80 && MIN_PRIVACY <= 96;
+assume remaining_reviews >= 0 && remaining_reviews <= 2;
+
+rcpt intake := invoke Intake(patient, provider);
+assert intake.successful;
+assert intake.retval;
+assert intake.qos.privacy >= MIN_PRIVACY;
+
+rcpt eligibility := invoke Eligibility(patient);
+assert eligibility.successful;
+
+if dispatch_without_auth then {
+  rcpt early_dispense := invoke Dispense(patient, drug, 0);
+  assert early_dispense.successful;
+} else {
+  skip;
+}
+
+rcpt diagnosis := invoke Diagnose(patient);
+assert diagnosis.retval >= 0;
+if strict_diagnosis then {
+  assert diagnosis.retval <= 5;
+} else {
+  skip;
+}
+
+if try_bad_authorization then {
+  int amount_over_limit := requested_amount + MAX_AMOUNT;
+  rcpt bad_auth := invoke Authorize(patient, provider, amount_over_limit);
+  assert bad_auth.successful;
+} else {
+  skip;
+}
+
+rcpt auth := invoke Authorize(patient, provider, requested_amount);
+if auth.successful then {
+  assert auth.retval > 0;
+} else {
+  skip;
+}
+
+rcpt dispense := invoke Dispense(patient, drug, auth.retval);
+if dispense.successful then {
+  assert dispense.retval;
+} else {
+  skip;
+}
+
+if strict_privacy then {
+  assert dispense.qos.privacy >= MIN_PRIVACY;
+} else {
+  skip;
+}
+
+while remaining_reviews > 0 do {
+  rcpt audit := invoke AuditClaim(patient, claim);
+  assert audit.successful || audit.retval == 100;
+  remaining_reviews := remaining_reviews - 1;
+}
+
+rcpt closed := invoke CloseClaim(patient, claim);
+assert closed.successful;
+assert closed.retval;
