@@ -1,0 +1,6 @@
+int x := 1;
+if false then {
+    x := true;
+} else {
+    x := 2;
+}
