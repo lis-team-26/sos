@@ -1,25 +1,31 @@
-assume well_formed(user) && well_formed(pass) && fresh(0) && !locked(user) && attempts(user) < MAX_ATTEMPTS;
-
-invoke Auth(user, pass, 0);
-
-int remaining_operations := operations;
-assume operations > 0 && operations < 4;
-
 int get := 1;
 int pay := 2;
-int price := 0;
+int price := 0 - 1;
+int nonce := int?;
 
-while remaining_operations > 0 do {
-  assume op == get || op == pay;
+assume well_formed(user) && well_formed(pass) && fresh(nonce) && !locked(user) && attempts(user) < MAX_ATTEMPTS;
+rcpt auth := invoke Auth(user, pass, nonce);
+
+if (auth.successful) then {
+  int num_operations := int?;
+  assume num_operations > 0 && num_operations <= 10;
   
-  if op == get then {
-    assume well_formed(prod_id);
-    rcpt r := invoke GetPrice(prod_id);
-    assert r.successful;
-    price := r.retval;
-  } else {
-    invoke Pay(price);
+  while num_operations > 0 do {
+    int action := int?;
+    assume action == get || action == pay;
+
+    if action == get then {
+      int prod_id := int?;
+      assume well_formed(prod_id);
+
+      rcpt price_rcpt := invoke GetPrice(prod_id);
+      assert price_rcpt.successful;
+
+      price := price_rcpt.retval;
+    } else {
+      invoke Pay(price);
+    }
+
+    num_operations := num_operations - 1;
   }
-  
-  remaining_operations := remaining_operations - 1;
 }

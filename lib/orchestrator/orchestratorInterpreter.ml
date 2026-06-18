@@ -81,13 +81,7 @@ let symb_eval_invoke svc args qos_fields loc =
   in
   let&** () =
     Symex.assert_or_error b
-      (Err
-         {
-           cause = { value = PrecondError service; loc };
-           function_envs = state.function_envs;
-           initial_returns = state.initial_returns;
-           err_stack = state.ok_stack;
-         })
+      (located_error_cause (PrecondError service) ~loc |> error_from_cause state)
   in
   let& qos_env =
     fold_list qos_fields ~init:StringMap.empty ~f:(fun env (x, t) ->
@@ -210,18 +204,13 @@ let rec symb_eval_stmt c stmt =
   | Assume e ->
       let&&* b = symb_eval_bexpr state.scope e in
       let&* () = Symex.assume [ b ] in
-      return ()
+      modify_state (fun state ->
+          { state with assumed_contraints = b :: state.assumed_contraints })
   | Assert (e, loc) ->
       let&&* b = symb_eval_bexpr state.scope e in
       let&** () =
         Symex.assert_or_error b
-          (Err
-             {
-               cause = { value = AssertionError e; loc };
-               function_envs = state.function_envs;
-               initial_returns = state.initial_returns;
-               err_stack = state.ok_stack;
-             })
+          (located_error_cause (AssertionError e) ~loc |> error_from_cause state)
       in
       return ()
   | Seq (s1, s2) ->
@@ -281,11 +270,12 @@ let build_symex_process orchestrator contract fuel =
   let initial_state =
     {
       scope;
-      function_envs;
-      initial_returns = IntSet.empty;
-      service_map;
       ok_stack = [];
       fuel;
+      function_envs;
+      service_map;
+      assumed_contraints = [];
+      initial_returns = IntSet.empty;
     }
   in
   let policy_init_states =

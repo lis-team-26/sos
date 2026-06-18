@@ -107,23 +107,39 @@ module ErrorCauseMap = Map.Make (struct
 end)
 
 type fuel = { steps : Fuel.t; branching : Fuel.t; unroll : Fuel.t }
-type path_condition = Typed.sbool list
+type path_condition = symb_bool list
 
 type ok_state = {
   scope : symbolic_value scope;
-  function_envs : function_env env;
-  initial_returns : IntSet.t;
-  service_map : service env;
   ok_stack : stack;
   fuel : fuel;
+  function_envs : function_env env;
+  service_map : service env;
+  initial_returns : IntSet.t;
+  assumed_contraints : path_condition;
 }
 
 type err_state = {
+  cause : error_cause located;
+  err_scope : symbolic_value scope;
   err_stack : stack;
   function_envs : function_env env;
   initial_returns : IntSet.t;
-  cause : error_cause located;
+  assumed_contraints : path_condition;
 }
 
 type not_ok_state = Unexplored of ok_state | Err of err_state
-type 'a result = (ok_state, not_ok_state, 'a) Symex.Result.t * path_condition
+type 'fix result = (ok_state, not_ok_state, 'fix) Compo_res.t * path_condition
+
+let located_error_cause cause ~loc = { value = cause; loc }
+
+let error_from_cause ok_state cause =
+  Err
+    {
+      cause;
+      err_scope = ok_state.scope;
+      err_stack = ok_state.ok_stack;
+      function_envs = ok_state.function_envs;
+      assumed_contraints = ok_state.assumed_contraints;
+      initial_returns = ok_state.initial_returns;
+    }
