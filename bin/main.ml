@@ -115,7 +115,7 @@ let () =
     Fmt.pr "@[Results:@,@[<v 2>  %a@]@]@." Symbolic.Runtime_pp.pp_results
       results;
   let manifest_errors =
-    ManifestErrorHeuristics.find_manifest_errors typed_contract_ast.globals
+    ManifestError.find_manifest_errors typed_contract_ast.globals
       results
   in
   HtmlReport.write ~report_dir ~contract_file ~orchestrator_file ~results

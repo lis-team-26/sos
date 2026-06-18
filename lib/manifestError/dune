@@ -1,6 +1,6 @@
 (library
- (name manifestErrorHeuristics)
- (modules manifestErrorHeuristics)
+ (name manifestError)
+ (modules manifestError)
  (libraries symbolic utils)
  (preprocess
   (pps soteria.ppx)))
