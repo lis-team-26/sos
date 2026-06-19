@@ -112,7 +112,7 @@ and symb_eval_bexpr env = function
              application")
 
 and symb_eval_app env t f args =
-  let& initial_returns, fun_envs = get in
+  let& fun_envs = get in
   let fun_env =
     match StringMap.find_opt f fun_envs with
     | Some v -> v
@@ -131,12 +131,6 @@ and symb_eval_app env t f args =
   let&* syntactic_key, opt_ret_val =
     SymbolicListMap.find_opt actual_args fun_env
   in
-  (* After creating a symbolic value with nondet, get the id of the value*)
-  let get_var_as_int sv =
-    match Typed.kind sv with
-    | Var v -> Soteria.Symex.Var.to_int v
-    | _ -> failwith "this wasn't a nondet, it was another expression"
-  in
   match (opt_ret_val, t) with
   | Some (SymbInt v), TInt -> return (SymbInt v)
   | Some (SymbBool v), TBool -> return (SymbBool v)
@@ -146,9 +140,7 @@ and symb_eval_app env t f args =
         SymbolicListMap.syntactic_add syntactic_key (SymbInt ret_val) fun_env
       in
       let& () =
-        modify (fun (initial_returns, fun_envs) ->
-            ( IntSet.add (get_var_as_int ret_val) initial_returns,
-              StringMap.add f fun_env fun_envs ))
+        modify (StringMap.add f fun_env)
       in
       return (SymbInt ret_val)
   | None, TBool ->
@@ -157,9 +149,7 @@ and symb_eval_app env t f args =
         SymbolicListMap.syntactic_add syntactic_key (SymbBool ret_val) fun_env
       in
       let& () =
-        modify (fun (initial_returns, fun_envs) ->
-            ( IntSet.add (get_var_as_int ret_val) initial_returns,
-              StringMap.add f fun_env fun_envs ))
+        modify (StringMap.add f fun_env)
       in
       return (SymbBool ret_val)
   | _ ->

@@ -34,10 +34,10 @@ let map_error old_ok_state err_state ~loc =
 
 let lift_fm m =
  fun (state, policy_checkers) ->
-  let++ v, (initial_returns, function_envs) =
-    m (state.initial_returns, state.function_envs) |> map_error state ~loc:None
+  let++ v, function_envs =
+    m state.function_envs |> map_error state ~loc:None
   in
-  (v, ({ state with initial_returns; function_envs }, policy_checkers))
+  (v, ({ state with function_envs }, policy_checkers))
 
 let scoped m =
  fun (state, policy_checkers) ->

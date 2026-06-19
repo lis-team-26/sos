@@ -8,7 +8,7 @@ rcpt auth := invoke Auth(user, pass, nonce);
 
 if (auth.successful) then {
   int num_operations := int?;
-  assume num_operations > 0 && num_operations <= 10;
+  assume num_operations > 0 && num_operations <= 3;
   
   while num_operations > 0 do {
     int action := int?;

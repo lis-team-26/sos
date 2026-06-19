@@ -40,7 +40,7 @@ end
 
 module FunctionalMonad : sig
   include module type of Make (struct
-    type ok = IntSet.t * function_env env
+    type ok = function_env env
     type err = error_cause
   end)
 end
