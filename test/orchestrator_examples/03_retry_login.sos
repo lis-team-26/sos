@@ -1,0 +1,35 @@
+int failed := 0;
+int remaining_tries := tries;
+bool authenticated := false;
+
+assume MAX_RETRIES == 3;
+assume well_formed(user_id) && well_formed(password);
+assume !locked(user_id);
+assume failures(user_id) == 0;
+assume tries >= 1 && tries <= MAX_RETRIES;
+
+while remaining_tries > 0 do {
+  if authenticated then {
+    skip;
+  } else {
+    rcpt login := invoke Login(user_id, password);
+    if login.successful then {
+      assert login.retval > 0;
+      authenticated := true;
+    } else {
+      assert login.retval == 0;
+      failed := failed + 1;
+    }
+  }
+  remaining_tries := remaining_tries - 1;
+}
+
+if authenticated then {
+  skip;
+} else {
+  assume failed == MAX_RETRIES;
+  assume failures(user_id) >= MAX_RETRIES;
+  rcpt lock_result := invoke LockAccount(user_id);
+  assert lock_result.successful;
+  assert lock_result.retval;
+}

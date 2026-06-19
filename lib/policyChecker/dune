@@ -1,0 +1,6 @@
+(library
+ (name policyChecker)
+ (modules policyChecker)
+ (libraries contract symbolic reg2dfa)
+ (preprocess
+  (pps soteria.ppx)))

@@ -1,0 +1,143 @@
+{
+    globals: [
+        user: int,
+        pass: int,
+        budget: int,
+        MAX_ATTEMPTS: int
+    ],
+    functions: [
+        attempts: int -> int,
+        well_formed: int -> bool,
+        fresh: int -> bool,
+        locked: int -> bool,
+        verify: int -> int -> bool,
+        auth_fee: int -> int,
+        get_token: int -> int -> int,
+        pay_fee: int -> int
+    ],
+    QoS: [
+        latency: int, 
+        cost: int,
+        trust: int
+    ], 
+    services: [
+        {
+            name: Auth,
+            params: [
+                user_id: int,
+                password: int,
+                nonce: int
+            ],
+            returns: {
+                token: int
+            },
+            precond: [
+                well_formed(user_id),
+                well_formed(password),
+                fresh(nonce),
+                !locked(user_id),
+                attempts(user_id) < MAX_ATTEMPTS
+            ],
+            qos-postcond: {
+                effects: [
+                    cost := auth_fee(user_id)
+                ],
+                constraints: [
+                    latency <= 10,
+                    cost <= 10,
+                    trust > 10
+                ]
+            },
+            ok-postcond: {
+                effects: [
+                    token := get_token(user_id, nonce),
+                    attempts(user_id) := 0,
+                    budget := budget - 10
+                ],
+                constraints: [
+                    verify(user_id, password)
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    attempts(user_id) := attempts(user_id) + 1,
+                    token := 0 - 1
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Pay,
+            params: [
+                amount: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                amount > 0
+            ],
+            qos-postcond: {
+                effects: [
+                    cost := pay_fee(amount)
+                ],
+                constraints: [
+                    latency > 0,
+                    cost <= 10,
+                    trust > 10
+                ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: GetPrice,
+            params: [
+                product_id: int
+            ],
+            returns: {
+                price: int
+            },
+            precond: [
+                well_formed(product_id)
+            ],
+            qos-postcond: {
+                effects: [],
+                constraints: [
+                    latency <= 10,
+                    cost <= 10,
+                    trust > 10
+                ]
+            },
+            ok-postcond: {
+                effects: [],
+                constraints: [
+                    price > 0
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    price := 0 - 1
+                ],
+                constraints: [ ]
+            }
+        }
+    ],
+    policies: [
+        sum(cost) < 100,
+        avg(latency) < 50,
+        sorted(trust),
+        min(trust) > 10,
+        { Auth -> a, Pay -> p, GetPrice -> g } "[^a]|a[apg]*pp"
+    ]
+}

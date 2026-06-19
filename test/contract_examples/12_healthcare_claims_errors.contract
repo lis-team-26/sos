@@ -1,0 +1,300 @@
+{
+    globals: [
+        patient: int,
+        provider: int,
+        claim: int,
+        drug: int,
+        requested_amount: int,
+        budget: int,
+        MAX_AMOUNT: int,
+        MIN_PRIVACY: int
+    ],
+    functions: [
+        known_patient: int -> bool,
+        active_provider: int -> bool,
+        eligible: int -> bool,
+        diagnosis_ready: int -> bool,
+        low_risk: int -> bool,
+        covered_drug: int -> int -> bool,
+        fraud_score: int -> int,
+        authorization: int -> int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        privacy: int,
+        trust: int,
+        audited: bool
+    ],
+    services: [
+        {
+            name: Intake,
+            params: [
+                patient: int,
+                provider: int
+            ],
+            returns: {
+                accepted: bool
+            },
+            precond: [
+                patient > 0,
+                provider > 0,
+                known_patient(patient),
+                active_provider(provider)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 1,
+                    privacy := 96,
+                    trust := 40,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    accepted := true
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Eligibility,
+            params: [
+                patient: int
+            ],
+            returns: {
+                code: int
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 3,
+                    privacy := 92,
+                    trust := 45,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    code := 1
+                ],
+                constraints: [
+                    eligible(patient)
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    code := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Diagnose,
+            params: [
+                patient: int
+            ],
+            returns: {
+                severity: int
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient),
+                diagnosis_ready(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 7,
+                    cost := 9,
+                    privacy := 88,
+                    trust := 50,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [ ],
+                constraints: [
+                    severity >= 0,
+                    severity <= 10
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    severity := 0 - 1
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Authorize,
+            params: [
+                patient: int,
+                provider: int,
+                amount: int
+            ],
+            returns: {
+                token: int
+            },
+            precond: [
+                patient > 0,
+                provider > 0,
+                amount > 0,
+                amount <= MAX_AMOUNT,
+                amount <= budget,
+                known_patient(patient),
+                active_provider(provider),
+                eligible(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 6,
+                    cost := 8,
+                    privacy := 84,
+                    trust := 55,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    token := authorization(patient, amount)
+                ],
+                constraints: [
+                    token > 0
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    token := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Dispense,
+            params: [
+                patient: int,
+                drug: int,
+                token: int
+            ],
+            returns: {
+                shipped: bool
+            },
+            precond: [
+                patient > 0,
+                drug > 0,
+                token > 0,
+                known_patient(patient),
+                covered_drug(patient, drug),
+                low_risk(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 10,
+                    cost := 12,
+                    privacy := 72,
+                    trust := 60,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    shipped := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    shipped := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: AuditClaim,
+            params: [
+                patient: int,
+                claim: int
+            ],
+            returns: {
+                risk: int
+            },
+            precond: [
+                patient > 0,
+                claim > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 5,
+                    privacy := 82,
+                    trust := 65,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    risk := fraud_score(patient)
+                ],
+                constraints: [
+                    risk >= 0,
+                    risk <= 100
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    risk := 100
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: CloseClaim,
+            params: [
+                patient: int,
+                claim: int
+            ],
+            returns: {
+                closed: bool
+            },
+            precond: [
+                patient > 0,
+                claim > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 2,
+                    privacy := 94,
+                    trust := 70,
+                    audited := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    closed := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ],
+    policies: [
+        sum(cost) < 90,
+        avg(latency) < 20,
+        max(latency) < 20,
+        { Intake -> i, Eligibility -> e, Diagnose -> d, Authorize -> a, Dispense -> m, AuditClaim -> u, CloseClaim -> c } "[iedamuc]*uu"
+    ]
+}

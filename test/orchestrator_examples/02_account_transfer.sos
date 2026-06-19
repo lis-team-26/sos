@@ -1,0 +1,20 @@
+assume from_account > 0 && to_account > 0 && from_account != to_account;
+assume active(from_account) && active(to_account);
+assume balance(from_account) >= 0;
+assume amount > 0 && amount <= DAILY_LIMIT;
+
+rcpt b := invoke CheckBalance(from_account);
+assert b.successful;
+assert b.retval >= 0;
+
+if b.retval >= amount then {
+  rcpt d := invoke Debit(from_account, amount);
+  if d.successful then {
+    assert d.retval;
+    rcpt c := invoke Credit(to_account, amount);
+    assert c.successful;
+    assert c.retval;
+  } else {
+    assert !d.retval;
+  }
+}

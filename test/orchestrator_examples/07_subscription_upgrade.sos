@@ -1,0 +1,36 @@
+assume MAX_PLAN >= 1;
+assume user_id > 0 && active_user(user_id);
+assume password_ok(user_id, password);
+assume target_plan > 0 && target_plan <= MAX_PLAN;
+assume plan_price(target_plan) > 0;
+assume !use_coupon || coupon > 0;
+assume !use_coupon || coupon_ok(coupon);
+
+rcpt auth := invoke Authenticate(user_id, password);
+assert auth.successful;
+assert auth.retval;
+
+rcpt current := invoke ReadPlan(user_id);
+assert current.successful;
+assert current.retval >= 0;
+
+if target_plan > current.retval then {
+  int amount := plan_price(target_plan);
+  if use_coupon then {
+    rcpt discount := invoke ApplyCoupon(coupon, amount);
+    assert discount.successful;
+    amount := discount.retval;
+  } else {
+    skip;
+  }
+  rcpt bill := invoke Bill(user_id, amount);
+  if bill.successful then {
+    rcpt upgrade := invoke UpgradePlan(user_id, target_plan);
+    assert upgrade.successful;
+    assert upgrade.retval;
+  } else {
+    assert !bill.retval;
+  }
+} else {
+  skip;
+}

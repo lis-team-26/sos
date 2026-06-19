@@ -1,0 +1,58 @@
+int remaining_tests := tests;
+
+assume HIGH_SEVERITY >= 1 && HIGH_SEVERITY <= 5;
+assume MAX_TESTS >= 1 && MAX_TESTS <= 3;
+assume patient > 0 && known_patient(patient);
+assume drug > 0;
+assume safe_drug(patient, drug);
+assume tests >= 0 && tests <= MAX_TESTS;
+
+rcpt registration := invoke RegisterVisit(patient);
+assert registration.successful;
+assert registration.retval;
+assert registration.qos.encrypted;
+
+rcpt assessment := invoke Assess(patient);
+assert assessment.successful;
+assert assessment.retval >= 1;
+assert assessment.retval <= 5;
+assert assessment.qos.privacy >= 80;
+
+if assessment.retval >= HIGH_SEVERITY then {
+  rcpt escalation := invoke EscalateCare(patient);
+  assert escalation.successful;
+  assert escalation.retval;
+  while remaining_tests > 0 do {
+    assume needs_lab(patient);
+    rcpt lab := invoke RunLab(patient);
+    if lab.successful then {
+      assert lab.retval >= 0;
+      assert lab.retval <= 100;
+    } else {
+      assert lab.retval == 0;
+    }
+    remaining_tests := remaining_tests - 1;
+  }
+  rcpt follow := invoke FollowUp(patient);
+  assert follow.successful;
+  assert follow.retval;
+} else {
+  if needs_lab(patient) then {
+    rcpt lab_low := invoke RunLab(patient);
+    if lab_low.successful then {
+      assert lab_low.retval >= 0;
+    } else {
+      assert lab_low.retval == 0;
+    }
+  } else {
+    rcpt prescription := invoke Prescribe(patient, drug);
+    if prescription.successful then {
+      assert prescription.retval;
+    } else {
+      assert !prescription.retval;
+    }
+    rcpt discharge := invoke Discharge(patient);
+    assert discharge.successful;
+    assert discharge.retval;
+  }
+}

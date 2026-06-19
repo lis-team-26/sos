@@ -1,0 +1,46 @@
+{
+    globals: [
+        x: int,
+        LIMIT: int
+    ],
+    functions: [],
+    QoS: [
+        latency: int,
+        cost: int,
+        trust: int
+    ],
+    services: [
+        {
+            name: Echo,
+            params: [
+                value: int
+            ],
+            returns: {
+                next: int
+            },
+            precond: [
+                value >= 0,
+                value <= LIMIT
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    trust := 90
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    next := value + 1
+                ],
+                constraints: [ ]
+            }
+        }
+    ],
+    policies: [
+        sum(cost) < 5,
+        max(latency) <= 2,
+        min(trust) > 80
+    ]
+}

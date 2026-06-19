@@ -1,0 +1,5 @@
+(library
+ (name utils)
+ (modules utils dataUtils parserUtils typesUtils dataUtils_pp typesUtils_pp)
+ (modules_without_implementation typesUtils)
+ (libraries fmt))

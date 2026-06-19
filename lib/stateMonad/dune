@@ -1,0 +1,6 @@
+(library
+ (name stateMonad)
+ (modules stateMonad stateMonadCore stateMonadUtils)
+ (preprocess
+  (pps soteria.ppx))
+ (libraries symbolic policyChecker utils))

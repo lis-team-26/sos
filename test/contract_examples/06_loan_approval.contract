@@ -1,0 +1,153 @@
+{
+    globals: [
+        applicant: int,
+        amount: int,
+        MIN_SCORE: int,
+        MIN_INCOME: int,
+        MAX_RATIO: int
+    ],
+    functions: [
+        known_customer: int -> bool,
+        credit_score: int -> int,
+        yearly_income: int -> int,
+        debt_ratio: int -> int,
+        offer_rate: int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        risk: int
+    ],
+    services: [
+        {
+            name: PullCredit,
+            params: [
+                applicant: int
+            ],
+            returns: {
+                score: int
+            },
+            precond: [
+                applicant > 0,
+                known_customer(applicant)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 5,
+                    risk := 2
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    score := credit_score(applicant)
+                ],
+                constraints: [
+                    score >= 300,
+                    score <= 850
+                ]
+            }
+        },
+        {
+            name: VerifyIncome,
+            params: [
+                applicant: int
+            ],
+            returns: {
+                income: int
+            },
+            precond: [
+                applicant > 0,
+                known_customer(applicant)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 5,
+                    cost := 4,
+                    risk := 3
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    income := yearly_income(applicant)
+                ],
+                constraints: [
+                    income >= 0
+                ]
+            }
+        },
+        {
+            name: MakeOffer,
+            params: [
+                applicant: int,
+                amount: int
+            ],
+            returns: {
+                rate: int
+            },
+            precond: [
+                applicant > 0,
+                amount > 0,
+                known_customer(applicant)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 6,
+                    cost := 6,
+                    risk := 7
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    rate := offer_rate(applicant)
+                ],
+                constraints: [
+                    rate > 0,
+                    rate <= 30
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    rate := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: RejectApplication,
+            params: [
+                applicant: int
+            ],
+            returns: {
+                recorded: bool
+            },
+            precond: [
+                applicant > 0,
+                known_customer(applicant)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 1,
+                    cost := 1,
+                    risk := 1
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    recorded := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ],
+    policies: [
+        sum(cost) < 45 group-by applicant,
+        avg(latency) <= 6,
+        max(risk) <= 9,
+        { PullCredit -> c, VerifyIncome -> i, MakeOffer -> o, RejectApplication -> r } "oc"
+    ]
+}

@@ -1,0 +1,248 @@
+{
+    globals: [
+        patient: int,
+        drug: int,
+        tests: int,
+        HIGH_SEVERITY: int,
+        MAX_TESTS: int
+    ],
+    functions: [
+        known_patient: int -> bool,
+        severity: int -> int,
+        needs_lab: int -> bool,
+        safe_drug: int -> int -> bool,
+        lab_score: int -> int
+    ],
+    QoS: [
+        latency: int,
+        cost: int,
+        privacy: int,
+        encrypted: bool
+    ],
+    services: [
+        {
+            name: RegisterVisit,
+            params: [
+                patient: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 2,
+                    privacy := 90,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Assess,
+            params: [
+                patient: int
+            ],
+            returns: {
+                level: int
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 3,
+                    privacy := 85,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    level := severity(patient)
+                ],
+                constraints: [
+                    level >= 1,
+                    level <= 5
+                ]
+            }
+        },
+        {
+            name: RunLab,
+            params: [
+                patient: int
+            ],
+            returns: {
+                score: int
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient),
+                needs_lab(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 8,
+                    cost := 10,
+                    privacy := 80,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    score := lab_score(patient)
+                ],
+                constraints: [
+                    score >= 0,
+                    score <= 100
+                ]
+            },
+            err-postcond: {
+                effects: [
+                    score := 0
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Prescribe,
+            params: [
+                patient: int,
+                drug: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                patient > 0,
+                drug > 0,
+                known_patient(patient),
+                safe_drug(patient, drug)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 4,
+                    cost := 5,
+                    privacy := 82,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            },
+            err-postcond: {
+                effects: [
+                    ok := false
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: EscalateCare,
+            params: [
+                patient: int
+            ],
+            returns: {
+                accepted: bool
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 6,
+                    cost := 8,
+                    privacy := 88,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    accepted := true
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: Discharge,
+            params: [
+                patient: int
+            ],
+            returns: {
+                ok: bool
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 2,
+                    cost := 1,
+                    privacy := 92,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    ok := true
+                ],
+                constraints: [ ]
+            }
+        },
+        {
+            name: FollowUp,
+            params: [
+                patient: int
+            ],
+            returns: {
+                scheduled: bool
+            },
+            precond: [
+                patient > 0,
+                known_patient(patient)
+            ],
+            qos-postcond: {
+                effects: [
+                    latency := 3,
+                    cost := 2,
+                    privacy := 86,
+                    encrypted := true
+                ],
+                constraints: [ ]
+            },
+            ok-postcond: {
+                effects: [
+                    scheduled := true
+                ],
+                constraints: [ ]
+            }
+        }
+    ],
+    policies: [
+        sum(cost) < 160 group-by patient,
+        avg(latency) <= 8,
+        min(privacy) >= 70,
+        { RegisterVisit -> r, Assess -> a, RunLab -> l, Prescribe -> p, EscalateCare -> e, Discharge -> d, FollowUp -> f } "de"
+    ]
+}

@@ -1,0 +1,5 @@
+(library
+ (name expr)
+ (modules expr exprAST exprAST_pp typedExprAST typedExprAST_pp typeCheckExpr)
+ (modules_without_implementation exprAST typedExprAST)
+ (libraries fmt utils))

@@ -1,0 +1,31 @@
+assume address > 0 && package_id > 0;
+assume weight > 0 && weight <= MAX_WEIGHT;
+assume valid_address(address);
+assume insurable(package_id) || !wants_insurance;
+
+rcpt valid := invoke ValidateAddress(address);
+assert valid.successful;
+assert valid.retval;
+
+rcpt quote := invoke QuoteShipment(address, weight);
+assert quote.successful;
+assert quote.retval > 0;
+assert quote.retval <= MAX_BUDGET;
+
+int final_quote := quote.retval;
+
+if wants_insurance then {
+  rcpt insured := invoke AddInsurance(package_id, quote.retval);
+  assert insured.successful;
+  assert insured.retval > quote.retval;
+  final_quote := insured.retval;
+} else {
+  skip;
+}
+
+rcpt booking := invoke BookShipment(address, final_quote);
+if booking.successful then {
+  assert booking.retval;
+} else {
+  assert !booking.retval;
+}

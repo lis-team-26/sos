@@ -1,0 +1,6 @@
+int y := int?;
+if x > 0 then
+    y := y + 10;
+else
+    y := 3;
+assert y != 1;
