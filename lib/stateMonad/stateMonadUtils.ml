@@ -28,7 +28,7 @@ let consume_unroll_fuel n =
       Symex.Result.ok ((), ({ state with fuel }, policy_checkers))
 
 let map_error old_ok_state err_state ~loc =
-  let loc = match loc with Some l -> l | None -> { line = -1; col = -1 } in
+  let loc = match loc with Some l -> l | None -> NoLoc in
   Symex.Result.map_error err_state (fun cause ->
       located_error_cause cause ~loc |> error_from_cause old_ok_state)
 

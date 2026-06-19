@@ -6,8 +6,10 @@ module StringMap = Map.Make (String)
 
 type ident = string
 
-type loc = { line : int; col : int }
-(** A location in the source code, used for error reporting *)
+type loc =
+  | NoLoc
+  | Loc of { line : int; col : int }
+  | EOF  (** A location in the source code, used for error reporting *)
 
 type 'a located = { loc : loc; value : 'a }
 (** A value annotated with its source code location *)

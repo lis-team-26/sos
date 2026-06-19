@@ -291,8 +291,12 @@ let source_anchor_opt source line =
   if source_has_line source line then Some (source_anchor source line) else None
 
 let line_location_text loc =
-  if loc.line > 0 then Fmt.str "line %d, column %d" loc.line loc.col
-  else "unknown source location"
+  match loc with
+  | NoLoc -> "unknown source location"
+  | Loc { line; col } -> Fmt.str "line %d, column %d" line col
+  | EOF -> "end of file"
+
+let loc_line = function Loc { line; _ } -> Some line | NoLoc | EOF -> None
 
 let source_line_link_by_number source line text =
   match source_anchor_opt source line with
@@ -359,7 +363,8 @@ let json_error contract_source orchestrator_source cause =
       field "locationLabel" (json_string (line_location_text cause.loc));
       field "orchestratorAnchor"
         (json_option json_string
-           (source_anchor_opt orchestrator_source cause.loc.line));
+           (Option.bind (loc_line cause.loc)
+              (source_anchor_opt orchestrator_source)));
       field "context" (error_context_json contract_source cause.value);
     ]
 

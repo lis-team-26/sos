@@ -35,7 +35,7 @@ let make_call svc ?(args = []) qos =
   in
   {
     service = svc;
-    ret_val = SymbInt (Typed.zero);
+    ret_val = SymbInt Typed.zero;
     successful = Typed.v_true;
     actual_args = StringMap.empty;
     actual_qos = qos;
@@ -44,22 +44,18 @@ let make_call svc ?(args = []) qos =
 let pass_count = ref 0
 let fail_count = ref 0
 
-let run_symex f  =
+let run_symex f =
   let result = Symex.run ~mode:Soteria.Symex.Approx.OX (f ()) in
   let oks =
     List.length
       (List.filter_map
-         (fun (res, _pc) ->
-           match res with Ok _ -> Some () | _ -> None)
+         (fun (res, _pc) -> match res with Ok _ -> Some () | _ -> None)
          result)
   in
   let errs =
     List.length
       (List.filter_map
-         (fun (res, _pc) ->
-           match res with
-           | Error _ -> Some ()
-           | _ -> None)
+         (fun (res, _pc) -> match res with Error _ -> Some () | _ -> None)
          result)
   in
   (oks, errs)
@@ -91,11 +87,7 @@ let drive_policy policy calls =
    Feed cost=60 then cost=50: after the second call sum=110 > 100,
    update_policy must error immediately (before verify_policy is called). *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Sum, "cost", Lt, 100),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Sum, "cost", Lt, 100), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -110,11 +102,7 @@ let () =
 
 (* sum(cost) < 100, total=30+40=70 → stays under limit throughout → ok. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Sum, "cost", Lt, 100),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Sum, "cost", Lt, 100), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -134,11 +122,7 @@ let () =
 (* max(latency) > 100  →  verify_now = false (Max ascending, Gt not-less).
    max([20, 50]) = 50, which is NOT > 100 → violation at verify_policy. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Max, "latency", Gt, 100),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Max, "latency", Gt, 100), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -153,11 +137,7 @@ let () =
 
 (* max(latency) > 100: max([80, 150]) = 150 > 100 → ok. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Max, "latency", Gt, 100),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Max, "latency", Gt, 100), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -177,11 +157,7 @@ let () =
 (* min(cost) < 5  →  verify_now = false (Min not-ascending, Lt less).
    min([10, 8]) = 8, which is NOT < 5 → violation at verify_policy. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Min, "cost", Lt, 5),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Min, "cost", Lt, 5), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -196,11 +172,7 @@ let () =
 
 (* min(cost) < 5: min([10, 3]) = 3 < 5 → ok. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Min, "cost", Lt, 5),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Min, "cost", Lt, 5), None) in
   let svc = make_service "S" in
   let calls =
     [
@@ -257,11 +229,7 @@ let () =
 
 (* sum(cost) < 100 with a single call costing 200: eager violation. *)
 let () =
-  let policy =
-    init_policy 0  
-      ( QosFieldOp (Sum, "cost", Lt, 100),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Sum, "cost", Lt, 100), None) in
   let svc = make_service "S" in
   let calls = [ make_call svc [ ("cost", 200); ("latency", 0) ] ] in
   test "sum(cost)<100 eager: single call cost=200 → error" ~expect_ok:0
@@ -271,11 +239,7 @@ let () =
 
 (* avg(cost) < 10 with a single call costing 5 → avg=5 < 10 → ok. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Avg, "cost", Lt, 10),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Avg, "cost", Lt, 10), None) in
   let svc = make_service "S" in
   let calls = [ make_call svc [ ("cost", 5); ("latency", 0) ] ] in
   test "avg(cost)<10: single call cost=5 → ok" ~expect_ok:1 ~expect_err:0
@@ -285,11 +249,7 @@ let () =
 
 (* avg(cost) < 10 with a single call costing 15 → avg=15 ≥ 10 → violation. *)
 let () =
-  let policy =
-    init_policy 0
-      ( QosFieldOp (Avg, "cost", Lt, 10),
-        None )
-  in
+  let policy = init_policy 0 (QosFieldOp (Avg, "cost", Lt, 10), None) in
   let svc = make_service "S" in
   let calls = [ make_call svc [ ("cost", 15); ("latency", 0) ] ] in
   test "avg(cost)<10: single call cost=15 → violation" ~expect_ok:0
@@ -307,15 +267,14 @@ let () =
    Since userId=1 violates, overall result should be error. *)
 let () =
   let policy =
-    init_policy 0
-      ( QosFieldOp (Sum, "cost", Lt, 50),
-        Some "userId" )
+    init_policy 0 (QosFieldOp (Sum, "cost", Lt, 50), Some "userId")
   in
   let svc = make_service "S" ~params:[ "userId" ] in
   let call u cost =
     {
       (make_call svc [ ("cost", cost); ("latency", 0) ]) with
-      actual_args = StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
+      actual_args =
+        StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
     }
   in
   let calls = [ call 1 20; call 1 40; call 2 10; call 2 15 ] in
@@ -327,15 +286,14 @@ let () =
 (* Both groups within limit: userId=1 sum=30, userId=2 sum=20 → ok. *)
 let () =
   let policy =
-    init_policy 0
-      ( QosFieldOp (Sum, "cost", Lt, 50),
-        Some "userId" )
+    init_policy 0 (QosFieldOp (Sum, "cost", Lt, 50), Some "userId")
   in
   let svc = make_service "S" ~params:[ "userId" ] in
   let call u cost =
     {
       (make_call svc [ ("cost", cost); ("latency", 0) ]) with
-      actual_args = StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
+      actual_args =
+        StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
     }
   in
   let calls = [ call 1 10; call 1 20; call 2 5; call 2 15 ] in
@@ -352,15 +310,14 @@ let () =
    userId=1: [4,6] avg=5 ok. userId=2: [3,5] avg=4 ok. userId=3: [20] avg=20 violation. *)
 let () =
   let policy =
-    init_policy 0
-      ( QosFieldOp (Avg, "cost", Lt, 10),
-        Some "userId" )
+    init_policy 0 (QosFieldOp (Avg, "cost", Lt, 10), Some "userId")
   in
   let svc = make_service "S" ~params:[ "userId" ] in
   let call u cost =
     {
       (make_call svc [ ("cost", cost); ("latency", 0) ]) with
-      actual_args = StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
+      actual_args =
+        StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
     }
   in
   let calls = [ call 1 4; call 1 6; call 2 3; call 2 5; call 3 20 ] in
@@ -372,15 +329,14 @@ let () =
 (* All three groups ok. *)
 let () =
   let policy =
-    init_policy 0
-      ( QosFieldOp (Avg, "cost", Lt, 10),
-        Some "userId" )
+    init_policy 0 (QosFieldOp (Avg, "cost", Lt, 10), Some "userId")
   in
   let svc = make_service "S" ~params:[ "userId" ] in
   let call u cost =
     {
       (make_call svc [ ("cost", cost); ("latency", 0) ]) with
-      actual_args = StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
+      actual_args =
+        StringMap.add "userId" (SymbInt (Typed.int u)) StringMap.empty;
     }
   in
   let calls = [ call 1 4; call 1 6; call 2 3; call 2 5; call 3 8 ] in

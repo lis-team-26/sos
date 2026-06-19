@@ -46,7 +46,7 @@ let make_call svc ?(args = []) qos =
   in
   {
     service = svc;
-    ret_val = SymbInt (Typed.zero);
+    ret_val = SymbInt Typed.zero;
     successful = Typed.v_true;
     actual_args = StringMap.empty;
     actual_qos = qos;
@@ -73,17 +73,13 @@ let run_symex f =
   let oks =
     List.length
       (List.filter_map
-         (fun (res, _pc) ->
-           match res with Ok _ -> Some () | _ -> None)
+         (fun (res, _pc) -> match res with Ok _ -> Some () | _ -> None)
          result)
   in
   let errs =
     List.length
       (List.filter_map
-         (fun (res, _pc) ->
-           match res with
-           | Error _ -> Some ()
-           | _ -> None)
+         (fun (res, _pc) -> match res with Error _ -> Some () | _ -> None)
          result)
   in
   (oks, errs)

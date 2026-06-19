@@ -81,15 +81,18 @@ let pp_section fmt title is_empty pp_content content =
 
 let pp_located_error_cause fmt = function
   | { value = DivByZeroError } -> fprintf fmt "Division by zero"
-  | { value = PrecondError svc; loc = { line; col } } ->
+  | { value = PrecondError svc; loc = Loc { line; col } } ->
       fprintf fmt "%s service precondition not satisfied at line %d, column %d"
         svc.name line col
-  | { value = PolicyError (idx, policy); loc = { line; col } } ->
+  | { value = PolicyError (idx, policy); loc = Loc { line; col } } ->
       fprintf fmt "Policy violation at line %d, column %d: %a" line col
         pp_policy policy
-  | { value = AssertionError bexpr; loc = { line; col } } ->
+  | { value = PolicyError (idx, policy); loc = NoLoc } ->
+      fprintf fmt "Policy violation at index %d: %a" idx pp_policy policy
+  | { value = AssertionError bexpr; loc = Loc { line; col } } ->
       fprintf fmt "Assertion failed at line %d, column %d: %a" line col pp_bexpr
         bexpr
+  | _ -> failwith "Unreachable: Unexpected error cause or location"
 
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
