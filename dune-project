@@ -29,6 +29,7 @@
   ppx_blob
   ppx_subliner
   soteria
+  z3
   (ocamlformat
    (and
     :with-dev-setup

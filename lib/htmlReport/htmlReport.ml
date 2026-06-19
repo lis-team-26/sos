@@ -99,6 +99,7 @@ let json_escape s =
 
 let json_string s = Fmt.str {|"%s"|} (json_escape s)
 let json_int = string_of_int
+let json_bool = string_of_bool
 let json_null = "null"
 let json_option f = function None -> json_null | Some value -> f value
 
@@ -581,9 +582,6 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
   in
   json_obj (common_fields @ state_fields)
 
-let json_manifest_error contract_source orchestrator_source cause =
-  json_error contract_source orchestrator_source cause
-
 let json_error_group_occurrence idx err_state path_condition =
   json_obj
     [
@@ -611,14 +609,22 @@ let error_cause_groups results =
 let error_cause_count results =
   ErrorCauseMap.cardinal (error_cause_groups results)
 
-let json_error_groups contract_source orchestrator_source results =
+let manifest_error_map manifest_errors =
+  List.fold_left
+    (fun map cause -> ErrorCauseMap.add cause () map)
+    ErrorCauseMap.empty manifest_errors
+
+let json_error_groups contract_source orchestrator_source ~manifest_errors
+    results =
   let grouped = error_cause_groups results in
+  let manifest_errors = manifest_error_map manifest_errors in
   grouped |> ErrorCauseMap.bindings
   |> json_list (fun (cause, occurrences) ->
       let occurrences = List.rev occurrences in
       json_obj
         [
           field "error" (json_error contract_source orchestrator_source cause);
+          field "manifest" (json_bool (ErrorCauseMap.mem cause manifest_errors));
           field "count" (json_int (List.length occurrences));
           field "results"
             (json_list
@@ -689,11 +695,8 @@ let json_report_data ~contract_source ~orchestrator_source ~contract_file
             json_result contract_source orchestrator_source (idx + 1) result)
         |> String.concat "," |> Fmt.str "[%s]");
       field "errorGroups"
-        (json_error_groups contract_source orchestrator_source results);
-      field "manifestErrors"
-        (json_list
-           (json_manifest_error contract_source orchestrator_source)
-           manifest_errors);
+        (json_error_groups contract_source orchestrator_source ~manifest_errors
+           results);
     ]
 
 let render_source_file section_id source =
@@ -738,19 +741,25 @@ let section_card ?filter section title meta =
   in
   Fmt.str
     {|
-    <div class="col d-grid">
-      <a class="btn btn-outline-secondary btn-sm text-start px-2 py-2 shadow-sm h-100" href="#%s" data-section-target="%s" aria-pressed="false"%s>
+    <div class="flex-fill d-grid">
+      <a class="btn btn-outline-secondary btn-sm text-start px-2 py-2 shadow-sm h-100 w-100" href="#%s" data-section-target="%s" aria-pressed="false"%s>
         <span class="d-block fw-semibold small">%s</span>
         <span class="d-block small opacity-75 mt-1">%s</span>
       </a>
     </div>|}
     section section filter_attr (html_escape title) (html_escape meta)
 
-let metric_card ?filter section title value tone =
-  let filter_attr =
-    match filter with
-    | None -> ""
-    | Some filter -> Fmt.str {| data-result-filter-jump="%s"|} filter
+let metric_card ?filter ?error_filter section title value tone =
+  let filter_attrs =
+    [
+      (match filter with
+      | None -> ""
+      | Some filter -> Fmt.str {| data-result-filter-jump="%s"|} filter);
+      (match error_filter with
+      | None -> ""
+      | Some filter -> Fmt.str {| data-error-filter-jump="%s"|} filter);
+    ]
+    |> String.concat ""
   in
   Fmt.str
     {|
@@ -758,7 +767,7 @@ let metric_card ?filter section title value tone =
       <span class="d-block small text-uppercase fw-semibold opacity-75">%s</span>
       <span class="d-block display-6 fw-semibold">%d</span>
     </button>|}
-    tone section filter_attr (html_escape title) value
+    tone section filter_attrs (html_escape title) value
 
 let render_overview counts total error_cause_count manifest_count =
   Fmt.str
@@ -785,8 +794,10 @@ let render_overview counts total error_cause_count manifest_count =
     (metric_card "unexplored" "Unexplored branches" counts.unexplored "warning")
     (metric_card ~filter:"success" "results" "Success states" counts.successes
        "success")
-    (metric_card "errors" "Error index" error_cause_count "danger")
-    (metric_card "manifest" "Manifest errors" manifest_count "warning")
+    (metric_card ~error_filter:"all" "errors" "Error index" error_cause_count
+       "danger")
+    (metric_card ~error_filter:"manifest" "errors" "Manifest errors"
+       manifest_count "warning")
 
 let render_stat_card (label, value, key) =
   Fmt.str
@@ -860,6 +871,13 @@ let render_error_section () =
         <span class="text-body-secondary">Runtime errors link to source locations and their result details.</span>
       </button>
       <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filter error causes">
+            <button type="button" class="btn btn-outline-secondary active" data-error-filter="all" aria-pressed="true">All causes</button>
+            <button type="button" class="btn btn-outline-warning" data-error-filter="manifest" aria-pressed="false">Manifest only</button>
+          </div>
+          <span class="small text-body-secondary" data-error-count></span>
+        </div>
         <div data-error-index></div>
         <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-error-pagination></div>
       </div>
@@ -880,22 +898,6 @@ let render_unexplored_section unexplored_count =
     </section>|}
     unexplored_count
     (plural unexplored_count "branch" "branches")
-
-let render_manifest_section manifest_count =
-  Fmt.str
-    {|
-    <section id="manifest" class="card mt-3 shadow-sm" data-report-section="manifest" hidden>
-      <button type="button" class="card-header btn btn-light text-start rounded-0 border-0 p-3" data-section-title="manifest">
-        <span class="d-block h4 mb-1">Manifest Errors</span>
-        <span class="text-body-secondary">%d %s detected by the manifest-error heuristic.</span>
-      </button>
-      <div class="card-body">
-        <div data-manifest-errors></div>
-        <div class="d-flex justify-content-center align-items-center gap-2 mt-3" data-manifest-pagination></div>
-      </div>
-    </section>|}
-    manifest_count
-    (plural manifest_count "error" "errors")
 
 let render_page ~contract_source ~orchestrator_source ~contract_file
     ~orchestrator_file ~results ~manifest_errors ~stats ~report_data_json =
@@ -926,8 +928,7 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     </div>
   </header>
   <main class="container-xxl py-4">
-    <nav class="row row-cols-2 row-cols-md-4 g-2" aria-label="Report sections">
-      %s
+    <nav class="d-flex flex-wrap gap-2" aria-label="Report sections">
       %s
       %s
       %s
@@ -940,7 +941,6 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
       <h2 class="h5 mb-1">Choose a section</h2>
       <p class="text-body-secondary mb-0">Section buttons stay visible. Selecting an active section closes it; selecting another opens only that section.</p>
     </div>
-    %s
     %s
     %s
     %s
@@ -968,10 +968,6 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
        (Fmt.str "%d unexplored %s" counts.unexplored
           (plural counts.unexplored "branch" "branches")))
     (section_card "statistics" "Statistics" "Soteria metrics")
-    (section_card "manifest" "Manifest"
-       (Fmt.str "%d manifest %s"
-          (List.length manifest_errors)
-          (plural (List.length manifest_errors) "error" "errors")))
     (section_card "orchestrator-source" "Orchestrator" "source anchors")
     (section_card "contract-source" "Contract" "specification anchors")
     (render_overview counts total error_cause_count
@@ -980,7 +976,6 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     (render_error_section ())
     (render_unexplored_section counts.unexplored)
     (render_stats_section stats)
-    (render_manifest_section (List.length manifest_errors))
     (render_source_file "orchestrator-source" orchestrator_source)
     (render_source_file "contract-source" contract_source)
     prism_js_src prism_line_numbers_js_src prism_line_highlight_js_src

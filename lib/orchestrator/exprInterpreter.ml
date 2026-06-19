@@ -139,18 +139,14 @@ and symb_eval_app env t f args =
       let fun_env =
         SymbolicListMap.syntactic_add syntactic_key (SymbInt ret_val) fun_env
       in
-      let& () =
-        modify (StringMap.add f fun_env)
-      in
+      let& () = modify (StringMap.add f fun_env) in
       return (SymbInt ret_val)
   | None, TBool ->
       let&* ret_val = Symex.nondet Typed.t_bool in
       let fun_env =
         SymbolicListMap.syntactic_add syntactic_key (SymbBool ret_val) fun_env
       in
-      let& () =
-        modify (StringMap.add f fun_env)
-      in
+      let& () = modify (StringMap.add f fun_env) in
       return (SymbBool ret_val)
   | _ ->
       failwith "Unreachable: function return type does not match expected type"
