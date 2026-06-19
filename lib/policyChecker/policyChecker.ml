@@ -214,6 +214,8 @@ let update_policy invocation policy =
                   (fun value ->
                     let new_cnt = snd value + 1 in
                     let new_sum = Typed.add (fst value) cv in
+                    (* Do not check eagerly: avg can recover on future calls.
+                       Just accumulate (sum, count) and defer the check to verify_policy. *)
                     Symex.Result.ok (new_sum, new_cnt))
                   invocation svc sint_count
               in
@@ -226,11 +228,12 @@ let update_policy invocation policy =
           (fun cur ->
             let chr_opt = StringMap.find_opt svc.name servMap in
             match chr_opt with
-            | None -> Symex.Result.ok cur (*ignore service not in servMap*)
+            (* Service not in the regex domain: self-loop, state unchanged *)
+            | None -> Symex.Result.ok cur
             | Some chr -> (
                 let nextState = transition cur chr in
                 match nextState with
-                (*Ended up in sink state*)
+                (* Ended up in sink state *)
                 | None -> Symex.Result.ok nextState
                 | Some nextState ->
                     if List.mem nextState finalStates then
@@ -280,3 +283,62 @@ let update_policy invocation policy =
               in
               Symex.Result.ok { policy with checker = Descending (next, field) }
           | _ -> failwith "Expected integer QoS field for descending policy"))
+
+(* Verify the final state of a policy checker without updating it.
+   Called at the end of symbolic execution for policies that cannot be
+   checked eagerly (i.e. QosAggregate with verNow = false, and QosAvg).
+   Returns Symex.Result.ok () if the policy is satisfied,
+   Symex.Result.error msg otherwise. *)
+
+(* Helper: apply a check function to every group's accumulated state.
+   For Ungrouped, applies f once to the single accumulated state.
+   For Grouped, uses ValMap.find_opt with a fresh symbolic key to let Soteria
+   branch over all possible groups under their respective path conditions. *)
+
+let check_each_group f = function
+  | Ungrouped s -> f s
+  | Grouped (_, symMap) -> (
+      (* syntactic_bindings returns the list of (key, value) pairs that have
+         been inserted with syntactic_add — i.e. the concrete groups built
+         during update_policy. We fold over them sequentially and stop at the
+         first violation (the monadic bind propagates errors). *)
+      let bindings = List.of_seq (SymbolicMap.syntactic_bindings symMap) in
+      match bindings with
+      | [] ->
+          (* No invocations were ever grouped: nothing to verify *)
+          Symex.Result.ok ()
+      | _ ->
+          List.fold_left
+            (fun acc (_, state) ->
+              let** () = acc in
+              f state)
+            (Symex.Result.ok ()) bindings)
+
+let verify_policy policy =
+  match policy.checker with
+  | QosAggregate (sint, _, _, _, cmp, cmpInt, verNow) ->
+      (* Already verified eagerly at each step when verNow = true *)
+      if verNow then Symex.Result.ok ()
+      else
+        check_each_group
+          (fun aggregate ->
+            (* cmp returns true when the policy IS satisfied, so negate for violation *)
+            let satisfied = cmp aggregate (Typed.int cmpInt) in
+            if%sat satisfied then Symex.Result.ok ()
+            else Symex.Result.error (PolicyError (policy.id, policy.policy)))
+          sint
+  | QosAvg (sint_count, cmp, _, cmpInt) ->
+      (* QosAvg is never verified eagerly (avg can recover across invocations) *)
+      check_each_group
+        (fun (sum, count) ->
+          if count = 0 then Symex.Result.ok ()
+          else
+            let avg = Typed.div sum (Typed.nonzero count) in
+            (* cmp returns true when the policy IS satisfied, so negate for violation *)
+            let satisfied = cmp avg (Typed.int cmpInt) in
+            if%sat satisfied then Symex.Result.ok ()
+            else Symex.Result.error (PolicyError (policy.id, policy.policy)))
+        sint_count
+  (* Dfa, Ascending, Descending: violations are monotone.
+     If no violation occurred at any step, the final state is valid. *)
+  | Dfa _ | Ascending _ | Descending _ -> Symex.Result.ok ()

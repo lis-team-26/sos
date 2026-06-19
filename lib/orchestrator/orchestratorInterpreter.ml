@@ -281,8 +281,21 @@ let build_symex_process orchestrator contract fuel =
   let policy_init_states =
     List.mapi PolicyChecker.init_policy contract.policies
   in
+  let process =
+    let& () = symb_eval_stmt contract orchestrator in
+    let& state, policy_checkers = get in
+    let& () =
+      fold_list policy_checkers ~init:() ~f:(fun () pc ->
+          let&** () =
+            (* TODO: pass the location corresponding to the end of the program*)
+            verify_policy pc |> map_error state ~loc:None
+          in
+          return ())
+    in
+    return ()
+  in
   (initial_state, policy_init_states)
-  |> run_unit (symb_eval_stmt contract orchestrator)
+  |> run_unit process
   |> Fun.flip Symex.Result.map (fun (s, _) ->
       { s with ok_stack = List.rev s.ok_stack })
   |> Fun.flip Symex.Result.map_error (function
