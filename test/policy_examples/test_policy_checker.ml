@@ -9,10 +9,15 @@
    No orchestrator or symbolic interpreter involved.
 *)
 
-module PC = PolicyChecker
-module Symex = PC.Symex
+open Soteria.Symex
+open Soteria.Symex.Compo_res
+open Contract.TypedAST
+open Symbolic.Data
+open Symbolic.Runtime
+open PolicyChecker
+open Utils.Data
+open Utils.Types
 module Typed = Soteria.Tiny_values.Typed
-module StrMap = Map.Make (String)
 
 (* ------------------------------------------------------------------ *)
 (* Helpers to build Contract.AST values without a parser              *)
@@ -20,33 +25,38 @@ module StrMap = Map.Make (String)
 
 (** Minimal service record; only [name] and [params] matter for [update_policy]
     (used when groupBy looks up a parameter index). *)
-let make_service ?(params = []) name : Contract.AST.service =
+let make_service ?(params = []) name =
   {
     name;
     params;
-    returns = [];
-    trust = 0;
+    returns = ("dummy", TInt);
     precond = [];
-    qos = ([], []);
-    ok_post = ([], []);
-    err_post = ([], []);
+    qos_postcond = ([], []);
+    ok_postcond = ([], []);
+    err_postcond = Some ([], []);
   }
 
 (** Build a [PC.call] with symbolic-integer QoS values constructed from concrete
     OCaml ints. *)
-let make_call serv_name ?(args = []) qos_pairs : PC.call =
+let make_call svc ?(args = []) qos =
   let qos =
     List.fold_left
-      (fun m (k, v) -> StrMap.add k (Typed.int v) m)
-      StrMap.empty qos_pairs
+      (fun m (k, v) -> StringMap.add k (SymbInt (Typed.int v)) m)
+      StringMap.empty qos
   in
-  { PC.serv_name; args = List.map Typed.int args; qos }
+  {
+    service = svc;
+    ret_val = SymbInt (Typed.zero);
+    successful = Typed.v_true;
+    actual_args = StringMap.empty;
+    actual_qos = qos;
+  }
 
 (** Build a service map from a list of [Contract.AST.service] values. *)
 let service_map services =
   List.fold_left
-    (fun m (s : Contract.AST.service) -> StrMap.add s.name s m)
-    StrMap.empty services
+    (fun m (s : Contract.TypedAST.service) -> StringMap.add s.name s m)
+    StringMap.empty services
 
 (* ------------------------------------------------------------------ *)
 (* Small test framework                                                *)
@@ -58,13 +68,13 @@ let fail_count = ref 0
 (** Run [f ()] under the Soteria symbolic engine and collect results. Returns
     [(ok_count, err_count)] where ok_count is the number of branches that ended
     in [ok] and err_count those that ended in [error]. *)
-let run_symex (f : unit -> (unit, string, 'c) Symex.Result.t) =
+let run_symex f =
   let result = Symex.run ~mode:Soteria.Symex.Approx.OX (f ()) in
   let oks =
     List.length
       (List.filter_map
          (fun (res, _pc) ->
-           match res with Soteria.Symex.Compo_res.Ok _ -> Some () | _ -> None)
+           match res with Ok _ -> Some () | _ -> None)
          result)
   in
   let errs =
@@ -72,7 +82,7 @@ let run_symex (f : unit -> (unit, string, 'c) Symex.Result.t) =
       (List.filter_map
          (fun (res, _pc) ->
            match res with
-           | Soteria.Symex.Compo_res.Error _ -> Some ()
+           | Error _ -> Some ()
            | _ -> None)
          result)
   in
@@ -100,11 +110,11 @@ open Symex.Syntax
 (* Helper: drive a policy through a sequence of calls, return checker *)
 (* ------------------------------------------------------------------ *)
 
-let drive_policy policy calls servMap =
+let drive_policy policy calls =
   List.fold_left
     (fun acc_m call ->
       let** checker = acc_m in
-      PC.update_policy servMap call checker)
+      update_policy call checker)
     (Symex.Result.ok policy) calls
 
 (* ------------------------------------------------------------------ *)
@@ -120,21 +130,17 @@ let drive_policy policy calls servMap =
     Feed two calls each with latency=1 → total=2, which is NOT > 5 →
     verify_policy should produce an error branch. *)
 let test_qos_aggregate_deferred_violation () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Sum, "latency", Contract.AST.Gt, 5),
-      None )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Sum, "latency", Gt, 5), None) in
+  let checker = init_policy 0 policy_def in
   let svc = make_service "Svc" in
-  let smap = service_map [ svc ] in
   let calls =
     [
-      make_call "Svc" [ ("latency", 1); ("cost", 0) ];
-      make_call "Svc" [ ("latency", 1); ("cost", 0) ];
+      make_call svc [ ("latency", 1); ("cost", 0) ];
+      make_call svc [ ("latency", 1); ("cost", 0) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "sum(latency)>5 deferred: total=2 → violation" ~expect_ok:0 ~expect_err:1
@@ -142,21 +148,17 @@ let () =
 
 (** Same policy, but feed latency=3+3=6 → total=6 > 5 → ok. *)
 let test_qos_aggregate_deferred_ok () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Sum, "latency", Contract.AST.Gt, 5),
-      None )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Sum, "latency", Gt, 5), None) in
+  let checker = init_policy 0 policy_def in
   let svc = make_service "Svc" in
-  let smap = service_map [ svc ] in
   let calls =
     [
-      make_call "Svc" [ ("latency", 3); ("cost", 0) ];
-      make_call "Svc" [ ("latency", 3); ("cost", 0) ];
+      make_call svc [ ("latency", 3); ("cost", 0) ];
+      make_call svc [ ("latency", 3); ("cost", 0) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "sum(latency)>5 deferred: total=6 → ok" ~expect_ok:1 ~expect_err:0
@@ -166,41 +168,33 @@ let () =
 
 (** avg(cost) < 10. Two calls: cost=5 and cost=7 → avg=6 < 10 → ok. *)
 let test_avg_ok () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      None )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
+  let checker = init_policy 0 policy_def in
   let svc = make_service "Svc" in
-  let smap = service_map [ svc ] in
   let calls =
     [
-      make_call "Svc" [ ("latency", 0); ("cost", 5) ];
-      make_call "Svc" [ ("latency", 0); ("cost", 7) ];
+      make_call svc [ ("latency", 0); ("cost", 5) ];
+      make_call svc [ ("latency", 0); ("cost", 7) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () = test "avg(cost)<10: avg=6 → ok" ~expect_ok:1 ~expect_err:0 test_avg_ok
 
 (** avg(cost) < 10. Two calls: cost=12 and cost=14 → avg=13 ≥ 10 → violation. *)
 let test_avg_violation () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      None )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
+  let checker = init_policy 0 policy_def in
   let svc = make_service "Svc" in
-  let smap = service_map [ svc ] in
   let calls =
     [
-      make_call "Svc" [ ("latency", 0); ("cost", 12) ];
-      make_call "Svc" [ ("latency", 0); ("cost", 14) ];
+      make_call svc [ ("latency", 0); ("cost", 12) ];
+      make_call svc [ ("latency", 0); ("cost", 14) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "avg(cost)<10: avg=13 → violation" ~expect_ok:0 ~expect_err:1
@@ -209,12 +203,9 @@ let () =
 (** avg(cost) < 10. No calls → count=0 → verify_policy must return ok (the guard
     [if count = 0 then ok] branch). *)
 let test_avg_empty_history () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      None )
-  in
-  let checker = PC.init_policy policy_def in
-  PC.verify_policy checker
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
+  let checker = init_policy 0 policy_def in
+  verify_policy checker
 
 let () =
   test "avg(cost)<10: empty history → ok (no division by zero)" ~expect_ok:1
@@ -225,21 +216,20 @@ let () =
 (** sorted(cost) ascending: already checked at every update_policy call. At
     verify_policy time there is nothing extra to check → always ok. *)
 let test_ascending_verify_noop () =
-  let policy_def = (Contract.AST.Sort "cost", None) in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (Sort "cost", None) in
+  let checker = init_policy 0 policy_def in
   let svc = make_service "Svc" in
-  let smap = service_map [ svc ] in
   (* A descending sequence would have already errored during update_policy;
      here we pass a valid ascending sequence so we reach verify_policy. *)
   let calls =
     [
-      make_call "Svc" [ ("cost", 1); ("latency", 0) ];
-      make_call "Svc" [ ("cost", 3); ("latency", 0) ];
-      make_call "Svc" [ ("cost", 7); ("latency", 0) ];
+      make_call svc [ ("cost", 1); ("latency", 0) ];
+      make_call svc [ ("cost", 3); ("latency", 0) ];
+      make_call svc [ ("cost", 7); ("latency", 0) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "sorted(cost) asc: valid seq → verify_policy is noop (ok)" ~expect_ok:1
@@ -255,37 +245,36 @@ let () =
     This is the exact scenario Andrea described: check_each_group must iterate
     over all keys in the ValMap, not just one. *)
 let test_grouped_avg_one_group_violates () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      Some "userId" )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
+  let checker = init_policy 0 policy_def in
   (* Service has a parameter named "userId" at index 0 *)
-  let svc = make_service "Svc" ~params:[ ("userId", Contract.AST.TInt) ] in
-  let smap = service_map [ svc ] in
+  let svc = make_service "Svc" ~params:[ "userId" ] in
+  let actual_args user_id =
+    StringMap.singleton "userId" (SymbInt (Typed.int user_id))
+  in
   (* userId=1 calls (index 0 → arg value 1) *)
   let call_u1_cost4 =
     {
-      (make_call "Svc" [ ("cost", 4); ("latency", 0) ]) with
-      PC.args = [ Typed.int 1 ];
+      (make_call svc [ ("cost", 4); ("latency", 0) ]) with
+      actual_args = actual_args 1;
     }
   in
   let call_u1_cost6 =
     {
-      (make_call "Svc" [ ("cost", 6); ("latency", 0) ]) with
-      PC.args = [ Typed.int 1 ];
+      (make_call svc [ ("cost", 6); ("latency", 0) ]) with
+      actual_args = actual_args 1;
     }
   in
   (* userId=2 call *)
   let call_u2_cost20 =
     {
-      (make_call "Svc" [ ("cost", 20); ("latency", 0) ]) with
-      PC.args = [ Typed.int 2 ];
+      (make_call svc [ ("cost", 20); ("latency", 0) ]) with
+      actual_args = actual_args 2;
     }
   in
   let calls = [ call_u1_cost4; call_u1_cost6; call_u2_cost20 ] in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "grouped avg(cost)<10: group1 ok, group2 violates → error" ~expect_ok:0
@@ -293,22 +282,21 @@ let () =
 
 (** Same but both groups are ok. *)
 let test_grouped_avg_both_ok () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      Some "userId" )
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
+  let checker = init_policy 0 policy_def in
+  let svc = make_service "Svc" ~params:[ "userId" ] in
+  let actual_args user_id =
+    StringMap.singleton "userId" (SymbInt (Typed.int user_id))
   in
-  let checker = PC.init_policy policy_def in
-  let svc = make_service "Svc" ~params:[ ("userId", Contract.AST.TInt) ] in
-  let smap = service_map [ svc ] in
   let call u cost =
     {
-      (make_call "Svc" [ ("cost", cost); ("latency", 0) ]) with
-      PC.args = [ Typed.int u ];
+      (make_call svc [ ("cost", cost); ("latency", 0) ]) with
+      actual_args = actual_args u;
     }
   in
   let calls = [ call 1 4; call 1 6; call 2 3; call 2 5 ] in
-  let** checker = drive_policy checker calls smap in
-  PC.verify_policy checker
+  let** checker = drive_policy checker calls in
+  verify_policy checker
 
 let () =
   test "grouped avg(cost)<10: both groups ok → ok" ~expect_ok:1 ~expect_err:0
@@ -320,24 +308,20 @@ let () =
     parameter, update_policy must skip it entirely (no group is created for it).
     verify_policy on an empty ValMap must return ok. *)
 let test_grouped_skips_service_without_param () =
-  let policy_def =
-    ( Contract.AST.QosFieldOp (Contract.AST.Avg, "cost", Contract.AST.Lt, 10),
-      Some "userId" )
-  in
-  let checker = PC.init_policy policy_def in
+  let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
+  let checker = init_policy 0 policy_def in
   (* Service with NO "userId" parameter *)
-  let svc = make_service "OtherSvc" ~params:[ ("x", Contract.AST.TInt) ] in
-  let smap = service_map [ svc ] in
+  let svc = make_service "OtherSvc" ~params:[ "x" ] in
   let calls =
     [
-      make_call "OtherSvc" [ ("cost", 50); ("latency", 0) ];
-      make_call "OtherSvc" [ ("cost", 50); ("latency", 0) ];
+      make_call svc [ ("cost", 50); ("latency", 0) ];
+      make_call svc [ ("cost", 50); ("latency", 0) ];
     ]
   in
-  let** checker = drive_policy checker calls smap in
+  let** checker = drive_policy checker calls in
   (* All invocations were skipped by map_state, so ValMap is empty
        → verify_policy must not error *)
-  PC.verify_policy checker
+  verify_policy checker
 
 let () =
   test "grouped: service without groupBy param is skipped → ok" ~expect_ok:1

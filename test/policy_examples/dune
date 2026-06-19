@@ -1,6 +1,5 @@
-; TODO: fix policy checker test and integrate them
-; (executables
-;  (names test_policy_checker test_policy_checker_extra)
-;  (libraries soteria contract policyChecker symbolic utils)
-;  (preprocess
-;   (pps soteria.ppx)))
+(executables
+ (names test_policy_checker test_policy_checker_extra)
+ (libraries soteria contract policyChecker symbolic utils)
+ (preprocess
+  (pps soteria.ppx)))
