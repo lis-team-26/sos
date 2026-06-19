@@ -92,6 +92,8 @@ let make_z3_constant ctx typ =
 let z3_find globals error_list =
   let ctx = mk_context []
   in
+  let solver = Solver.mk_solver ctx None
+  in
   let forall_vars =
     globals
     |> List.map snd
@@ -135,7 +137,10 @@ let z3_find globals error_list =
   (*in
   let () = Printf.printf "manifest condition: %s\n" (Quantifier.to_string final_formula)*)
   in
-  Boolean.is_true (Quantifier.expr_of_quantifier final_formula)
+  Solver.add solver [Quantifier.expr_of_quantifier final_formula];
+  match Solver.check solver [] with
+  | SATISFIABLE -> true
+  | _ -> false
 
 let find_manifest_errors globals results =
   group_by_error_cause results
