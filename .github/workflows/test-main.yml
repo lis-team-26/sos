@@ -22,11 +22,16 @@ jobs:
         ocaml-compiler: 5.x
 
     - name: Install dependencies
-      run: |
-        opam install . --deps-only --with-test --with-dev-setup
+      run: opam install . --deps-only --with-test --with-dev-setup
         
     - name: Build
       run: opam exec -- dune build --release
 
-    - name: Test
+    - name: Interpreter test
       run: opam exec -- dune exec -- run test/contract_examples/11_ecommerce.contract test/orchestrator_examples/11_ecommerce.sos
+    
+    - name: Policy checker tests
+      run: |
+        opam exec -- dune exec test/policy_examples/test_policy_checker.exe
+        opam exec -- dune exec test/policy_examples/test_policy_checker_extra.exe
+    
