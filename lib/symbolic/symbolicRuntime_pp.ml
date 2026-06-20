@@ -51,7 +51,7 @@ let pp_invocation fmt (idx, invocation) =
      QoS: { %a }@]"
     idx invocation.service.name
     (pp_env_inline Fmt.string pp_value)
-    invocation.actual_args pp_value invocation.ret_val Symex.Value.ppa
+    invocation.actual_args pp_value invocation.ret_val pp_svalue
     invocation.successful
     (pp_env_inline Fmt.string pp_value)
     invocation.actual_qos
@@ -59,14 +59,14 @@ let pp_invocation fmt (idx, invocation) =
 let rec pp_stack fmt stack = pp_list pp_invocation fmt stack
 
 let rec pp_path_condition fmt pc =
-  pp_list_with_sep Symex.Value.ppa (fun fmt () -> fprintf fmt " ∧@,") fmt pc
+  pp_list_with_sep pp_svalue (fun fmt () -> fprintf fmt " ∧@,") fmt pc
 
 let pp_function_env fmt function_env =
   fprintf fmt "  @,@[<v 2>  ";
   pp_list
     (fun fmt (key_args, value) ->
       fprintf fmt "[ %a ] -> %a"
-        (pp_list_inline Symex.Value.ppa)
+        (pp_list_inline pp_svalue)
         key_args pp_value value)
     fmt
     (function_env |> SymbolicListMap.syntactic_bindings |> List.of_seq);
@@ -96,45 +96,38 @@ let pp_located_error_cause fmt = function
 
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
-  (match Compo_res.to_result_opt state with
-  | Some (Ok { scope; function_envs; ok_stack }) ->
-      fprintf fmt "@{<green>SUCCESS@}@,";
-      pp_section fmt "Path condition" (path_condition = []) pp_path_condition
-        path_condition;
-      fprintf fmt "@,";
-      pp_section fmt "Scope stack" (scope = []) pp_scope scope;
-      fprintf fmt "@,";
-      pp_section fmt "Functions environment"
-        (StringMap.is_empty function_envs)
-        pp_function_envs function_envs;
-      fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
-        (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack)
-  | Some (Error (Err { cause; function_envs; err_stack })) ->
-      fprintf fmt "@{<red>ERROR@}: %a@," pp_located_error_cause cause;
-      pp_section fmt "Path condition" (path_condition = []) pp_path_condition
-        path_condition;
-      fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (err_stack = []) pp_stack
-        (List.mapi (fun idx inv -> (idx + 1, inv)) err_stack)
-  | Some (Error (Unexplored { scope; function_envs; ok_stack })) ->
-      fprintf fmt "@{<yellow>UNEXPLORED@}@,";
-      pp_section fmt "Scope stack" (scope = []) pp_scope scope;
-      fprintf fmt "@,";
-      pp_section fmt "Functions environment"
-        (StringMap.is_empty function_envs)
-        pp_function_envs function_envs;
-      fprintf fmt "@,";
-      pp_section fmt "Invocation stack" (ok_stack = []) pp_stack
-        (List.mapi (fun idx inv -> (idx + 1, inv)) ok_stack);
-      fprintf fmt "@,";
-      pp_section fmt "Path condition" (path_condition = []) pp_path_condition
-        path_condition
+  let to_print =
+    (match Compo_res.to_result_opt state with
+    | Some (Ok { scope; function_envs; ok_stack }) ->
+       fprintf fmt "@{<green>SUCCESS@}@,";
+       Some (scope, function_envs, ok_stack)
+    | Some (Error (Err { cause; err_scope; function_envs; err_stack })) ->
+       fprintf fmt "@{<red>ERROR@}: %a@," pp_located_error_cause cause;
+       Some (err_scope, function_envs, err_stack)
+    | Some (Error (Unexplored { scope; function_envs; ok_stack })) ->
+       fprintf fmt "@{<yellow>UNEXPLORED@}@,";
+       Some (scope, function_envs, ok_stack)
+    | None ->
+       fprintf fmt "Result: Unknown";
+       None)
+  in
+  (match to_print with
   | None ->
-      pp_section fmt "Path condition" (path_condition = []) pp_path_condition
-        path_condition;
-      fprintf fmt "@,";
-      fprintf fmt "Result: Unknown");
+     pp_section fmt "Path condition" (path_condition = []) pp_path_condition
+       path_condition
+  | Some (scope, function_envs, stack) ->
+     pp_section fmt "Invocation stack" (stack = []) pp_stack
+       (List.mapi (fun idx inv -> (idx + 1, inv)) stack);
+     fprintf fmt "@,";
+     pp_section fmt "Scope stack" (scope = []) pp_scope scope;
+     fprintf fmt "@,";
+     pp_section fmt "Functions environment"
+       (StringMap.is_empty function_envs)
+       pp_function_envs function_envs;
+     fprintf fmt "@,";
+     pp_section fmt "Path condition" (path_condition = []) pp_path_condition
+       path_condition
+  );
   fprintf fmt "@]"
 
 let pp_results fmt results =
