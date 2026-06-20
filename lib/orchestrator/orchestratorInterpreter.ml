@@ -166,9 +166,7 @@ let symb_eval_invoke svc args qos_fields loc =
   let& state, policy_checkers = get in
   let& policy_checkers =
     map_list policy_checkers ~f:(fun pc ->
-        let&** pc =
-          update_policy invocation pc |> map_error state ~loc:(Some loc)
-        in
+        let&** pc = update_policy invocation pc |> map_error state ~loc in
         return pc)
   in
   let& () = modify_policy_checkers (fun _ -> policy_checkers) in
@@ -288,7 +286,7 @@ let build_symex_process orchestrator contract fuel =
       fold_list policy_checkers ~init:() ~f:(fun () pc ->
           let&** () =
             (* TODO: pass the location corresponding to the end of the program*)
-            verify_policy pc |> map_error state ~loc:None
+            verify_policy pc |> map_error state ~loc:EOFLoc
           in
           return ())
     in

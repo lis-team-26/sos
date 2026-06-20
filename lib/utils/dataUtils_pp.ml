@@ -1,6 +1,11 @@
 open Format
 open DataUtils
 
+let pp_loc fmt = function
+  | NoLoc -> fprintf fmt "unknown source location"
+  | Loc { line; col } -> fprintf fmt "line %d, column %d" line col
+  | EOFLoc -> fprintf fmt "end of file"
+
 let rec pp_list_with_sep pp_value pp_sep fmt = function
   | [] -> fprintf fmt "<empty>"
   | [ x ] -> pp_value fmt x

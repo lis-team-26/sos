@@ -294,9 +294,9 @@ let line_location_text loc =
   match loc with
   | NoLoc -> "unknown source location"
   | Loc { line; col } -> Fmt.str "line %d, column %d" line col
-  | EOF -> "end of file"
+  | EOFLoc -> "end of file"
 
-let loc_line = function Loc { line; _ } -> Some line | NoLoc | EOF -> None
+let loc_line = function Loc { line; _ } -> Some line | NoLoc | EOFLoc -> None
 
 let source_line_link_by_number source line text =
   match source_anchor_opt source line with
@@ -396,7 +396,8 @@ let json_function_env function_name function_env =
       [
         field "args"
           (json_list
-             (fun value -> json_string (pp_to_string Symex.Value.ppa value))
+             (fun value ->
+               json_string (pp_to_string Symbolic.Data_pp.pp_svalue value))
              args);
         field "value" (json_string (pp_to_string pp_value value));
       ]
@@ -424,7 +425,8 @@ let json_invocation contract_source idx invocation =
       field "args" (json_env invocation.actual_args);
       field "returned" (json_string (pp_to_string pp_value invocation.ret_val));
       field "successful"
-        (json_string (pp_to_string Symex.Value.ppa invocation.successful));
+        (json_string
+           (pp_to_string Symbolic.Data_pp.pp_svalue invocation.successful));
       field "qos" (json_env invocation.actual_qos);
     ]
 
@@ -437,7 +439,7 @@ let json_invocations contract_source invocations =
 let json_path_conditions path_condition =
   path_condition
   |> json_list (fun condition ->
-      json_string (pp_to_string Symex.Value.ppa condition))
+      json_string (pp_to_string Symbolic.Data_pp.pp_svalue condition))
 
 let json_fuel_value fuel_value = json_string (pp_to_string Fuel.pp fuel_value)
 

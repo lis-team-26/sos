@@ -78,20 +78,17 @@ let pp_section fmt title is_empty pp_content content =
   if is_empty then fprintf fmt "%s: <empty>" title
   else fprintf fmt "%s:@,@[<v 2>  %a@]" title pp_content content
 
-let pp_located_error_cause fmt = function
-  | { value = DivByZeroError } -> fprintf fmt "Division by zero"
-  | { value = PrecondError svc; loc = Loc { line; col } } ->
-      fprintf fmt "%s service precondition not satisfied at line %d, column %d"
-        svc.name line col
-  | { value = PolicyError (idx, policy); loc = Loc { line; col } } ->
-      fprintf fmt "Policy violation at line %d, column %d: %a" line col
-        pp_policy policy
-  | { value = PolicyError (idx, policy); loc = NoLoc } ->
-      fprintf fmt "Policy violation at index %d: %a" idx pp_policy policy
-  | { value = AssertionError bexpr; loc = Loc { line; col } } ->
-      fprintf fmt "Assertion failed at line %d, column %d: %a" line col pp_bexpr
-        bexpr
-  | _ -> failwith "Unreachable: Unexpected error cause or location"
+let pp_error_cause fmt = function
+  | DivByZeroError -> fprintf fmt "Division by zero"
+  | PrecondError { name } ->
+      fprintf fmt "'%s' service precondition not satisfied" name
+  | PolicyError (idx, _) -> fprintf fmt "Violated policy %d" idx
+  | AssertionError _ -> fprintf fmt "Assertion failed"
+
+let pp_located_error_cause fmt { value; loc } =
+  match loc with
+  | NoLoc | Loc _ -> fprintf fmt "%a at %a" pp_error_cause value pp_loc loc
+  | EOFLoc -> fprintf fmt "%a at end of file" pp_error_cause value
 
 let pp_result fmt (idx, state, path_condition) =
   fprintf fmt "Result #%d:@,@[<v 2>  " idx;
