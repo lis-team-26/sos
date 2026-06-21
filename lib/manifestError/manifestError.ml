@@ -137,20 +137,27 @@ let z3_find globals error_list =
           |> List.map (translate_expr ctx (union_vars ev))
           |> Boolean.mk_and ctx ))
     |> List.map (fun (vars, conjunction) ->
-        Quantifier.mk_exists_const ctx
-          (vars |> IntMap.to_list |> List.map snd |> List.map snd)
-          conjunction (Some 1) [] [] None None)
-    |> List.map Quantifier.expr_of_quantifier
+        let bound = vars |> IntMap.to_list |> List.map snd |> List.map snd in
+        if bound = [] then conjunction
+        else
+          Quantifier.mk_exists_const ctx bound conjunction (Some 1) [] [] None
+            None
+          |> Quantifier.expr_of_quantifier)
     |> Boolean.mk_or ctx
   in
+  let forall_bound =
+    forall_vars |> IntMap.to_list |> List.map snd |> List.map snd
+  in
   let final_formula =
-    Quantifier.mk_forall_const ctx
-      (forall_vars |> IntMap.to_list |> List.map snd |> List.map snd)
-      forall_body (Some 1) [] [] None None
+    if forall_bound = [] then forall_body
+    else
+      Quantifier.mk_forall_const ctx forall_bound forall_body (Some 1) [] []
+        None None
+      |> Quantifier.expr_of_quantifier
     (*in
   let () = Printf.printf "manifest condition: %s\n" (Quantifier.to_string final_formula)*)
   in
-  Solver.add solver [ Quantifier.expr_of_quantifier final_formula ];
+  Solver.add solver [ final_formula ];
   match Solver.check solver [] with SATISFIABLE -> true | _ -> false
 
 let find_manifest_errors globals results =
