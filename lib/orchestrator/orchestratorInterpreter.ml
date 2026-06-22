@@ -202,8 +202,7 @@ let rec symb_eval_stmt c stmt =
   | Assume e ->
       let&&* b = symb_eval_bexpr state.scope e in
       let&* () = Symex.assume [ b ] in
-      modify_state (fun state ->
-          { state with assumed_contraints = b :: state.assumed_contraints })
+      return ()
   | Assert (e, loc) ->
       let&&* b = symb_eval_bexpr state.scope e in
       let&** () =
@@ -272,8 +271,6 @@ let build_symex_process orchestrator contract fuel =
       fuel;
       function_envs;
       service_map;
-      assumed_contraints = [];
-      initial_returns = IntSet.empty;
     }
   in
   let policy_init_states =

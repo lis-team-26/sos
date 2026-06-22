@@ -115,8 +115,6 @@ type ok_state = {
   fuel : fuel;
   function_envs : function_env env;
   service_map : service env;
-  initial_returns : IntSet.t;
-  assumed_contraints : path_condition;
 }
 
 type err_state = {
@@ -124,8 +122,6 @@ type err_state = {
   err_scope : symbolic_value scope;
   err_stack : stack;
   function_envs : function_env env;
-  initial_returns : IntSet.t;
-  assumed_contraints : path_condition;
 }
 
 type not_ok_state = Unexplored of ok_state | Err of err_state
@@ -140,6 +136,4 @@ let error_from_cause ok_state cause =
       err_scope = ok_state.scope;
       err_stack = ok_state.ok_stack;
       function_envs = ok_state.function_envs;
-      assumed_contraints = ok_state.assumed_contraints;
-      initial_returns = ok_state.initial_returns;
     }
