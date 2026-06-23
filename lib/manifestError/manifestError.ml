@@ -92,7 +92,7 @@ let make_z3_constant ctx typ =
     (match typ with
     | TInt -> Integer.mk_const
     | TBool -> Boolean.mk_const
-    | _ -> failwith "receipt can't be a global variable type")
+    | _ -> failwith "receipt can't be a z3 constant")
       ctx symbol )
 
 let z3_find globals error_list =
