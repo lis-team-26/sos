@@ -9,7 +9,7 @@
 %token COLON ARROW ASSIGN EOF 
 %token SUM AVG MIN MAX SORTED
 %token LSQUARE RSQUARE LBRACE RBRACE
-%token GLOBALS FUNCTIONS QOS POLICIES SERVICES
+%token GLOBALS GLOBALS_ASSUMPTIONS FUNCTIONS QOS POLICIES SERVICES
 %token NAME PARAMS RETURNS PRECOND QOS_POSTCOND OK_POSTCOND ERR_POSTCOND EFFECTS CONSTRAINTS GROUPBY
 %token INT_TYPE BOOL_TYPE
 
@@ -32,13 +32,14 @@ delimited_comma_separated_list(X):
 contract:
   | LBRACE ;
       GLOBALS ; COLON ; globals = items ; COMMA
+      GLOBALS_ASSUMPTIONS ; COLON ; globals_assumptions = delimited_comma_separated_list(contract_expr) ; COMMA
       FUNCTIONS ; COLON ; functions = functions ; COMMA
       QOS ; COLON ; qos = items ; COMMA
       tail = contract_tail ;
     RBRACE ; EOF
   {
     let services, policies = tail in
-    { globals; functions; qos; policies; services }
+    { globals; globals_assumptions; functions; qos; policies; services }
   }
 
 contract_tail:

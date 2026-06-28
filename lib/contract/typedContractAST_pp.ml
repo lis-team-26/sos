@@ -48,6 +48,8 @@ let pp_service fmt s =
 let pp_contract fmt c =
   pp_open_vbox fmt 0;
   fprintf fmt "globals {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_var) c.globals;
+  fprintf fmt "globals_assumptions {@,@[<v 2>  %a@]@,}@," (pp_list pp_bexpr)
+    c.globals_assumptions;
   fprintf fmt "functions {@,@[<v 2>  %a@]@,}@,"
     (pp_list_inline Fmt.string)
     c.functions;

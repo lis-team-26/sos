@@ -1,4 +1,4 @@
-assume trip > 0 && valid_trip(trip);
+assume valid_trip(trip);
 assume flight_price(trip) > 0 && hotel_price(trip) > 0;
 assume flight_price(trip) + hotel_price(trip) <= MAX_BUDGET;
 

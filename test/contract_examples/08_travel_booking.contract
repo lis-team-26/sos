@@ -3,6 +3,10 @@
         trip: int,
         MAX_BUDGET: int
     ],
+    globals_assumptions: [
+        trip > 0,
+        MAX_BUDGET > 0
+    ],
     functions: [
         valid_trip: int -> bool,
         seat_available: int -> bool,

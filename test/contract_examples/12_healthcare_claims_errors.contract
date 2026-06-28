@@ -9,6 +9,19 @@
         MAX_AMOUNT: int,
         MIN_PRIVACY: int
     ],
+    globals_assumptions: [
+        patient > 0,
+        provider > 0,
+        claim > 0,
+        drug > 0,
+        MAX_AMOUNT > 0,
+        budget > 0,
+        requested_amount > 0,
+        requested_amount <= MAX_AMOUNT,
+        requested_amount <= budget,
+        MIN_PRIVACY >= 80,
+        MIN_PRIVACY <= 96
+    ],
     functions: [
         known_patient: int -> bool,
         active_provider: int -> bool,

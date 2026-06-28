@@ -33,6 +33,7 @@ type service = {
 
 type contract = {
   globals : typed_var list;
+  globals_assumptions : expr list;
   functions : typed_fun list;
   policies : policy list;
   qos : typed_var list;

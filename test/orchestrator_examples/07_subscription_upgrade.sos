@@ -1,9 +1,6 @@
-assume MAX_PLAN >= 1;
-assume user_id > 0 && active_user(user_id);
+assume active_user(user_id);
 assume password_ok(user_id, password);
-assume target_plan > 0 && target_plan <= MAX_PLAN;
 assume plan_price(target_plan) > 0;
-assume !use_coupon || coupon > 0;
 assume !use_coupon || coupon_ok(coupon);
 
 rcpt auth := invoke Authenticate(user_id, password);

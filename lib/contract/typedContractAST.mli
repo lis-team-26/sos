@@ -24,6 +24,7 @@ type service = {
 
 type contract = {
   globals : typed_var list;
+  globals_assumptions : bexpr list;
   functions : ident list;
   policies : policy list;
   qos : typed_var list;

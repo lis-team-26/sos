@@ -137,8 +137,15 @@ let type_check_service globals_env qos_env static_fun_map (s : service) =
 
 let type_check_contract (c : contract) =
   let globals_env = build_static_env c.globals in
+
   let qos_env = build_static_env c.qos in
   let static_fun_map = build_static_fun_map c.functions in
+  let* typed_assumptions =
+    sequence_results
+      (List.map
+         (type_check_bool [ globals_env ] StringMap.empty)
+         c.globals_assumptions)
+  in
   let* typed_services =
     sequence_results
       (List.map
@@ -152,6 +159,7 @@ let type_check_contract (c : contract) =
     TC.
       {
         globals = c.globals;
+        globals_assumptions = typed_assumptions;
         functions = List.map fst c.functions;
         policies = typed_policies;
         qos = c.qos;

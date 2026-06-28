@@ -6,6 +6,16 @@
         HIGH_SEVERITY: int,
         MAX_TESTS: int
     ],
+    globals_assumptions: [
+        HIGH_SEVERITY >= 1,
+        HIGH_SEVERITY <= 5,
+        MAX_TESTS >= 1,
+        MAX_TESTS <= 3,
+        patient > 0,
+        drug > 0,
+        tests >= 0,
+        tests <= MAX_TESTS
+    ],
     functions: [
         known_patient: int -> bool,
         severity: int -> int,

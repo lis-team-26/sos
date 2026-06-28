@@ -265,13 +265,7 @@ let build_symex_process orchestrator contract fuel =
       StringMap.empty contract.functions
   in
   let initial_state =
-    {
-      scope;
-      ok_stack = [];
-      fuel;
-      function_envs;
-      service_map;
-    }
+    { scope; ok_stack = []; fuel; function_envs; service_map }
   in
   let policy_init_states =
     List.mapi PolicyChecker.init_policy contract.policies

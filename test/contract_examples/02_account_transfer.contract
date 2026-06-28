@@ -5,6 +5,13 @@
         amount: int,
         DAILY_LIMIT: int
     ],
+    globals_assumptions: [
+        from_account > 0,
+        to_account > 0,
+        from_account != to_account,
+        amount > 0,
+        amount <= DAILY_LIMIT
+    ],
     functions: [
         balance: int -> int,
         active: int -> bool

@@ -7,6 +7,16 @@
         MAX_BATCH: int,
         MIN_CAPACITY: int
     ],
+    globals_assumptions: [
+        MAX_BATCH >= 1,
+        MIN_CAPACITY >= 0,
+        supplier > 0,
+        destination > 0,
+        batches >= 1,
+        batches <= 3,
+        qty > 0,
+        qty <= MAX_BATCH
+    ],
     functions: [
         supplier_ok: int -> bool,
         warehouse_ok: int -> bool,

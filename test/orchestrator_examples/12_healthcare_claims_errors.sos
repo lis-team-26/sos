@@ -4,12 +4,8 @@ bool try_bad_authorization := bool?;
 bool strict_diagnosis := bool?;
 bool strict_privacy := bool?;
 
-assume patient > 0 && provider > 0 && claim > 0 && drug > 0;
 assume known_patient(patient) && active_provider(provider);
 assume eligible(patient) && covered_drug(patient, drug) && low_risk(patient);
-assume MAX_AMOUNT > 0 && budget > 0;
-assume requested_amount > 0 && requested_amount <= MAX_AMOUNT && requested_amount <= budget;
-assume MIN_PRIVACY >= 80 && MIN_PRIVACY <= 96;
 assume remaining_reviews >= 0 && remaining_reviews <= 2;
 
 rcpt intake := invoke Intake(patient, provider);

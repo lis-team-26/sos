@@ -1,5 +1,3 @@
-assume address > 0 && package_id > 0;
-assume weight > 0 && weight <= MAX_WEIGHT;
 assume valid_address(address);
 assume insurable(package_id) || !wants_insurance;
 

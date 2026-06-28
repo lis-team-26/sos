@@ -5,6 +5,13 @@
         item: int,
         CART_LIMIT: int
     ],
+    globals_assumptions: [
+        CART_LIMIT >= 1,
+        account > 0,
+        items >= 1,
+        items <= 3,
+        item > 0
+    ],
     functions: [
         stock: int -> int,
         reserved: int -> int,

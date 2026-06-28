@@ -2,10 +2,8 @@ int total := 0;
 int failed := 0;
 int remaining_items := items;
 
-assume CART_LIMIT >= 1;
-assume account > 0 && account_open(account);
-assume items >= 1 && items <= 3;
-assume item > 0 && stock(item) >= 0 && price_of(item) > 0;
+assume account_open(account);
+assume stock(item) >= 0 && price_of(item) > 0;
 
 while remaining_items > 0 do {
   rcpt reserve := invoke Reserve(item, 1);

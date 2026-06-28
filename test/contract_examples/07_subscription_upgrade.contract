@@ -7,6 +7,14 @@
         use_coupon: bool,
         MAX_PLAN: int
     ],
+    globals_assumptions: [
+        MAX_PLAN >= 1,
+        user_id > 0,
+        target_plan > 0,
+        target_plan <= MAX_PLAN,
+        !use_coupon || coupon > 0
+    ],
+
     functions: [
         active_user: int -> bool,
         password_ok: int -> int -> bool,

@@ -1,8 +1,4 @@
-assume MIN_SCORE >= 300 && MIN_SCORE <= 850;
-assume MIN_INCOME >= 0;
-assume MAX_RATIO >= 0;
-assume applicant > 0 && known_customer(applicant);
-assume amount > 0;
+assume known_customer(applicant);
 
 rcpt credit := invoke PullCredit(applicant);
 assert credit.successful;

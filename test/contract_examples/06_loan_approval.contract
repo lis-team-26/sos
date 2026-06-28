@@ -6,6 +6,14 @@
         MIN_INCOME: int,
         MAX_RATIO: int
     ],
+    globals_assumptions: [
+        MIN_SCORE >= 300,
+        MIN_SCORE <= 850,
+        MIN_INCOME >= 0,
+        MAX_RATIO >= 0,
+        applicant > 0,
+        amount > 0
+    ],
     functions: [
         known_customer: int -> bool,
         credit_score: int -> int,

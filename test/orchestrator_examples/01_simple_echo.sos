@@ -1,4 +1,3 @@
-assume x >= 0 && x <= LIMIT;
 
 rcpt r := invoke Echo(x);
 assert r.successful;

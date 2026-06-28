@@ -1,7 +1,5 @@
-assume from_account > 0 && to_account > 0 && from_account != to_account;
 assume active(from_account) && active(to_account);
 assume balance(from_account) >= 0;
-assume amount > 0 && amount <= DAILY_LIMIT;
 
 rcpt b := invoke CheckBalance(from_account);
 assert b.successful;

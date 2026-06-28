@@ -4,7 +4,8 @@
 }
 
 (* regexp *)
-let whitespace = [' ' '\t']+ | '\r' | '\n' | "\r\n"
+let return = '\n' | "\r\n"
+let white = [' ' '\t']+
 let integer = '-'?['0' - '9']['0' - '9']*
 let bool = "true" | "false"
 let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
@@ -43,6 +44,7 @@ rule read = parse
   | "}" { RBRACE }
   (* Keywords *)
   | "globals" { GLOBALS }
+  | "globals_assumptions" { GLOBALS_ASSUMPTIONS }
   | "functions" { FUNCTIONS }  
   | "qos" | "QoS" { QOS }
   | "policies" { POLICIES }
@@ -60,7 +62,8 @@ rule read = parse
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
   (* Literals and identifiers *)
-  | whitespace { read lexbuf }
+  | return { Lexing.new_line lexbuf; read lexbuf }
+  | white { read lexbuf }
   | integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | id { VAR (Lexing.lexeme lexbuf) }

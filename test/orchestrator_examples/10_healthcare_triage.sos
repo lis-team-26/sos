@@ -1,11 +1,7 @@
 int remaining_tests := tests;
 
-assume HIGH_SEVERITY >= 1 && HIGH_SEVERITY <= 5;
-assume MAX_TESTS >= 1 && MAX_TESTS <= 3;
-assume patient > 0 && known_patient(patient);
-assume drug > 0;
+assume known_patient(patient);
 assume safe_drug(patient, drug);
-assume tests >= 0 && tests <= MAX_TESTS;
 
 rcpt registration := invoke RegisterVisit(patient);
 assert registration.successful;

@@ -45,12 +45,7 @@ let group_by_error_cause results =
 
 let rec translate_expr ctx id_map exp =
   match Svalue.kind exp with
-  | Svalue.Var v ->
-      (if Svalue.is_bool_ty (exp |> Typed.type_ |> Typed.get_ty) then
-         Boolean.mk_const
-       else Integer.mk_const)
-        ctx
-        (IntMap.find (Soteria.Symex.Var.to_int v) id_map)
+  | Svalue.Var v -> IntMap.find (Soteria.Symex.Var.to_int v) id_map
   | Svalue.Bool true -> Boolean.mk_true ctx
   | Svalue.Bool false -> Boolean.mk_false ctx
   | Svalue.Int i -> Integer.mk_numeral_i ctx (i |> Z.to_int)
@@ -88,19 +83,17 @@ let counter = ref 0
 let make_z3_constant ctx typ =
   let symbol = Symbol.mk_int ctx !counter in
   let () = counter := !counter + 1 in
-  ( symbol,
-    (match typ with
-    | TInt -> Integer.mk_const
-    | TBool -> Boolean.mk_const
-    | _ -> failwith "receipt can't be a z3 constant")
-      ctx symbol )
+  (match typ with
+  | TInt -> Integer.mk_const
+  | TBool -> Boolean.mk_const
+  | _ -> failwith "receipt can't be a z3 constant")
+    ctx symbol
 
-let z3_find globals error_list =
+let z3_find globals assumptions error_list =
   let ctx = mk_context [] in
-  let solver = Solver.mk_solver ctx None in
   let forall_vars =
     globals |> List.map snd
-    |> List.mapi (fun i t -> (i, make_z3_constant ctx t))
+    |> List.mapi (fun i t -> (i + 1, make_z3_constant ctx t))
     |> IntMap.of_list
   in
   let forall_vars_count = IntMap.cardinal forall_vars in
@@ -109,14 +102,14 @@ let z3_find globals error_list =
     List.fold_left
       (fun set bexpr ->
         get_typed_vars bexpr
-        |> IntMap.filter (fun id _ -> id >= forall_vars_count)
+        |> IntMap.filter (fun id _ -> id > forall_vars_count)
         |> IntMap.union
              (fun id t1 t2 ->
                if t1 == t2 then Some t1
                else failwith "type mismatch in the same path condition")
              set)
       IntMap.empty path_condition
-    |> IntMap.mapi (fun id t ->
+    |> IntMap.map (fun t ->
         make_z3_constant ctx
           (if t |> Typed.untype_type |> Svalue.is_bool_ty then TBool else TInt))
   in
@@ -125,29 +118,32 @@ let z3_find globals error_list =
       (fun _ _ _ ->
         failwith "initial and not initial symb values have the same id")
       ev forall_vars
-    |> IntMap.map fst
+  in
+  let translate_conjunction ctx vars expr_list =
+    expr_list
+    |> List.map Typed.Expr.of_value
+    |> List.map (translate_expr ctx vars)
+    |> Boolean.mk_and ctx
+  in
+  let assumptions =
+    Boolean.mk_true ctx (*translate_conjunction ctx forall_vars assumptions*)
   in
   let forall_body =
     path_conditions
     |> List.map (fun pc ->
         let ev = exists_vars pc in
-        ( ev,
-          pc
-          |> List.map Typed.Expr.of_value
-          |> List.map (translate_expr ctx (union_vars ev))
-          |> Boolean.mk_and ctx ))
+        (ev, translate_conjunction ctx (union_vars ev) pc))
     |> List.map (fun (vars, conjunction) ->
-        let bound = vars |> IntMap.to_list |> List.map snd |> List.map snd in
+        let bound = vars |> IntMap.to_list |> List.map snd in
         if bound = [] then conjunction
         else
           Quantifier.mk_exists_const ctx bound conjunction (Some 1) [] [] None
             None
           |> Quantifier.expr_of_quantifier)
     |> Boolean.mk_or ctx
+    |> Boolean.mk_implies ctx assumptions
   in
-  let forall_bound =
-    forall_vars |> IntMap.to_list |> List.map snd |> List.map snd
-  in
+  let forall_bound = forall_vars |> IntMap.to_list |> List.map snd in
   let final_formula =
     if forall_bound = [] then forall_body
     else
@@ -157,11 +153,12 @@ let z3_find globals error_list =
     (*in
   let () = Printf.printf "manifest condition: %s\n" (Quantifier.to_string final_formula)*)
   in
+  let solver = Solver.mk_solver ctx None in
   Solver.add solver [ final_formula ];
   match Solver.check solver [] with SATISFIABLE -> true | _ -> false
 
-let find_manifest_errors globals results =
+let find_manifest_errors globals assumptions results =
   group_by_error_cause results
   |> ErrorCauseMap.bindings
   |> List.filter_map (fun (cause, error_list) ->
-      if z3_find globals error_list then Some cause else None)
+      if z3_find globals assumptions error_list then Some cause else None)

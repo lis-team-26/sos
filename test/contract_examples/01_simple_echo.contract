@@ -3,6 +3,10 @@
         x: int,
         LIMIT: int
     ],
+    globals_assumptions: [
+        x >= 0,
+        x <= LIMIT
+    ]
     functions: [],
     QoS: [
         latency: int,
