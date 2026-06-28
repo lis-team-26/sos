@@ -1,5 +1,6 @@
 open Symbolic.Runtime
 open Symbolic.Data
+module EAST = Expr.AST
 open Utils.Data
 open Utils.Types
 open Soteria.Tiny_values
@@ -43,17 +44,44 @@ let group_by_error_cause results =
         error_cause_map)
     ErrorCauseMap.empty error_results
 
-let rec translate_expr ctx id_map exp =
+let translate_bin_op ctx op e1 e2 =
+  match op with
+  | EAST.Eq -> Boolean.mk_eq ctx e1 e2
+  | EAST.Le -> Arithmetic.mk_le ctx e1 e2
+  | EAST.Lt -> Arithmetic.mk_lt ctx e1 e2
+  | EAST.Neq -> Boolean.mk_not ctx (Boolean.mk_eq ctx e1 e2)
+  | EAST.Ge -> Arithmetic.mk_ge ctx e1 e2
+  | EAST.Gt -> Arithmetic.mk_gt ctx e1 e2
+  | EAST.Add -> Arithmetic.mk_add ctx [ e1; e2 ]
+  | EAST.Sub -> Arithmetic.mk_sub ctx [ e1; e2 ]
+  | EAST.Mul -> Arithmetic.mk_mul ctx [ e1; e2 ]
+  | EAST.Div -> Arithmetic.mk_div ctx e1 e2
+  | EAST.And -> Boolean.mk_and ctx [e1; e2]
+  | EAST.Or -> Boolean.mk_or ctx [e1; e2]
+
+let translate_un_op = function EAST.Not -> Boolean.mk_not
+
+let rec translate_assumption ctx name_map = function
+  | EAST.EInt i -> Integer.mk_numeral_i ctx i
+  | EAST.EVar v -> StringMap.find v name_map
+  | EAST.EBool true -> Boolean.mk_true ctx
+  | EAST.EBool false -> Boolean.mk_false ctx
+  | EAST.EUnOp (op, e) -> (translate_un_op op) ctx (translate_assumption ctx name_map e)
+  | EAST.EBinOp (e1, op, e2) ->
+     translate_bin_op ctx op (translate_assumption ctx name_map e1) (translate_assumption ctx name_map e2)                 
+  | _ -> failwith "this is not an assumption on global variables"
+
+let rec translate_svalue ctx id_map exp =
   match Svalue.kind exp with
   | Svalue.Var v -> IntMap.find (Soteria.Symex.Var.to_int v) id_map
   | Svalue.Bool true -> Boolean.mk_true ctx
   | Svalue.Bool false -> Boolean.mk_false ctx
   | Svalue.Int i -> Integer.mk_numeral_i ctx (i |> Z.to_int)
   | Svalue.Unop (op, expr) -> (
-      match op with Not -> Boolean.mk_not ctx (translate_expr ctx id_map expr))
+      match op with Not -> Boolean.mk_not ctx (translate_svalue ctx id_map expr))
   | Svalue.Binop (op, expr1, expr2) -> (
       let e1, e2 =
-        (translate_expr ctx id_map expr1, translate_expr ctx id_map expr2)
+        (translate_svalue ctx id_map expr1, translate_svalue ctx id_map expr2)
       in
       match op with
       | And -> Boolean.mk_and ctx [ e1; e2 ]
@@ -71,12 +99,12 @@ let rec translate_expr ctx id_map exp =
       match op with
       | Distinct ->
           Boolean.mk_distinct ctx
-            (List.map (translate_expr ctx id_map) exprList))
+            (List.map (translate_svalue ctx id_map) exprList))
   | Svalue.Ite (expr1, expr2, expr3) ->
       Boolean.mk_ite ctx
-        (translate_expr ctx id_map expr1)
-        (translate_expr ctx id_map expr2)
-        (translate_expr ctx id_map expr3)
+        (translate_svalue ctx id_map expr1)
+        (translate_svalue ctx id_map expr2)
+        (translate_svalue ctx id_map expr3)
 
 let counter = ref 0
 
@@ -95,6 +123,11 @@ let z3_find globals assumptions error_list =
     globals |> List.map snd
     |> List.mapi (fun i t -> (i + 1, make_z3_constant ctx t))
     |> IntMap.of_list
+  in
+  let forall_vars_name =
+    globals |> List.map fst
+    |> List.mapi (fun i name -> (name, IntMap.find (i + 1) forall_vars ))
+    |> StringMap.of_list
   in
   let forall_vars_count = IntMap.cardinal forall_vars in
   let path_conditions = List.map (fun x -> x.path_condition) error_list in
@@ -119,14 +152,18 @@ let z3_find globals assumptions error_list =
         failwith "initial and not initial symb values have the same id")
       ev forall_vars
   in
+  let translate_assumptions ctx vars expr_list =
+    expr_list
+    |> List.map (translate_assumption ctx vars)
+    |> Boolean.mk_and ctx
+  in
   let translate_conjunction ctx vars expr_list =
     expr_list
     |> List.map Typed.Expr.of_value
-    |> List.map (translate_expr ctx vars)
+    |> List.map (translate_svalue ctx vars)
     |> Boolean.mk_and ctx
   in
-  let assumptions =
-    Boolean.mk_true ctx (*translate_conjunction ctx forall_vars assumptions*)
+  let assumptions = translate_assumptions ctx forall_vars_name assumptions
   in
   let forall_body =
     path_conditions

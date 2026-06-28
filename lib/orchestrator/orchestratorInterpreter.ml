@@ -271,6 +271,12 @@ let build_symex_process orchestrator contract fuel =
     List.mapi PolicyChecker.init_policy contract.policies
   in
   let process =
+    let& b = map_list contract.globals_assumptions
+               ~f:(fun exp ->
+                 let&&* b = symb_eval_bexpr scope exp
+                 in return b)
+    in
+    let&* () = Symex.assume b in
     let& () = symb_eval_stmt contract orchestrator in
     let& state, policy_checkers = get in
     let& () =
