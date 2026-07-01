@@ -69,7 +69,6 @@ structured_stmt:
   | WHILE ; e = orchestrator_expr ; DO ; b = block { While (e, b) }
 
 block:
-  | s = atom_stmt { s |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
   | LBRACE ; ss = stmts ; RBRACE { ss }
 
 program:

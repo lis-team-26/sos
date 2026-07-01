@@ -3,21 +3,20 @@
   exception LexerError of string
 }
 
-(* regexp *)
 let return = '\n' | "\r\n"
 let white = [' ' '\t']+
-let integer = '-'?['0' - '9']['0' - '9']*
+
+let int = ['0'-'9']['0'-'9']*
 let bool = "true" | "false"
-let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 let char = '\'' ['a'-'z' 'A'-'Z' '0'-'9'] '\''
 let regex = '"'(['a'-'z' 'A'-'Z' '0'-'9' '|' '(' ')' '[' ']' '*' '-' '^' '.' '?' '+']+)'"'
+let var = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 rule read = parse
-  (* Symbols and operators *)
-  | ":=" { ASSIGN }
-  | ":" { COLON }
-  | "," { COMMA }
-  | "->" { ARROW }
+  (* Blank characters *)
+  | return { Lexing.new_line lexbuf; read lexbuf }
+  | white { read lexbuf }
+  (* Operators and symbols *)
   | "+" { PLUS }
   | "-" { MINUS }
   | "*" { TIMES }
@@ -26,11 +25,15 @@ rule read = parse
   | "<" { LT }
   | ">=" { GE }
   | ">" { GT }
-  | "!" { NOT }
-  | "=" { EQ }
+  | "==" { EQ }
   | "!=" { NEQ }
   | "&&" { AND }
   | "||" { OR }
+  | "!" { NOT }
+  | ":=" { ASSIGN }
+  | ":" { COLON }
+  | "," { COMMA }
+  | "->" { ARROW }
   (* Aggregate operators *)
   | "sum" { SUM }
   | "avg" { AVG }
@@ -64,13 +67,11 @@ rule read = parse
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
   (* Literals and identifiers *)
-  | return { Lexing.new_line lexbuf; read lexbuf }
-  | white { read lexbuf }
-  | integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
   | char { CHAR (String.get (Lexing.lexeme lexbuf) 1) }
-  | id { VAR (Lexing.lexeme lexbuf) }
   | regex { REG (let s = Lexing.lexeme lexbuf in String.sub s 1 ((String.length s) - 2)) }
+  | var { VAR (Lexing.lexeme lexbuf) }
   | eof { EOF }
   | _ as c
     { raise (LexerError

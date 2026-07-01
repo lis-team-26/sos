@@ -6,7 +6,6 @@ orchestrator_dir="test/orchestrator_examples"
 output_dir="out"
 
 mkdir -p "$output_dir"
-
 shopt -s nullglob
 
 successes=()
@@ -46,18 +45,18 @@ for orchestrator in "$orchestrator_dir"/*.sos; do
 done
 
 echo
-echo "Examples summary:"
+echo "Summary:"
 
-echo "Successful examples (${#successes[@]}):"
+echo "  Successful examples (${#successes[@]}):"
 if [[ ${#successes[@]} -gt 0 ]]; then
-  printf '  %s\n' "${successes[@]}"
+  printf '    %s\n' "${successes[@]}"
 else
-  echo "  none"
+  echo "    none"
 fi
 
-echo "Failed examples (${#failures[@]}):"
+echo "  Failed examples (${#failures[@]}):"
 if [[ ${#failures[@]} -gt 0 ]]; then
-  printf '  %s\n' "${failures[@]}"
+  printf '    %s\n' "${failures[@]}"
 else
-  echo "  none"
+  echo "    none"
 fi
