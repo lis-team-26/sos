@@ -1,17 +1,20 @@
 open Expr.TypedAST
 open Symbolic.Data
 open Symbolic.Runtime
-open StateMonad.FunctionalMonad
+open StateMonad.ExpressionMonad
 open Utils.Data
+open Utils.Loc
+open Utils.Scope
 open Utils.Types
 
-let symb_eval_arithm_op v1 op v2 =
+let symb_eval_arithm_op ~loc v1 op v2 =
   match op with
   | Add -> Symex.Result.ok (v1 +@ v2)
   | Sub -> Symex.Result.ok (v1 -@ v2)
   | Mul -> Symex.Result.ok (v1 *@ v2)
   | Div ->
-      if%sat v2 ==@ Typed.int 0 then Symex.Result.error DivByZeroError
+      if%sat v2 ==@ Typed.int 0 then
+        Symex.Result.error (located ~loc DivByZeroError)
       else
         let v2 = Typed.cast v2 in
         Symex.Result.ok (v1 /@ v2)
@@ -30,18 +33,18 @@ let symb_eval_cmp_op v1 op v2 =
   | Eq -> Symex.Result.ok (v1 ==@ v2)
   | Neq -> Symex.Result.ok (Typed.not (v1 ==@ v2))
 
-let rec symb_eval_aexpr env = function
+let rec symb_eval_aexpr ~scope e =
+  match e.it with
   | ALit n -> return (Typed.int n)
   | AVar x ->
       let value =
-        match lookup x env with
+        match lookup x scope with
         | Some (SymbInt i) -> i
-        | _ ->
-            failwith (Fmt.str "Unreachable: expected arithmetic variable %s" x)
+        | _ -> Fmt.failwith "Unreachable: expected arithmetic variable %s" x
       in
       return value
   | AAccess (x, field) -> (
-      match (lookup x env, field) with
+      match (lookup x scope, field) with
       | Some (SymbReceipt { ret_val; successful; qos_fields }), AReturnValue ->
           return (cast ret_val)
       | Some (SymbReceipt { ret_val; successful; qos_fields }), AQosField f -> (
@@ -53,12 +56,12 @@ let rec symb_eval_aexpr env = function
       let&+ v = Symex.nondet Typed.t_int in
       v
   | AOp (e1, op, e2) ->
-      let& v1 = symb_eval_aexpr env e1 in
-      let& v2 = symb_eval_aexpr env e2 in
-      let&** result = symb_eval_arithm_op v1 op v2 in
+      let& v1 = symb_eval_aexpr ~scope e1 in
+      let& v2 = symb_eval_aexpr ~scope e2 in
+      let&** result = symb_eval_arithm_op ~loc:e.at v1 op v2 in
       return result
   | AApp (f, args) -> (
-      let& v = symb_eval_app env TInt f args in
+      let& v = symb_eval_app ~scope ~ret_type:TInt f args in
       match v with
       | SymbInt v -> return v
       | _ ->
@@ -66,17 +69,18 @@ let rec symb_eval_aexpr env = function
             "Unreachable: expected arithmetic return value from function \
              application")
 
-and symb_eval_bexpr env = function
+and symb_eval_bexpr ~scope e =
+  match e.it with
   | BLit b -> return (Typed.of_bool b)
   | BVar x ->
       let value =
-        match lookup x env with
+        match lookup x scope with
         | Some (SymbBool b) -> b
         | _ -> failwith "Unreachable: expected boolean variable"
       in
       return value
   | BAccess (x, field) -> (
-      match (lookup x env, field) with
+      match (lookup x scope, field) with
       | Some (SymbReceipt { ret_val; successful; qos_fields }), BReturnValue ->
           return (cast ret_val)
       | Some (SymbReceipt { ret_val; successful; qos_fields }), BSuccessful ->
@@ -90,20 +94,20 @@ and symb_eval_bexpr env = function
       let&+ v = Symex.nondet Typed.t_bool in
       v
   | BBoolOp (e1, op, e2) ->
-      let& v1 = symb_eval_bexpr env e1 in
-      let& v2 = symb_eval_bexpr env e2 in
+      let& v1 = symb_eval_bexpr ~scope e1 in
+      let& v2 = symb_eval_bexpr ~scope e2 in
       let&** result = symb_eval_bool_bin_op v1 op v2 in
       return result
   | BCmpOp (e1, op, e2) ->
-      let& v1 = symb_eval_aexpr env e1 in
-      let& v2 = symb_eval_aexpr env e2 in
+      let& v1 = symb_eval_aexpr ~scope e1 in
+      let& v2 = symb_eval_aexpr ~scope e2 in
       let&** result = symb_eval_cmp_op v1 op v2 in
       return result
   | BNot e ->
-      let& v = symb_eval_bexpr env e in
+      let& v = symb_eval_bexpr ~scope e in
       return (Typed.not v)
   | BApp (f, args) -> (
-      let& v = symb_eval_app env TBool f args in
+      let& v = symb_eval_app ~scope ~ret_type:TBool f args in
       match v with
       | SymbBool v -> return v
       | _ ->
@@ -111,7 +115,7 @@ and symb_eval_bexpr env = function
             "Unreachable: expected boolean return value from function \
              application")
 
-and symb_eval_app env t f args =
+and symb_eval_app ~scope ~ret_type f args =
   let& fun_envs = get in
   let fun_env =
     match StringMap.find_opt f fun_envs with
@@ -122,16 +126,16 @@ and symb_eval_app env t f args =
     map_list args ~f:(fun e ->
         match e with
         | AExpr e ->
-            let& v = symb_eval_aexpr env e in
+            let& v = symb_eval_aexpr ~scope e in
             return (Typed.cast v)
         | BExpr e ->
-            let& v = symb_eval_bexpr env e in
+            let& v = symb_eval_bexpr ~scope e in
             return (Typed.cast v))
   in
   let&* syntactic_key, opt_ret_val =
     SymbolicListMap.find_opt actual_args fun_env
   in
-  match (opt_ret_val, t) with
+  match (opt_ret_val, ret_type) with
   | Some (SymbInt v), TInt -> return (SymbInt v)
   | Some (SymbBool v), TBool -> return (SymbBool v)
   | None, TInt ->
@@ -151,10 +155,10 @@ and symb_eval_app env t f args =
   | _ ->
       failwith "Unreachable: function return type does not match expected type"
 
-let symb_eval_expr env = function
+let symb_eval_expr ~scope = function
   | AExpr e ->
-      let& v = symb_eval_aexpr env e in
+      let& v = symb_eval_aexpr ~scope e in
       return (SymbInt v)
   | BExpr e ->
-      let& v = symb_eval_bexpr env e in
+      let& v = symb_eval_bexpr ~scope e in
       return (SymbBool v)

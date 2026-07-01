@@ -1,6 +1,5 @@
 {
   open OrchestratorParser
-  open Utils.Data
   exception LexerError of string
 }
 
@@ -9,12 +8,17 @@ let bool = "true" | "false"
 let var = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 let return = '\n' | "\r\n"
 let white = [' ' '\t']+
+let line_comment = "//" [^ '\n' '\r']*
+let open_multiline_comment = "/*"
+let close_multiline_comment = "*/"
 
 rule read = parse
   | return { Lexing.new_line lexbuf; read lexbuf }
   | white { read lexbuf }
   | int as n { INT (int_of_string n) }
   | bool as b { BOOL (b = "true") }
+  | line_comment { read lexbuf }
+  | open_multiline_comment { comment lexbuf; read lexbuf }
   | "int?" { ANONDET }
   | "bool?" { BNONDET }
   | '+' { PLUS }
@@ -40,8 +44,8 @@ rule read = parse
   | "while" { WHILE }
   | "do" { DO }
   | "assume" { ASSUME }
-  | "assert" { ASSERT (Loc { line = lexbuf.lex_curr_p.pos_lnum; col = lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol + 1 }) }
-  | "invoke" { INVOKE (Loc { line = lexbuf.lex_curr_p.pos_lnum; col = lexbuf.lex_curr_p.pos_cnum - lexbuf.lex_curr_p.pos_bol + 1 }) }
+  | "assert" { ASSERT }
+  | "invoke" { INVOKE }
   | "int" { INT_TYPE }
   | "bool" { BOOL_TYPE }
   | "rcpt" { RECEIPT_TYPE }
@@ -56,3 +60,9 @@ rule read = parse
   | eof { EOF }
   | var as x { VAR x }
   | _ { raise (LexerError ("Unexpected character " ^ Lexing.lexeme lexbuf)) }
+
+and comment = parse
+  | close_multiline_comment { () }
+  | return { Lexing.new_line lexbuf; comment lexbuf }
+  | eof { raise (LexerError "Unterminated block comment") }
+  | _ { comment lexbuf }

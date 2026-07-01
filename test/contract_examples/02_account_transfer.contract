@@ -124,6 +124,6 @@
         sum(cost) < 20,
         avg(latency) <= 4,
         min(trust) > 50,
-        { CheckBalance -> b, Debit -> d, Credit -> c } "cd"
+        { Debit -> 'd', Credit -> 'c' } "cd"
     ]
 }

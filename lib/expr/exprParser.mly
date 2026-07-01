@@ -21,26 +21,39 @@
 %%
 
 atom_expr(extra_atom):
-  | n = INT { EInt n }
-  | b = BOOL { EBool b }
-  | v = VAR { EVar v }
+  | n = INT { EInt n |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | b = BOOL { EBool b |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | v = VAR { EVar v |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
   | a = extra_atom { a }
 
 %public expr(extra_atom):
   | a = atom_expr(extra_atom) { a }
-  | e1 = expr(extra_atom) ; op = PLUS ; e2 = expr(extra_atom) { EBinOp (e1, Add, e2) }
-  | e1 = expr(extra_atom) ; op = MINUS ; e2 = expr(extra_atom) { EBinOp (e1, Sub, e2) }
-  | e1 = expr(extra_atom) ; op = TIMES ; e2 = expr(extra_atom) { EBinOp (e1, Mul, e2) }
-  | e1 = expr(extra_atom) ; op = DIV ; e2 = expr(extra_atom) { EBinOp (e1, Div, e2) }
-  | e1 = expr(extra_atom) ; op = AND ; e2 = expr(extra_atom) { EBinOp (e1, And, e2) }
-  | e1 = expr(extra_atom) ; op = OR ; e2 = expr(extra_atom) { EBinOp (e1, Or, e2) }
-  | e1 = expr(extra_atom) ; op = EQ ; e2 = expr(extra_atom) { EBinOp (e1, Eq, e2) }
-  | e1 = expr(extra_atom) ; op = NEQ ; e2 = expr(extra_atom) { EBinOp (e1, Neq, e2) }
-  | e1 = expr(extra_atom) ; op = LT ; e2 = expr(extra_atom) { EBinOp (e1, Lt, e2) }
-  | e1 = expr(extra_atom) ; op = LE ; e2 = expr(extra_atom) { EBinOp (e1, Le, e2) }
-  | e1 = expr(extra_atom) ; op = GT ; e2 = expr(extra_atom) { EBinOp (e1, Gt, e2) }
-  | e1 = expr(extra_atom) ; op = GE ; e2 = expr(extra_atom) { EBinOp (e1, Ge, e2) }
-  | op = NOT ; e = expr(extra_atom) { EUnOp (Not, e) }
+  | e1 = expr(extra_atom) ; op = PLUS ; e2 = expr(extra_atom)
+    { EBinOp (e1, Add, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = MINUS ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Sub, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = TIMES ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Mul, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = DIV ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Div, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = AND ; e2 = expr(extra_atom) 
+    { EBinOp (e1, And, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = OR ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Or, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = EQ ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Eq, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = NEQ ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Neq, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = LT ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Lt, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = LE ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Le, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = GT ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Gt, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | e1 = expr(extra_atom) ; op = GE ; e2 = expr(extra_atom) 
+    { EBinOp (e1, Ge, e2) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | op = NOT ; e = expr(extra_atom)
+    { EUnOp (Not, e) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
   | LPAREN ; e = expr(extra_atom) ; RPAREN { e }
 
 %public exprs(extra_atom):

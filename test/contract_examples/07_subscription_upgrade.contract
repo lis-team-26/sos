@@ -191,6 +191,6 @@
         sum(cost) < 70 group-by user_id,
         avg(latency) <= 5,
         min(trust) >= 55,
-        { Authenticate -> a, ReadPlan -> r, ApplyCoupon -> c, Bill -> b, UpgradePlan -> u } "uba"
+        { Authenticate -> 'a', Bill -> 'b', UpgradePlan -> 'u' } "uba"
     ]
 }

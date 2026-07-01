@@ -1,10 +1,11 @@
 %{
   open ContractAST
-  open Utils.Types    
+  open Utils.Loc
+  open Utils.Types
 %}
 
-(* Tokens and precedence *)
 %token <string> REG
+%token <char> CHAR
 
 %token COLON ARROW ASSIGN EOF 
 %token SUM AVG MIN MAX SORTED
@@ -17,8 +18,16 @@
 
 %%
 
+(* Generic list *)
+
+delimited_comma_separated_list(X):
+  | LSQUARE ; l = separated_list(COMMA, X) ; RSQUARE { l }
+
+(* Expressions *)
+
 app_expr:
-  | f = VAR ; LPAREN ; args = exprs(app_expr) ; RPAREN { EApp (f, args) }
+  | f = VAR ; LPAREN ; args = exprs(app_expr) ; RPAREN
+    { EApp (f, args) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
 
 contract_expr:
   | e = expr(app_expr) { e }
@@ -26,45 +35,7 @@ contract_expr:
 contract_exprs:
   | es = exprs(app_expr) { es }
 
-delimited_comma_separated_list(X):
-  | LSQUARE ; l = separated_list(COMMA, X) ; RSQUARE { l }
-
-contract:
-  | LBRACE ;
-      GLOBALS ; COLON ; globals = items ; COMMA
-      GLOBALS_ASSUMPTIONS ; COLON ; globals_assumptions = delimited_comma_separated_list(contract_expr) ; COMMA
-      FUNCTIONS ; COLON ; functions = functions ; COMMA
-      QOS ; COLON ; qos = items ; COMMA
-      tail = contract_tail ;
-    RBRACE ; EOF
-  {
-    let services, policies = tail in
-    { globals; globals_assumptions; functions; qos; policies; services }
-  }
-
-contract_tail:
-  | SERVICES ; COLON ; services = services ; COMMA
-    POLICIES ; COLON ; policies = policies
-  { (services, policies) }
-  | POLICIES ; COLON ; policies = policies ; COMMA
-    SERVICES ; COLON ; services = services
-  { (services, policies) }
-
-(* Generic items definition *)
-
-items:
-  | items = delimited_comma_separated_list(item) { items }
-
-item:
-  | v = VAR ; COLON ; t = atom_type { (v, t) }
-
-(* Functions and types *)
-
-functions:
-  | funcs = delimited_comma_separated_list(func_item) { funcs }
-
-func_item:
-  | f = VAR ; COLON ; t = fun_type { (f, t) }
+(* Types, typed identificators and functions *)
 
 atom_type:
   | INT_TYPE { TInt }
@@ -73,6 +44,22 @@ atom_type:
 fun_type:
   | t = atom_type ; ARROW ; ret = atom_type { TFun ([ t ], ret) }
   | t = atom_type ; ARROW ; tt = fun_type { let TFun (ts, ret) = tt in TFun (t :: ts, ret) }
+
+typed_ident:
+  | v = VAR ; COLON ; t = atom_type { (v, t) }
+
+located_typed_ident:
+  | i = typed_ident { i |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+
+located_typed_fun:
+  | f = VAR ; COLON ; t = fun_type
+    { (f, t) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+
+located_typed_idents:
+  | is = delimited_comma_separated_list(located_typed_ident) { is }
+
+located_typed_funcs:
+  | fs = delimited_comma_separated_list(located_typed_fun) { fs }
 
 (* Policies *)
 
@@ -90,50 +77,77 @@ aggr_op:
   | MIN { Min }
   | MAX { Max }
 
+policy:
+  | t = policy_type
+    { (t, None) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | t = policy_type ; GROUPBY ; s = VAR
+    { (t, Some s) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+
 policies:
   | policies = delimited_comma_separated_list(policy) { policies }
 
-policy:
-  | t = policy_type { (t, None) }
-  | t = policy_type ; GROUPBY ; s = VAR { (t, Some s) }
-
 service_char:
-  | s = VAR ; ARROW ; c = VAR {(s, (String.get c 0))}
+  | s = VAR ; ARROW ; c = CHAR { (s, c) }
 
 policy_type:
   | LBRACE ; m = separated_list(COMMA, service_char) ; RBRACE ; r = REG { Regex (m,r) }
   | SORTED ; LPAREN ; v = VAR ; RPAREN { Sort v }
   | aggr_op = aggr_op ; LPAREN ; v = VAR ; RPAREN ; cmp_op = cmp_op ; i = INT { QosFieldOp (aggr_op, v, cmp_op, i) }
 
-
 (* Services *)
-
-services:
-  | services = delimited_comma_separated_list(service) { services }
-
-service:
-  | LBRACE ;
-      NAME ; COLON ; name = VAR ; COMMA ;
-      PARAMS ; COLON ; params = items ; COMMA ;
-      RETURNS ; COLON ; LBRACE ; returns = item ; RBRACE ; COMMA ;
-      PRECOND ; COLON ; precond = delimited_comma_separated_list(contract_expr) ; COMMA ;
-      QOS_POSTCOND ; COLON ; qos_postcond = postcond ; COMMA ;
-      OK_POSTCOND ; COLON ; ok_postcond = postcond ; 
-      err_postcond = option(COMMA ; ERR_POSTCOND ; COLON ; err_postcond = postcond { err_postcond }) ;
-    RBRACE
-  {
-    { name; params; returns; precond; qos_postcond; ok_postcond; err_postcond }
-  }
 
 effects:    
   | EFFECTS ; COLON ; effects = delimited_comma_separated_list(effct) { effects }
 
+effect_lhs:
+  | v = VAR { LVar v |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+  | f = VAR ; LPAREN ; args = contract_exprs ; RPAREN
+    { LApp (f, args) |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos }
+
 effct:
-  | v = VAR ; ASSIGN ; e = contract_expr { (LVar v, e) }
-  | v = VAR ; LPAREN ; args = contract_exprs ; RPAREN ; ASSIGN ; e = contract_expr { (LApp (v, args), e) }
+  | lhs = effect_lhs ; ASSIGN ; e = contract_expr { (lhs, e) }
 
 constraints:
   | CONSTRAINTS ; COLON ; cs = delimited_comma_separated_list(contract_expr) { cs }
 
 postcond:
   | LBRACE es = effects ; COMMA ; cs = constraints ; RBRACE { (es, cs) }
+
+service:
+  | LBRACE ;
+      NAME ; COLON ; name = VAR ; COMMA ;
+      PARAMS ; COLON ; params = located_typed_idents ; COMMA ;
+      RETURNS ; COLON ; LBRACE ; returns = typed_ident ; RBRACE ; COMMA ;
+      PRECOND ; COLON ; precond = delimited_comma_separated_list(contract_expr) ; COMMA ;
+      QOS_POSTCOND ; COLON ; qos_postcond = postcond ; COMMA ;
+      OK_POSTCOND ; COLON ; ok_postcond = postcond ; 
+      err_postcond = option(COMMA ; ERR_POSTCOND ; COLON ; err_postcond = postcond { err_postcond }) ;
+    RBRACE
+    {
+      { name; params; returns; precond; qos_postcond; ok_postcond; err_postcond }
+        |> located_with_positions ~start_pos:$startpos ~end_pos:$endpos
+    }
+
+services:
+  | services = delimited_comma_separated_list(service) { services }
+
+contract:
+  | LBRACE ;
+      GLOBALS ; COLON ; globals = located_typed_idents ; COMMA
+      GLOBALS_ASSUMPTIONS ; COLON ; globals_assumptions = delimited_comma_separated_list(contract_expr) ; COMMA
+      FUNCTIONS ; COLON ; functions = located_typed_funcs ; COMMA
+      QOS ; COLON ; qos = located_typed_idents ; COMMA
+      tail = contract_tail ;
+    RBRACE ; EOF
+    {
+      let services, policies = tail in
+        { globals; globals_assumptions; functions; qos; policies; services }
+    }
+
+contract_tail:
+  | SERVICES ; COLON ; services = services ; COMMA
+    POLICIES ; COLON ; policies = policies
+      { (services, policies) }
+  | POLICIES ; COLON ; policies = policies ; COMMA
+    SERVICES ; COLON ; services = services
+      { (services, policies) }

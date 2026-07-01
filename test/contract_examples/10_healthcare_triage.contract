@@ -253,6 +253,6 @@
         sum(cost) < 160 group-by patient,
         avg(latency) <= 8,
         min(privacy) >= 70,
-        { RegisterVisit -> r, Assess -> a, RunLab -> l, Prescribe -> p, EscalateCare -> e, Discharge -> d, FollowUp -> f } "de"
+        { EscalateCare -> 'e', Discharge -> 'd' } "de"
     ]
 }

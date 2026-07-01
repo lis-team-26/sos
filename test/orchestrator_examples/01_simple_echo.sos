@@ -1,4 +1,3 @@
-
 rcpt r := invoke Echo(x);
 assert r.successful;
 assert r.retval == x + 1;

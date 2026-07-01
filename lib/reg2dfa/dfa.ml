@@ -18,11 +18,11 @@ let charmap_union (type a) (f : char -> a -> a -> a option) =
   CharMap.merge f
 
 type dfa = {
-  start : state;  (** the start state *)
-  finals : StateSet.t;  (** the final (or "accept") states *)
+  start : state;  (** The start state. *)
+  finals : StateSet.t;  (** The final (or "accept") states. *)
   next : state -> state CharMap.t;
-      (** the transition function, that maps a state and a character to the next
-          state *)
+      (** The transition function, that maps a state and a character to the next
+          state. *)
 }
 
 let fold_states : 'a. (state -> 'a -> 'a) -> dfa -> 'a -> 'a =
@@ -46,15 +46,15 @@ let fold_transitions : 'a. (state * char * state -> 'a -> 'a) -> dfa -> 'a -> 'a
     (fun src v -> CharMap.fold (fun c dst -> f (src, c, dst)) (dfa.next src) v)
     dfa init
 
-(** Add src--c-->dst to the transition set, replacing any existing src--c-->dst'
-*)
+(** Add src--c-->dst to the transition set, replacing any existing
+    src--c-->dst'. *)
 let add_transition (src, c, dst) trans =
   match StateMap.find src trans with
   | exception Not_found -> StateMap.add src (CharMap.singleton c dst) trans
   | cm -> StateMap.add src (CharMap.add c dst cm) trans
 
 (** Add src--c-->dst to the transition set, augmenting any existing
-    src--c-->dst' *)
+    src--c-->dst'. *)
 let add_transition' (src, c, dst) trans =
   match StateMap.find src trans with
   | exception Not_found ->
@@ -68,7 +68,7 @@ let add_transition' (src, c, dst) trans =
       StateMap.add src (CharMap.add c dstset cm) trans
 
 (** Build an NFA by reversing a DFA, inverting transition arrows, turning finals
-    states into start states, and the start state into the final state *)
+    states into start states, and the start state into the final state. *)
 let reverse dfa =
   let map =
     fold_transitions
@@ -81,7 +81,7 @@ let reverse dfa =
     next = (fun s -> try StateMap.find s map with Not_found -> CharMap.empty);
   }
 
-(** Available transitions from a set of states *)
+(** Available transitions from a set of states. *)
 let transitions states nfa =
   StateSet.fold
     (fun s m ->
@@ -89,7 +89,7 @@ let transitions states nfa =
       charmap_union (fun _ s s' -> Some (StateSet.union s s')) m m')
     states CharMap.empty
 
-(** Conversion to DFA via the powerset construction *)
+(** Conversion to DFA via the powerset construction. *)
 let determinize : Nfa.nfa -> dfa =
   let module M = Map.Make (StateSet) in
   fun nfa ->
@@ -128,7 +128,7 @@ let determinize : Nfa.nfa -> dfa =
     { start; finals; next }
 
 (** Brzozowski's DFA minimization algorithm: reverse DFA to build an NFA and
-    determinize, then do the same again *)
+    determinize, then do the same again. *)
 let minimize g = determinize (reverse (determinize (reverse g)))
 
 let step dfa maybe_cur ch =

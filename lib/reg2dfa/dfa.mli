@@ -1,16 +1,16 @@
 (** Deterministic finite automata *)
 
 type dfa = {
-  start : Nfa.state;  (** the start state *)
-  finals : Nfa.StateSet.t;  (** the final (or "accept") states *)
+  start : Nfa.state;  (** The start state. *)
+  finals : Nfa.StateSet.t;  (** The final (or "accept") states. *)
   next : Nfa.state -> Nfa.state Nfa.CharMap.t;
-      (** the transition function, that maps a state and a character to the next
-          state *)
+      (** The transition function, that maps a state and a character to the next
+          state. *)
 }
 
 val minimize : dfa -> dfa
 (** [minimize dfa] is a minimized dfa equivalent to the dfa [dfa], obtained via
-    Brzozowski's algorithm *)
+    Brzozowski's algorithm. *)
 
 val determinize : Nfa.nfa -> dfa
 (** [determinize nfa] is a deterministic finite automaton that accepts the same

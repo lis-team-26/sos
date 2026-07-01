@@ -4,7 +4,7 @@
    Run with:
      dune exec test/policy_examples/test_policy_checker.exe
 
-   Each test calls init_policy, drives update_policy with a hand-built
+   Each test calls build_policy_checker, drives update_policy ~loc:EOFLoc with a hand-built
    sequence of calls, then calls verify_policy and checks the outcome.
    No orchestrator or symbolic interpreter involved.
 *)
@@ -23,8 +23,9 @@ module Typed = Soteria.Tiny_values.Typed
 (* Helpers to build Contract.AST values without a parser              *)
 (* ------------------------------------------------------------------ *)
 
-(** Minimal service record; only [name] and [params] matter for [update_policy]
-    (used when groupBy looks up a parameter index). *)
+(** Minimal service record; only [name] and [params] matter for
+    [update_policy ~loc:EOFLoc] (used when groupBy looks up a parameter index).
+*)
 let make_service ?(params = []) name =
   {
     name;
@@ -110,7 +111,7 @@ let drive_policy policy calls =
   List.fold_left
     (fun acc_m call ->
       let** checker = acc_m in
-      update_policy call checker)
+      update_policy ~loc:EOFLoc call checker)
     (Symex.Result.ok policy) calls
 
 (* ------------------------------------------------------------------ *)
@@ -127,7 +128,7 @@ let drive_policy policy calls =
     verify_policy should produce an error branch. *)
 let test_qos_aggregate_deferred_violation () =
   let policy_def = (QosFieldOp (Sum, "latency", Gt, 5), None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" in
   let calls =
     [
@@ -145,7 +146,7 @@ let () =
 (** Same policy, but feed latency=3+3=6 → total=6 > 5 → ok. *)
 let test_qos_aggregate_deferred_ok () =
   let policy_def = (QosFieldOp (Sum, "latency", Gt, 5), None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" in
   let calls =
     [
@@ -165,7 +166,7 @@ let () =
 (** avg(cost) < 10. Two calls: cost=5 and cost=7 → avg=6 < 10 → ok. *)
 let test_avg_ok () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" in
   let calls =
     [
@@ -181,7 +182,7 @@ let () = test "avg(cost)<10: avg=6 → ok" ~expect_ok:1 ~expect_err:0 test_avg_o
 (** avg(cost) < 10. Two calls: cost=12 and cost=14 → avg=13 ≥ 10 → violation. *)
 let test_avg_violation () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" in
   let calls =
     [
@@ -200,7 +201,7 @@ let () =
     [if count = 0 then ok] branch). *)
 let test_avg_empty_history () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   verify_policy checker
 
 let () =
@@ -209,13 +210,13 @@ let () =
 
 (* ---- verify_policy: Ascending/Descending are eager → always ok at end *)
 
-(** sorted(cost) ascending: already checked at every update_policy call. At
-    verify_policy time there is nothing extra to check → always ok. *)
+(** sorted(cost) ascending: already checked at every update_policy ~loc:EOFLoc
+    call. At verify_policy time there is nothing extra to check → always ok. *)
 let test_ascending_verify_noop () =
   let policy_def = (Sort "cost", None) in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" in
-  (* A descending sequence would have already errored during update_policy;
+  (* A descending sequence would have already errored during update_policy ~loc:EOFLoc;
      here we pass a valid ascending sequence so we reach verify_policy. *)
   let calls =
     [
@@ -242,7 +243,7 @@ let () =
     over all keys in the ValMap, not just one. *)
 let test_grouped_avg_one_group_violates () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   (* Service has a parameter named "userId" at index 0 *)
   let svc = make_service "Svc" ~params:[ "userId" ] in
   let actual_args user_id =
@@ -279,7 +280,7 @@ let () =
 (** Same but both groups are ok. *)
 let test_grouped_avg_both_ok () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   let svc = make_service "Svc" ~params:[ "userId" ] in
   let actual_args user_id =
     StringMap.singleton "userId" (SymbInt (Typed.int user_id))
@@ -301,11 +302,11 @@ let () =
 (* ---- check_each_group: service without the groupBy param is skipped *)
 
 (** avg(cost) < 10 groupBy userId. If a service does NOT have the "userId"
-    parameter, update_policy must skip it entirely (no group is created for it).
-    verify_policy on an empty ValMap must return ok. *)
+    parameter, update_policy ~loc:EOFLoc must skip it entirely (no group is
+    created for it). verify_policy on an empty ValMap must return ok. *)
 let test_grouped_skips_service_without_param () =
   let policy_def = (QosFieldOp (Avg, "cost", Lt, 10), Some "userId") in
-  let checker = init_policy 0 policy_def in
+  let checker = build_policy_checker 0 policy_def in
   (* Service with NO "userId" parameter *)
   let svc = make_service "OtherSvc" ~params:[ "x" ] in
   let calls =
@@ -334,7 +335,7 @@ let () =
   let make_smap services = make_smap @@ List.map make_service services in
   let make_history services = List.map (fun svc -> make_call svc []) services in
   let make_policy serv2letter reg =
-    PC.init_policy (Contract.AST.Regex (serv2letter, reg), None)
+    PC.build_policy_checker (Contract.AST.Regex (serv2letter, reg), None)
   in
   let make_thunk serv2letter reg services calls =
     let smap = make_smap services in

@@ -1,4 +1,3 @@
-open Soteria
 open Expr.AST
 open Contract.AST
 open Utils.Data

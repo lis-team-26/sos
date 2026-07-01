@@ -6,9 +6,9 @@ module CharMap : Map.S with type key = char
 type transitions = StateSet.t CharMap.t
 
 type nfa = {
-  start : StateSet.t;  (** the start states *)
-  finals : StateSet.t;  (** the final (or "accept") states *)
+  start : StateSet.t;  (** The start states. *)
+  finals : StateSet.t;  (** The final (or "accept") states. *)
   next : state -> transitions;
-      (** the transition function, that maps a state and a character to a set of
-          states *)
+      (** The transition function, that maps a state and a character to a set of
+          states. *)
 }

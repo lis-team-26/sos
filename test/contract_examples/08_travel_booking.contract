@@ -218,6 +218,6 @@
         sum(cost) < 90,
         avg(latency) <= 7,
         min(reliability) >= 45,
-        { SearchFlight -> f, HoldFlight -> h, SearchHotel -> s, HoldHotel -> o, PayTrip -> p, CancelHold -> c } "pc"
+        { PayTrip -> 'p', CancelHold -> 'c' } "pc"
     ]
 }

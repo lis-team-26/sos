@@ -1,61 +1,67 @@
-open Format
 open ContractAST
 open Expr.AST_pp
-open Utils.Data
 open Utils.Data_pp
-open Utils.Types
+open Utils.Loc
 open Utils.Types_pp
 
 let pp_aggr_op fmt = function
-  | Sum -> fprintf fmt "sum"
-  | Avg -> fprintf fmt "avg"
-  | Min -> fprintf fmt "min"
-  | Max -> fprintf fmt "max"
+  | Sum -> Fmt.pf fmt "sum"
+  | Avg -> Fmt.pf fmt "avg"
+  | Min -> Fmt.pf fmt "min"
+  | Max -> Fmt.pf fmt "max"
 
-let rec pp_regex fmt (s2letter, regex) =
-  fprintf fmt "[";
-  List.iter (fun (s, l) -> fprintf fmt " %s -> %c" s l) s2letter;
-  fprintf fmt " ] %s" regex
+let rec pp_regex fmt (s2l, regex) =
+  Fmt.pf fmt "[ %a ] \"%s\""
+    (pp_list_inline @@ pp_entry Fmt.string Fmt.char)
+    s2l regex
 
 let pp_policy_type fmt = function
-  | QosFieldOp (agg_op, v, cmp_op, i) ->
-      fprintf fmt "%a(%s) %a %d" pp_aggr_op agg_op v pp_bin_op cmp_op i
-  | Regex (l, r) -> pp_regex fmt (l, r)
-  | Sort id -> fprintf fmt "sorted(%s)" id
+  | QosFieldOp (aggr_op, field, cmp_op, threshold) ->
+      Fmt.pf fmt "%a(%s) %a %d" pp_aggr_op aggr_op field pp_bin_op cmp_op
+        threshold
+  | Regex (s2l, regex) -> pp_regex fmt (s2l, regex)
+  | Sort field -> Fmt.pf fmt "sorted(%s)" field
 
-let pp_policy fmt (p, group_by) =
+let pp_policy fmt { it = p, group_by } =
   pp_policy_type fmt p;
-  match group_by with None -> () | Some x -> fprintf fmt " group by %s" x
+  Fmt.option (fun fmt x -> Fmt.pf fmt " group by %s" x) fmt group_by
 
-let pp_lhs fmt = function
-  | LVar x -> fprintf fmt "%s" x
-  | LApp (f, args) -> fprintf fmt "%s(%a)" f pp_expr_list args
+let pp_lhs fmt { it = lhs } =
+  match lhs with
+  | LVar x -> Fmt.pf fmt "%s" x
+  | LApp (f, args) -> Fmt.pf fmt "%s(%a)" f (pp_list_inline pp_expr) args
 
-let pp_effct fmt (lhs, e) = fprintf fmt "%a := %a" pp_lhs lhs pp_expr e
+let pp_effect fmt (lhs, rhs) = Fmt.pf fmt "%a := %a" pp_lhs lhs pp_expr rhs
 
 let pp_postcond fmt (es, cs) =
-  fprintf fmt "effects:@,@[<v 2>  %a@]@,constraints:@,@[<v 2>  %a@]"
-    (pp_list pp_effct) es (pp_list pp_expr) cs
+  pp_field ~with_cut:true ~name:"effects" (pp_list pp_effect) fmt es;
+  pp_field ~name:"constraints" (pp_list pp_expr) fmt cs
 
-let pp_service fmt s =
-  fprintf fmt "service %s {@,@[<v 2>  " s.name;
-  fprintf fmt "params:@,@[<v 2>  %a@]@," (pp_list pp_typed_var) s.params;
-  fprintf fmt "returns:@,@[<v 2>  %a@]@," pp_typed_var s.returns;
-  fprintf fmt "precond:@,@[<v 2>  %a@]@," (pp_list pp_expr) s.precond;
-  fprintf fmt "qos_postcond:@,@[<v 2>  %a@]@," pp_postcond s.qos_postcond;
-  fprintf fmt "ok_postcond:@,@[<v 2>  %a@]@," pp_postcond s.ok_postcond;
-  (match s.err_postcond with
-  | None -> ()
-  | Some err_postcond ->
-      fprintf fmt "err_postcond:@,@[<v 2>  %a@]" pp_postcond err_postcond);
-  fprintf fmt "@]@,}"
+let pp_service fmt { it = s } =
+  let pp fmt s =
+    pp_field ~with_cut:true ~name:"params" (pp_list pp_typed_var) fmt
+      (List.map drop_loc s.params);
+    pp_field ~with_cut:true ~name:"returns" pp_typed_var fmt s.returns;
+    pp_field ~with_cut:true ~name:"precond" (pp_list pp_expr) fmt s.precond;
+    pp_field ~with_cut:true ~name:"qos_postcond" pp_postcond fmt s.qos_postcond;
+    pp_field ~name:"ok_postcond" pp_postcond fmt s.ok_postcond;
+    Fmt.(option (cut ++ pp_field ~name:"err_postcond" pp_postcond))
+      fmt s.err_postcond
+  in
+  pp_section ~name:(Fmt.str "service %s" s.name) pp fmt s
 
-let pp_contract fmt c =
-  pp_open_vbox fmt 0;
-  fprintf fmt "globals {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_var) c.globals;
-  fprintf fmt "functions {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_fun)
-    c.functions;
-  fprintf fmt "policies {@,@[<v 2>  %a@]@,}@," (pp_list pp_policy) c.policies;
-  fprintf fmt "qos {@,@[<v 2>  %a@]@,}@," (pp_list pp_typed_var) c.qos;
-  fprintf fmt "services {@,@[<v 2>  %a@]@,}@," (pp_list pp_service) c.services;
-  pp_close_box fmt ()
+let pp_contract c =
+  let pp fmt c =
+    pp_section ~with_cut:true ~name:"globals" (pp_list pp_typed_var) fmt
+      (List.map drop_loc c.globals);
+    pp_section ~with_cut:true ~name:"globals_assumptions" (pp_list pp_expr) fmt
+      c.globals_assumptions;
+    pp_section ~with_cut:true ~name:"functions" (pp_list pp_typed_fun) fmt
+      (List.map drop_loc c.functions);
+    pp_section ~with_cut:true ~name:"policies" (pp_list pp_policy) fmt
+      c.policies;
+    pp_section ~with_cut:true ~name:"qos" (pp_list pp_typed_var) fmt
+      (List.map drop_loc c.qos);
+    pp_section ~name:"services" (pp_list pp_service) fmt c.services
+  in
+  Fmt.vbox pp c

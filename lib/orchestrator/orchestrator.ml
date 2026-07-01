@@ -1,16 +1,14 @@
-open Contract.TypedAST
-open Symbolic.Runtime
-open Utils.Parser
 module AST = OrchestratorAST
 module AST_pp = OrchestratorAST_pp
 module TypedAST = TypedOrchestratorAST
 module TypedAST_pp = TypedOrchestratorAST_pp
 module Lexer = OrchestratorLexer
 module Parser = OrchestratorParser
+module TypeChecker = OrchestratorTypeChecker
 module Interpreter = OrchestratorInterpreter
 
 let parse src =
-  let module Wrapper = MakeParser (struct
+  let module Parser = Utils.Parser.Make (struct
     type ast = AST.stmt
     type token = Parser.token
 
@@ -21,14 +19,10 @@ let parse src =
     let lexer = Lexer.read
     let parser = Parser.program
   end) in
-  Wrapper.parse src
+  Parser.parse src
 
-let type_check contract ast =
-  TypeCheckOrchestrator.type_check_orchestrator contract ast
+let type_check = TypeChecker.type_check_orchestrator
 
-let run ~steps_fuel ~branching_fuel ~unroll_fuel contract program =
-  let fuel =
-    { steps = steps_fuel; branching = branching_fuel; unroll = unroll_fuel }
-  in
-  OrchestratorInterpreter.build_symex_process program contract fuel
+let run ~fuel contract program =
+  Interpreter.build_symex_process ~fuel contract program
   |> Symbolic.Runtime.Symex.run_with_stats ~mode:Soteria.Symex.Approx.OX

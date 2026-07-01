@@ -5,8 +5,7 @@
         budget: int,
         MAX_ATTEMPTS: int
     ],
-    globals_assumptions: [
-    ],
+    globals_assumptions: [ ],
     functions: [
         attempts: int -> int,
         well_formed: int -> bool,
@@ -140,6 +139,6 @@
         avg(latency) < 50,
         sorted(trust),
         min(trust) > 10,
-        { Auth -> a, Pay -> p, GetPrice -> g } "[^a]|a[apg]*pp"
+        { Auth -> 'a', Pay -> 'p', GetPrice -> 'g' } "[^a]|a[apg]*pp"
     ]
 }

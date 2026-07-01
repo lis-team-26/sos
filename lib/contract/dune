@@ -22,6 +22,6 @@
   contractParser
   typedContractAST
   typedContractAST_pp
-  typeCheckContract)
+  contractTypeChecker)
  (modules_without_implementation contractAST typedContractAST)
- (libraries expr utils))
+ (libraries expr fmt reg2dfa utils))

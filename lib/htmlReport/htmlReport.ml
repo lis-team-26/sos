@@ -3,6 +3,8 @@ open Expr.TypedAST_pp
 open Symbolic.Data_pp
 open Symbolic.Runtime
 open Utils.Data
+open Utils.Loc
+open Utils.Loc_pp
 module Stats = Soteria.Stats
 module StatKeys = Soteria.Symex.StatKeys
 
@@ -164,7 +166,7 @@ let rec ensure_dir dir =
     if not (String.equal parent dir) then ensure_dir parent;
     if Sys.file_exists dir then (
       if not (Sys.is_directory dir) then
-        failwith (Fmt.str "%s exists and is not a directory" dir))
+        Fmt.failwith "%s exists and is not a directory" dir)
     else Unix.mkdir dir 0o755)
 
 let ensure_parent_dir path = ensure_dir (Filename.dirname path)
@@ -290,13 +292,9 @@ let source_has_line source line =
 let source_anchor_opt source line =
   if source_has_line source line then Some (source_anchor source line) else None
 
-let line_location_text loc =
-  match loc with
-  | NoLoc -> "unknown source location"
-  | Loc { line; col } -> Fmt.str "line %d, column %d" line col
-  | EOFLoc -> "end of file"
-
-let loc_line = function Loc { line; _ } -> Some line | NoLoc | EOFLoc -> None
+let loc_line = function
+  | Loc { start_pos } -> Some start_pos.line
+  | EOFLoc -> None
 
 let source_line_link_by_number source line text =
   match source_anchor_opt source line with
@@ -358,14 +356,14 @@ let error_context_json contract_source = function
 let json_error contract_source orchestrator_source cause =
   json_obj
     [
-      field "title" (json_string (error_title cause.value));
-      field "detail" (json_string (error_detail cause.value));
-      field "locationLabel" (json_string (line_location_text cause.loc));
+      field "title" (json_string (error_title cause.it));
+      field "detail" (json_string (error_detail cause.it));
+      field "locationLabel" (json_string (Fmt.to_to_string pp_loc cause.at));
       field "orchestratorAnchor"
         (json_option json_string
-           (Option.bind (loc_line cause.loc)
+           (Option.bind (loc_line cause.at)
               (source_anchor_opt orchestrator_source)));
-      field "context" (error_context_json contract_source cause.value);
+      field "context" (error_context_json contract_source cause.it);
     ]
 
 let json_entry pp_value (key, value) =
@@ -473,14 +471,14 @@ let function_env_search_text function_envs =
 let result_caption state path_condition =
   match Compo_res.to_result_opt state with
   | Some (Ok ok_state) ->
-      let count = List.length ok_state.ok_stack in
+      let count = List.length ok_state.history in
       Fmt.str "%d %s, %d path %s" count
         (plural count "invocation" "invocations")
         (List.length path_condition)
         (plural (List.length path_condition) "condition" "conditions")
-  | Some (Error (Err err_state)) -> error_title err_state.cause.value
+  | Some (Error (Err err_state)) -> error_title err_state.cause.it
   | Some (Error (Unexplored ok_state)) ->
-      let count = List.length ok_state.ok_stack in
+      let count = List.length ok_state.history in
       Fmt.str "Unexplored branch, %d %s, %d path %s" count
         (plural count "invocation" "invocations")
         (List.length path_condition)
@@ -498,14 +496,14 @@ let result_search_text state path_condition =
   match Compo_res.to_result_opt state with
   | Some (Ok ok_state) ->
       Fmt.str "%s %s %s %s" common
-        (invocation_search_text ok_state.ok_stack)
+        (invocation_search_text ok_state.history)
         (scope_search_text ok_state.scope)
         (function_env_search_text ok_state.function_envs)
       |> normalize_for_search
   | Some (Error (Err err_state)) ->
       Fmt.str "%s %s %s %s %s" common
-        (error_detail err_state.cause.value)
-        (invocation_search_text err_state.err_stack)
+        (error_detail err_state.cause.it)
+        (invocation_search_text err_state.err_history)
         (scope_search_text err_state.err_scope)
         (function_env_search_text err_state.function_envs)
       |> normalize_for_search
@@ -516,7 +514,7 @@ let result_search_text state path_condition =
         (pp_to_string Fuel.pp ok_state.fuel.steps)
         (pp_to_string Fuel.pp ok_state.fuel.branching)
         (pp_to_string Fuel.pp ok_state.fuel.unroll)
-        (invocation_search_text ok_state.ok_stack)
+        (invocation_search_text ok_state.history)
         (scope_search_text ok_state.scope)
         (function_env_search_text ok_state.function_envs)
       |> normalize_for_search
@@ -542,7 +540,7 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
           field "error" json_null;
           field "unexplored" json_null;
           field "invocations"
-            (json_invocations contract_source ok_state.ok_stack);
+            (json_invocations contract_source ok_state.history);
           field "scope" (json_scope ok_state.scope);
           field "functionEnvs" (json_function_envs ok_state.function_envs);
           field "fuel" (json_fuel ok_state.fuel);
@@ -553,7 +551,7 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
             (json_error contract_source orchestrator_source err_state.cause);
           field "unexplored" json_null;
           field "invocations"
-            (json_invocations contract_source err_state.err_stack);
+            (json_invocations contract_source err_state.err_history);
           field "scope" (json_scope err_state.err_scope);
           field "functionEnvs" (json_function_envs err_state.function_envs);
           field "fuel" json_null;
@@ -572,7 +570,7 @@ let json_result contract_source orchestrator_source idx (state, path_condition)
                  field "fuel" (json_fuel ok_state.fuel);
                ]);
           field "invocations"
-            (json_invocations contract_source ok_state.ok_stack);
+            (json_invocations contract_source ok_state.history);
           field "scope" (json_scope ok_state.scope);
           field "functionEnvs" (json_function_envs ok_state.function_envs);
           field "fuel" (json_fuel ok_state.fuel);
@@ -594,7 +592,7 @@ let json_error_group_occurrence idx err_state path_condition =
     [
       field "resultId" (json_int idx);
       field "pathConditionCount" (json_int (List.length path_condition));
-      field "invocationCount" (json_int (List.length err_state.err_stack));
+      field "invocationCount" (json_int (List.length err_state.err_history));
     ]
 
 let error_cause_groups results =
@@ -989,11 +987,11 @@ let render_page ~contract_source ~orchestrator_source ~contract_file
     (html_script_json_escape report_data_json)
     report_js_filename report_data_filename
 
-let write ~report_dir ~contract_file ~orchestrator_file ~results
-    ~manifest_errors ~stats =
-  ensure_dir report_dir;
+let write ~contract_file ~orchestrator_file ~results ~manifest_errors ~stats
+    out_dir =
+  ensure_dir out_dir;
   copy_report_res_file ~filename:report_js_filename
-    ~dst:(Filename.concat report_dir report_js_filename);
+    ~dst:(Filename.concat out_dir report_js_filename);
   let contract_source =
     load_source ~label:"Contract Specification" ~prefix:"contract" contract_file
   in
@@ -1007,9 +1005,9 @@ let write ~report_dir ~contract_file ~orchestrator_file ~results
       ~orchestrator_file ~results ~manifest_errors ~stats
   in
   write_file
-    (Filename.concat report_dir report_data_filename)
+    (Filename.concat out_dir report_data_filename)
     (Fmt.str "%s@." data);
-  let html_report_file = Filename.concat report_dir report_html_filename in
+  let html_report_file = Filename.concat out_dir report_html_filename in
   render_page ~contract_source ~orchestrator_source ~contract_file
     ~orchestrator_file ~results ~manifest_errors ~stats ~report_data_json:data
   |> write_file html_report_file

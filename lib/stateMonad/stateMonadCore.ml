@@ -2,6 +2,7 @@ open Symbolic.Runtime
 open Soteria.Symex
 open PolicyChecker
 open Utils.Data
+open Utils.Loc
 
 module type S = sig
   type ok
@@ -61,12 +62,12 @@ module Make (S : S) = struct
   let ( let&++ ) m f = map (lift_symex_result m) f
 end
 
-module FunctionalMonad = Make (struct
+module ExpressionMonad = Make (struct
   type ok = function_env env
-  type err = error_cause
+  type err = error_cause located
 end)
 
-module OkStateMonad = Make (struct
-  type ok = ok_state * policyChecker list
+module StatementMonad = Make (struct
+  type ok = ok_state * policy_checker list
   type err = not_ok_state
 end)

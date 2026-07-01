@@ -2,29 +2,30 @@ open Nfa
 
 module C = Set.Make (Char)
 (** Convert a regex to an ε-free NFA using a slight modification of Glushkov's
-    algorithm.
+    algorithm. (The modification: we label character sets rather than characters
+    to prevent a state explosion). *)
 
-    (The modification: we label character sets rather than characters to prevent
-    a state explosion.) *)
+module StateMap = Map.Make (Int32)
+module CharSetMap = Map.Make (C)
 
 type charset = C.t
 
 (** A 'letter' is a character set paired with an identifier that uniquely
-    identifies the character set within the regex *)
+    identifies the character set within the regex. *)
 module Letter = struct
   type t = C.t * state
 
   let compare (_, x) (_, y) = Stdlib.compare x y
 end
 
-(** Sets of single letters *)
+(** Sets of single letters. *)
 module LetterSet = struct
   module S = Set.Make (Letter)
 
   let ( <+> ) = S.union
 end
 
-(** Sets of letter pairs *)
+(** Sets of letter pairs. *)
 module Letter2Set = struct
   module Pair = struct
     type t = Letter.t * Letter.t
@@ -51,7 +52,7 @@ type 'c regex =
   | Seq : 'c regex * 'c regex -> 'c regex
   | Star : 'c regex -> 'c regex
 
-(** Λ(r) is {ε} ∩ L(r); we represent it as a bool *)
+(** Λ(r) is {ε} ∩ L(r); we represent it as a bool. *)
 let rec l = function
   | Empty -> false
   | Eps -> true
@@ -60,7 +61,7 @@ let rec l = function
   | Seq (e, f) -> l e && l f
   | Star _ -> true
 
-(** firsts: P(r) = {c | ∃s.cs ∈ L(r) } *)
+(** Firsts: P(r) = {c | ∃s.cs ∈ L(r) } *)
 let rec p =
   let open LetterSet in
   function
@@ -70,7 +71,7 @@ let rec p =
   | Seq (e, f) -> p e <+> if l e then p f else S.empty
   | Star e -> p e
 
-(** lasts: D(r) = {c | ∃s.sc ∈ L(r) } *)
+(** Lasts: D(r) = {c | ∃s.sc ∈ L(r) } *)
 let rec d =
   let open LetterSet in
   function
@@ -80,7 +81,7 @@ let rec d =
   | Seq (f, e) -> (if l e then d f else S.empty) <+> d e
   | Star e -> d e
 
-(** factors of length 2: F(r) = {c₁c₂ | ∃s₁s₂.s₁c₁c₂s₂ ∈ L(R)} *)
+(** Factors of length 2: F(r) = {c₁c₂ | ∃s₁s₂.s₁c₁c₂s₂ ∈ L(R)} *)
 let rec f_ =
   let open Letter2Set in
   function
@@ -88,9 +89,6 @@ let rec f_ =
   | Alt (e, f) -> f_ e <+> f_ f
   | Seq (e, f) -> f_ e <+> f_ f <+> (d e <*> p f)
   | Star e -> f_ e <+> (d e <*> p e)
-
-module StateMap = Map.Make (Int32)
-module CharSetMap = Map.Make (C)
 
 let add_transition2 c i tm =
   let ss =
@@ -193,7 +191,7 @@ let compile r =
   let nfa = { start = StateSet.singleton start_state; finals; next } in
   Dfa.minimize @@ Dfa.determinize nfa
 
-(** Various basic and derived regex combinators *)
+(** Various basic and derived regex combinators. *)
 let seq l r = match (l, r) with Eps, s | s, Eps -> s | l, r -> Seq (l, r)
 
 let alt l r =
@@ -231,16 +229,17 @@ module Parse = struct
     | Some d -> if C.mem c d then () else raise @@ Error (Not_in_domain c)
 
   module Bracket = struct
-    (** Follows the POSIX spec
-          9.3.5 RE Bracket Expression
-           http://pubs.opengroup.org/onlinepubs/009696899/basedefs/xbd_chap09.html#tag_09_03_05
+    (** Follows the POSIX spec 9.3.5 RE Bracket Expression
+        http://pubs.opengroup.org/onlinepubs/009696899/basedefs/xbd_chap09.html#tag_09_03_05
         but there is currently no support for character classes.
 
-        Bracket expressions are delimited by [ and ], with an optional "complement"
-        operator ^ immediately after the [.  Special characters:
-           ^ (immediately after the opening [)
-           ] (except immediately after the opening [ or [^)
-           - (except at the beginning or end)                                   *)
+        Bracket expressions are delimited by '[\[]' and '[\]]', with an optional
+        "complement" operator '[^]' immediately after the '[\[]'.
+
+        Special characters:
+        - '[^]' (immediately after the opening '[\[]');
+        - '[\]]' (except immediately after the opening '[\[]' or '[\[^]');
+        - '[-]' (except at the beginning or end). *)
 
     type element = Char of char | Range of char * char
     type t = { negated : bool; elements : element list }
@@ -314,8 +313,7 @@ module Parse = struct
     | Any -> any maybe_domain
     | Eps -> eps
 
-  (* We've seen [.  Special characters:
-        ^   (beginning of negation)  *)
+  (* We've seen '['. Special characters: '^' (beginning of negation)  *)
   let re_parse_bracketed : char list -> t * char list = function
     | '^' :: s ->
         let elements, rest = Bracket.parse_elements s in
@@ -325,7 +323,7 @@ module Parse = struct
         (Bracketed { negated = false; elements }, rest)
     | [] -> raise @@ Error Generic
 
-  (** ratom ::= . <character> [ bracket ] ( ralt ) *)
+  (** [ratom ::= . <character> [ bracket ] ( ralt )] *)
   let rec re_parse_atom : char list -> (t * char list) option = function
     | '(' :: rest ->
         begin match re_parse_alt rest with
@@ -337,7 +335,7 @@ module Parse = struct
     | '.' :: rest -> Some (Any, rest)
     | h :: rest -> Some (Chr h, rest)
 
-  (** rsuffixed ::= ratom atom * atom + atom ? *)
+  (** [rsuffixed ::= ratom atom * atom + atom ?] *)
   and re_parse_suffixed : char list -> (t * char list) option =
    fun s ->
     match re_parse_atom s with

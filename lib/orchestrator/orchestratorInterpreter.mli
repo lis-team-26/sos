@@ -1,9 +1,9 @@
 open TypedOrchestratorAST
 open Contract.TypedAST
-open Symbolic.Data
 open Symbolic.Runtime
-open PolicyChecker
-open Utils.Data
 
 val build_symex_process :
-  stmt -> contract -> fuel -> (ok_state, not_ok_state, 'a) Symex.Result.t
+  fuel:fuel -> contract -> stmt -> (ok_state, not_ok_state, 'fix) Symex.Result.t
+(** Builds a [Symbolic.Runtime.Symex] symbolic computation evaluating the given
+    orchestrator statement against the given contract, limited by the given
+    fuel. *)

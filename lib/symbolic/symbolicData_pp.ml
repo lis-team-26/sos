@@ -2,59 +2,57 @@ open Format
 open SymbolicData
 open Utils.Data
 open Utils.Data_pp
-open Soteria.Tiny_values
-
-let rec pp_svalue_rec fmt exp =
-  match Svalue.kind exp with
-  | Svalue.Var v ->
-      let type_chr =
-        if Svalue.is_bool_ty (exp |> Typed.type_ |> Typed.get_ty) then 'B'
-        else 'I'
-      in
-      fprintf fmt "%c[%d]" type_chr (Soteria.Symex.Var.to_int v)
-  | Svalue.Bool b -> fprintf fmt (if b then "T" else "F")
-  | Svalue.Int i -> fprintf fmt "%d" (i |> Z.to_int)
-  | Svalue.Unop (op, expr) -> (
-      match op with Not -> fprintf fmt "not(%a)" pp_svalue_rec expr)
-  | Svalue.Binop (op, expr1, expr2) ->
-      fprintf fmt "(%a %s %a)" pp_svalue_rec expr1
-        (match op with
-        | And -> "∧"
-        | Or -> "v"
-        | Eq -> "="
-        | Leq -> "<="
-        | Lt -> "<"
-        | Plus -> "+"
-        | Minus -> "-"
-        | Times -> "*"
-        | Div -> "/"
-        | Rem -> "rem"
-        | Mod -> "mod")
-        pp_svalue_rec expr2
-  | Svalue.Nop (op, exprList) -> (
-      match op with
-      | Distinct ->
-          fprintf fmt "distinct(%a)" (pp_list_inline pp_svalue_rec) exprList)
-  | Svalue.Ite (expr1, expr2, expr3) ->
-      fprintf fmt "(if %a then %a else %a)" pp_svalue_rec expr1 pp_svalue_rec
-        expr2 pp_svalue_rec expr3
 
 let pp_svalue fmt svalue =
-  let expr = Typed.Expr.of_value svalue in
-  pp_svalue_rec fmt expr
+  let open Soteria.Tiny_values.Svalue in
+  let is_atomic svalue =
+    match kind svalue with Var _ | Bool _ | Int _ -> true | _ -> false
+  in
+  let pp_bin_op fmt =
+    let open Binop in
+    function
+    | And -> Fmt.pf fmt "∧"
+    | Or -> Fmt.pf fmt "v"
+    | Eq -> Fmt.pf fmt "="
+    | Leq -> Fmt.pf fmt "<="
+    | Lt -> Fmt.pf fmt "<"
+    | Plus -> Fmt.pf fmt "+"
+    | Minus -> Fmt.pf fmt "-"
+    | Times -> Fmt.pf fmt "*"
+    | Div -> Fmt.pf fmt "/"
+    | Rem -> Fmt.pf fmt "rem"
+    | Mod -> Fmt.pf fmt "mod"
+  in
+  let rec pp_with_parens fmt e =
+    if is_atomic e then pp fmt e else Fmt.pf fmt "(%a)" pp e
+  and pp fmt e =
+    match kind e with
+    | Var v ->
+        let var_type =
+          if is_bool_ty (e |> Typed.type_ |> Typed.get_ty) then 'B' else 'I'
+        in
+        Fmt.pf fmt "%c[%d]" var_type (Soteria.Symex.Var.to_int v)
+    | Bool b -> Fmt.bool fmt b
+    | Int i -> Fmt.int fmt @@ Z.to_int i
+    | Unop (Not, e) -> Fmt.pf fmt "!%a" pp_with_parens e
+    | Binop (op, e1, e2) ->
+        Fmt.pf fmt "%a %a %a" pp_with_parens e1 pp_bin_op op pp_with_parens e2
+    | Nop (Distinct, exprs) ->
+        Fmt.pf fmt "distinct(%a)" (pp_list_inline pp_with_parens) exprs
+    | Ite (e1, e2, e3) ->
+        Fmt.pf fmt "if %a then %a else %a" pp_with_parens e1 pp_with_parens e2
+          pp_with_parens e3
+  in
+  pp_with_parens fmt @@ Typed.Expr.of_value svalue
 
 let rec pp_value fmt = function
   | SymbInt v -> pp_svalue fmt v
   | SymbBool v -> pp_svalue fmt v
   | SymbReceipt { ret_val; successful; qos_fields } ->
-      fprintf fmt
-        "receipt {@,\
-         @[<v 2>  retval = %a;@,\
-         successful = %a;@,\
-         qos = {@,\
-         @[<v 2>  %a@]@,\
-         }@]@,\
-         }"
-        pp_value ret_val pp_value (SymbBool successful)
-        (pp_env Fmt.string pp_value)
-        qos_fields
+      let pp fmt (ret_val, successful, qos_fields) =
+        Fmt.pf fmt "retval: %a;@,successful: %a;@,%a" pp_value ret_val pp_value
+          (SymbBool successful)
+          (pp_field ~name:"qos" (pp_env Fmt.string pp_value))
+          qos_fields
+      in
+      pp_field ~name:"receipt" pp fmt (ret_val, successful, qos_fields)

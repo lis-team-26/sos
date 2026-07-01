@@ -1,4 +1,3 @@
-(* nfa.ml *)
 type state = int32
 
 module StateSet = Set.Make (Int32)

@@ -25,6 +25,7 @@
  (depends
   ocaml
   dune
+  fmt
   menhir
   ppx_blob
   ppx_subliner

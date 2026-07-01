@@ -95,6 +95,6 @@
     policies: [
         sum(cost) < 30,
         max(latency) <= 5,
-        { Login -> l, LockAccount -> k } "kl"
+        { Login -> 'l', LockAccount -> 'k' } "kl"
     ]
 }

@@ -308,6 +308,7 @@
         sum(cost) < 90,
         avg(latency) < 20,
         max(latency) < 20,
-        { Intake -> i, Eligibility -> e, Diagnose -> d, Authorize -> a, Dispense -> m, AuditClaim -> u, CloseClaim -> c } "[iedamuc]*uu"
+        { Intake -> 'i', Eligibility -> 'e', Diagnose -> 'd', Authorize -> 'a',
+            Dispense -> 'm', AuditClaim -> 'u', CloseClaim -> 'c' } "[iedamuc]*uu"
     ]
 }

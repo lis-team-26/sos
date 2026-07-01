@@ -156,6 +156,6 @@
         sum(cost) < 45 group-by applicant,
         avg(latency) <= 6,
         max(risk) <= 9,
-        { PullCredit -> c, VerifyIncome -> i, MakeOffer -> o, RejectApplication -> r } "oc"
+        { PullCredit -> 'c', MakeOffer -> 'o' } "oc"
     ]
 }

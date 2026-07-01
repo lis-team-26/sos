@@ -1,14 +1,17 @@
 open SymbolicData
-open Soteria
 open Expr.TypedAST
 open Contract.TypedAST
 open Utils.Data
-open Utils.Types
+open Utils.Loc
+open Utils.Scope
 module Symex = Soteria.Symex.Make (Soteria.Tiny_values.Tiny_solver.Z3_solver)
 module Compo_res = Soteria.Symex.Compo_res
 include Symex.Syntax
 module Fuel = Soteria.Symex.Fuel_gauge.Fuel_value
 
+(** A map whose keys are symbolic values. It is used to aggregate the history
+    during the policy checking for policies whose specification includes a
+    'group-by' clause. *)
 module SymbolicMap =
   Soteria.Data.S_map.Make
     (Symex)
@@ -23,6 +26,9 @@ module SymbolicMap =
       let distinct = Typed.distinct
     end)
 
+(** A map whose keys are symbolic values. It is used to handle the memoization
+    of function applications, in order to be consistent against the functional
+    property throughout the execution. *)
 module SymbolicListMap =
   Soteria.Data.S_map.Make
     (Symex)
@@ -62,8 +68,6 @@ module SymbolicListMap =
       let distinct _ = Typed.v_false
     end)
 
-type 'a symbolic_list_env = 'a SymbolicListMap.t
-
 type invocation = {
   service : service;
   actual_args : symbolic_value env;
@@ -71,69 +75,85 @@ type invocation = {
   successful : symb_bool;
   actual_qos : symbolic_value env;
 }
+(** Runtime structure representing a service invocation. *)
 
-type stack = invocation list
-type function_env = symbolic_value symbolic_list_env
+type history = invocation list
+(** Represents the history of all service invocations made during the execution.
+*)
 
+type function_env = symbolic_value SymbolicListMap.t
+(** Runtime structure representing a the current state of a function: the map
+    encodes all the memoized function applications done so far using that
+    function. *)
+
+(** Possible causes of errors during the execution. *)
 type error_cause =
   | DivByZeroError
   | PrecondError of service
-  | PolicyError of int * policy
+  | PolicyError of int * policy_spec
   | AssertionError of bexpr
 
+(** A map whose keys are error causes. It is used to aggregate errors after the
+    execution and group them by cause. *)
 module ErrorCauseMap = Map.Make (struct
   type t = error_cause located
 
-  let compare a b =
-    match (a, b) with
-    | { value = DivByZeroError }, { value = DivByZeroError } -> 0
-    | { value = DivByZeroError }, _ -> -1
-    | _, { value = DivByZeroError } -> 1
-    | ( { value = PrecondError svc1; loc = loc1 },
-        { value = PrecondError svc2; loc = loc2 } ) ->
-        let c = compare loc1 loc2 in
-        if c <> 0 then c else compare svc1.name svc2.name
-    | { value = PrecondError _ }, _ -> -1
-    | _, { value = PrecondError _ } -> 1
-    | ( { value = PolicyError (idx1, _); loc = loc1 },
-        { value = PolicyError (idx2, _); loc = loc2 } ) ->
-        let c = compare loc1 loc2 in
-        if c <> 0 then c else compare idx1 idx2
-    | { value = PolicyError _ }, _ -> -1
-    | _, { value = PolicyError _ } -> 1
-    | ( { value = AssertionError _; loc = loc1 },
-        { value = AssertionError _; loc = loc2 } ) ->
-        compare loc1 loc2
+  let compare_causes cause1 cause2 =
+    match (cause1, cause2) with
+    | DivByZeroError, DivByZeroError -> 0
+    | PrecondError s1, PrecondError s2 -> String.compare s1.name s2.name
+    | PolicyError (id1, _), PolicyError (id2, _) -> Int.compare id1 id2
+    | AssertionError _, AssertionError _ -> 0
+    | DivByZeroError, _ -> -1
+    | _, DivByZeroError -> 1
+    | PrecondError _, _ -> -1
+    | _, PrecondError _ -> 1
+    | PolicyError _, _ -> -1
+    | _, PolicyError _ -> 1
+
+  let compare cause1 cause2 =
+    match compare_causes cause1.it cause2.it with
+    | 0 -> compare cause1.at cause2.at
+    | cmp -> cmp
 end)
 
 type fuel = { steps : Fuel.t; branching : Fuel.t; unroll : Fuel.t }
+(** Runtime structure representing the current fuel available for execution. *)
+
 type path_condition = symb_bool list
+(** A path condition, which is a list of symbolic booleans (to be intended as in
+    conjunction).*)
 
 type ok_state = {
   scope : symbolic_value scope;
-  ok_stack : stack;
+  history : history;
   fuel : fuel;
   function_envs : function_env env;
   service_map : service env;
 }
+(** Runtime structure representing the current state of the execution. *)
 
 type err_state = {
   cause : error_cause located;
   err_scope : symbolic_value scope;
-  err_stack : stack;
+  err_history : history;
   function_envs : function_env env;
 }
+(** Runtime structure representing an erroneous execution. *)
 
+(** Runtime structure representing a non-ok state, which can be either an
+    unexplored branch or an error. It will be propagated till the end of the
+    computation*)
 type not_ok_state = Unexplored of ok_state | Err of err_state
+
 type 'fix result = (ok_state, not_ok_state, 'fix) Compo_res.t * path_condition
+(** A type alias for the result of a single branch execution. *)
 
-let located_error_cause cause ~loc = { value = cause; loc }
-
-let error_from_cause ok_state cause =
+let error_from_cause ~last_ok cause =
   Err
     {
       cause;
-      err_scope = ok_state.scope;
-      err_stack = ok_state.ok_stack;
-      function_envs = ok_state.function_envs;
+      err_scope = last_ok.scope;
+      err_history = last_ok.history;
+      function_envs = last_ok.function_envs;
     }

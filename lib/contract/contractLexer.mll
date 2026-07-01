@@ -9,6 +9,7 @@ let white = [' ' '\t']+
 let integer = '-'?['0' - '9']['0' - '9']*
 let bool = "true" | "false"
 let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let char = '\'' ['a'-'z' 'A'-'Z' '0'-'9'] '\''
 let regex = '"'(['a'-'z' 'A'-'Z' '0'-'9' '|' '(' ')' '[' ']' '*' '-' '^' '.' '?' '+']+)'"'
 
 rule read = parse
@@ -66,9 +67,10 @@ rule read = parse
   | white { read lexbuf }
   | integer { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | bool { BOOL (bool_of_string (Lexing.lexeme lexbuf)) }
+  | char { CHAR (String.get (Lexing.lexeme lexbuf) 1) }
   | id { VAR (Lexing.lexeme lexbuf) }
   | regex { REG (let s = Lexing.lexeme lexbuf in String.sub s 1 ((String.length s) - 2)) }
   | eof { EOF }
-  | _ as c {
-      raise (LexerError (Printf.sprintf "Unexpected character '%c' at position %d" c (Lexing.lexeme_start lexbuf)))
-    }
+  | _ as c
+    { raise (LexerError
+      (Fmt.str "Unexpected character '%c' at position %d" c (Lexing.lexeme_start lexbuf))) }

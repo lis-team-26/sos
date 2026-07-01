@@ -5,304 +5,314 @@ open Contract.AST
 open Contract.TypedAST
 open Reg2dfa
 open Utils.Data
+open Utils.Loc
 
-(* Each policy can specify to be checked only for portions of the history:
- 1) when group_by is None, check for the whole history
- 2) when it is Some p, check for all sub-sequences of the history where p,
-the parameter, has been assigned the same symbolic value (skip all invoked services
- that do not have p as a parameter, group by p for the remaining services)
- For 2), the group_by must be aware of the path-condition, so Soteria.Data.Map is used
-to remember the state of the policy verification for each symbolic value that has been
-assigned to p in every service invocation.*)
+(** Internal state of a policy checker. Each policy can specify to be checked
+    only for some portions of the history:
+    - when [group_by] is [None], check it against the whole history
+    - when it is [Some param], check for all sub-sequences of the history where
+      [param], the parameter, has been assigned the same symbolic value (skip
+      all invoked services that do not have [param] as a parameter, group by
+      [param] for the remaining services).
 
-type 'a checkerState =
-  | Ungrouped of 'a (*whole history*)
-  | Grouped of string (*=p*) * 'a SymbolicMap.t
-(*only those services that have p as parameter, invocations grouped by p*)
+    For the second kind of policy, the [group_by] must be aware of the
+    path-condition, so [Soteria.Data.Map] is used to remember the state of the
+    policy verification for each symbolic value that has been assigned to
+    [param] in every service invocation.*)
+type 'a checker_state =
+  | Ungrouped of 'a  (** Checks the policy against the whole history *)
+  | Grouped of ident * 'a SymbolicMap.t
+      (** Checks the policy against the sub-sequences of the history obtained by
+          grouping by [param] *)
 
-type pChecker =
-  | QosAggregate of
-      symb_int
-      (*can be many things, depending on the aggregate operation*)
-      checkerState
-      * symb_int (*initial state*)
-      * (symb_int -> symb_int -> symb_int)
-      * (*sum, max, ...*)
-        string
-        (*the Qos field to aggregate*)
-      * (symb_int -> symb_int -> symb_bool)
-      * (*comparison*)
-        int
-        (*the integer to compare to the result of the aggregation*)
-      * bool (*should the policy be verified each time?*)
-  | QosAvg of
-      (symb_int (*sum on the Qos field*)
-      * int (*count of service invocations seen so far*))
-      checkerState
-      * (symb_int -> symb_int -> symb_bool)
-      * (*comparison*)
-        string
-        (*the Qos field to sum*)
-      * int
-    (*the integer to compare to the result of the sum divided by invoke count*)
-  | Dfa of
-      Nfa.state (*initial state of the dfa*)
-      * Nfa.state option (*current state of the policy checker*) checkerState
-      * char StringMap.t
-      * (Nfa.state option -> char -> Nfa.state option)
-      * (*transition relation*)
-      Nfa.state list (*list of final states*)
-  | Ascending of
-      symb_int (*max value of the Qos field seen so far*) checkerState
-      * string (*the Qos field*)
-  | Descending of
-      symb_int (*min value of the Qos field seen so far*) checkerState
-      * string (*the Qos field*)
+(** Encodes the kind of policy checker, which is determined by the policy
+    specification. Policies kind are distinguished by their specification and by
+    the way they are enforced during the execution. Each policy kind is also
+    enriched with the information needed to enforce it. *)
+type checker_kind =
+  | QosAggregate of {
+      initial_value : symb_int;  (** Initial value for the aggregation *)
+      curr_state : symb_int checker_state;  (** Current aggregated value *)
+      aggr_op : symb_int -> symb_int -> symb_int;  (** Aggregation operation *)
+      field : ident;  (** QoS field to aggregate *)
+      cmp_op : symb_int -> symb_int -> symb_bool;
+          (** Comparison operation to use against the current aggregated value
+              and the policy's threshold *)
+      threshold : int;
+          (** Threshold value for the comparison; depending on the comparison
+              operation it can be a lower or upper bound *)
+      verify_now : bool;
+          (** Tells whether the policy should be verified at every invocation or
+              at the end of the execution *)
+    }
+  | QosAvg of {
+      curr_state : (symb_int * int) checker_state;
+          (** Current sum of the aggregated QoS field with the number of
+              invocations seen so far (needed to compute the average) *)
+      cmp_op : symb_int -> symb_int -> symb_bool;
+          (** Comparison operation to use against the current average and the
+              policy's threshold *)
+      field : ident;  (** QoS field to aggregate *)
+      threshold : int;
+          (** Threshold value for the final comparison against the computed
+              average *)
+    }
+  | Dfa of {
+      initial_state : Nfa.state;  (** Automaton's initial state*)
+      curr_state : Nfa.state option checker_state;
+          (** Current state of the automaton *)
+      serv2letter : char StringMap.t;
+          (** Mapping from service name to the character used in the regex *)
+      transition : Nfa.state option -> char -> Nfa.state option;
+          (** Automaton's transition relation *)
+      final_states : Nfa.state list;
+          (** Automaton's final states: if the current state is one of these,
+              the policy is violated *)
+    }
+  | Ascending of {
+      max : symb_int checker_state;
+          (** Max value of the QoS field seen so far *)
+      field : ident;  (** QoS field to check for ascending order *)
+    }
+  | Descending of {
+      min : symb_int checker_state;
+          (** Min value of the QoS field seen so far *)
+      field : ident;  (** QoS field to check for descending order *)
+    }
 
-type policyChecker = { id : int; policy : policy; checker : pChecker }
+type policy_checker = { id : int; spec : policy_spec; checker : checker_kind }
 
-(*Warning: some policy may not be satisfied, but can be satisfied later.
-  Ex: avg(cost) < 30, may not be satisfied when the costs are 35,30, but if the
-  next invoke has cost = 3 it becomes satisfied. This also applies to sum(latency) > 50.
- The distinction must be made between these two kind of policies: at each update, some
- of them can be verified now, other can only be verified at the end*)
-let verify_now aggrOp cmp =
-  let ascending = function Min -> false | _ -> true in
-  let less = function Lt | Le -> true | _ -> false in
-  ascending aggrOp == less cmp
-  && match (aggrOp, cmp) with Avg, _ | _, Eq | _, Neq -> false | _ -> true
+let raise_violation ~loc policy =
+  Symex.Result.error (located ~loc (PolicyError (policy.id, policy.spec)))
 
-let cmp_function = function
+(** Returns true if the policy should be verified at every invocation, false
+    otherwise. This is because some policy may not be satisfied now, but they
+    can be satisfied later: for instance, [avg(cost) < 30] may not be satisfied
+    when the costs are [[35;30]], but if the next invoke has [cost = 3] it
+    becomes satisfied. This also applies to [sum(latency) > 50]. The two kind of
+    policies must be distinguished: at each update, some of them can be verified
+    now, and others can only be verified at the end. *)
+let verifiable_now aggr_op cmp_op =
+  let is_ascending = function Min -> false | _ -> true in
+  let is_less = function Lt | Le -> true | _ -> false in
+  is_ascending aggr_op == is_less cmp_op
+  && match (aggr_op, cmp_op) with Avg, _ | _, Eq | _, Neq -> false | _ -> true
+
+let cmp_fun_of_cmp_op = function
   | Lt -> Typed.lt
   | Le -> Typed.leq
   | Gt -> Typed.gt
   | Ge -> Typed.geq
   | Eq -> Typed.sem_eq
-  | Neq -> fun l r -> Typed.not @@ Typed.sem_eq l r
+  | Neq -> fun x y -> Typed.not @@ Typed.sem_eq x y
 
-let aggr_function = function
-  | Sum -> fun acc cv -> Typed.add acc cv
-  | Max -> fun acc cv -> Typed.ite (Typed.gt cv acc) cv acc
-  | Min -> fun acc cv -> Typed.ite (Typed.lt cv acc) cv acc
-  | Avg -> failwith "Avg should be handled separately"
+let aggr_fun_of_aggr_op = function
+  | Sum -> fun x y -> Typed.add x y
+  | Max -> fun x y -> Typed.ite (Typed.gt y x) y x
+  | Min -> fun x y -> Typed.ite (Typed.lt y x) y x
+  | Avg -> failwith "Unreachable: average policies should be handled separately"
 
-(*the policy checker has a state that is updated at each invoke. If one update puts it in the final state, the policy is violated*)
-let init_policy id (policyType, group_by) =
-  let initial_state state =
+let build_policy_checker id policy_spec =
+  let policy_type, group_by = policy_spec in
+  let initialize_with state =
     match group_by with
     | None -> Ungrouped state
     | Some param -> Grouped (param, SymbolicMap.empty)
   in
   let checker =
-    match policyType with
-    | QosFieldOp (Avg, fieldName, operator, i) ->
+    match policy_type with
+    | QosFieldOp (Avg, field, cmp_op, threshold) ->
         QosAvg
-          (initial_state (Typed.int 0, 0), cmp_function operator, fieldName, i)
-    | QosFieldOp (aggregator, fieldName, operator, i) ->
-        (* meaning: <aggregator>(<fieldname>) <operator> i *)
-        let init =
+          {
+            curr_state = initialize_with (Typed.int 0, 0);
+            cmp_op = cmp_fun_of_cmp_op cmp_op;
+            field;
+            threshold;
+          }
+    | QosFieldOp (aggr_op, field, cmp_op, threshold) ->
+        (* Means that the policy must ensure the following: <aggr_op>(<field>) <cmp_op> <threshold> *)
+        let initial_value =
           Typed.int
-            (match aggregator with
+            (match aggr_op with
             | Sum | Avg -> 0
             | Min -> Int.max_int
             | Max -> Int.min_int)
         in
         QosAggregate
-          ( initial_state init,
-            init,
-            aggr_function aggregator,
-            fieldName,
-            cmp_function operator,
-            i,
-            verify_now aggregator operator )
-    | Regex (serv2chr, reg) ->
-        let domain = CharSet.of_list @@ List.map snd serv2chr in
-        let serv2chr = StringMap.of_seq @@ List.to_seq serv2chr in
-        (*NOTE: this throws an exception if reg is malformed*)
-        let dfa = Regex.reg2dfa ~domain reg in
-        let step_if_in_domain =
-         fun maybe_cur ch ->
-          if not @@ CharSet.mem ch domain then maybe_cur
-          else Dfa.step dfa maybe_cur ch
+          {
+            curr_state = initialize_with initial_value;
+            initial_value;
+            aggr_op = aggr_fun_of_aggr_op aggr_op;
+            field;
+            cmp_op = cmp_fun_of_cmp_op cmp_op;
+            threshold;
+            verify_now = verifiable_now aggr_op cmp_op;
+          }
+    | Regex (s2l, regex) ->
+        let domain = CharSet.of_list @@ List.map snd s2l in
+        let s2l = StringMap.of_seq @@ List.to_seq s2l in
+        (* NOTE: this throws an exception if reg is malformed *)
+        let dfa = Regex.reg2dfa ~domain regex in
+        let step_if_in_domain maybe_curr letter =
+          if not @@ CharSet.mem letter domain then maybe_curr
+          else Dfa.step dfa maybe_curr letter
         in
         Dfa
-          ( dfa.start,
-            initial_state (Some dfa.start),
-            (*current state*)
-            serv2chr,
-            (*mapping from service name -> char*)
-            step_if_in_domain,
-            Nfa.StateSet.to_list dfa.finals )
-    | Sort fieldName -> Ascending (initial_state (Typed.int 0), fieldName)
+          {
+            initial_state = dfa.start;
+            curr_state = initialize_with (Some dfa.start);
+            serv2letter = s2l;
+            transition = step_if_in_domain;
+            final_states = Nfa.StateSet.to_list dfa.finals;
+          }
+    | Sort field -> Ascending { max = initialize_with (Typed.int 0); field }
   in
-  { id; policy = (policyType, group_by); checker }
+  { id; spec = policy_spec; checker }
 
-let map_state initial f invocation service = function
-  | Ungrouped s ->
-      let++ next = f s in
-      Ungrouped next
-  | Grouped (field, symMap) -> (
-      let v =
-        (*get the symbolic value of the argument assigned to p*)
-        StringMap.find_opt field invocation.actual_args
-      in
-      match v with
-      | None ->
-          (*if the service doesn't have that parameter, then skip the invoke*)
-          Symex.Result.ok (Grouped (field, symMap))
-      | Some ar ->
-          let arg =
-            match ar with
+(** Updates the current checker state by applying [f]. If the checker is
+    ungrouped, the state is updated directly. If the checker is grouped, the
+    state is updated for the group to which the argument belongs, which is
+    initialized to [initial_state] if the group is new. *)
+let update_checker_state ~initial_state ~args ~f = function
+  | Ungrouped value ->
+      let++ next_value = f value in
+      Ungrouped next_value
+  | Grouped (field, symb_map) -> (
+      (* Get the symbolic value of the argument assigned to grouped parameter *)
+      match StringMap.find_opt field args with
+      (* If the service doesn't have that parameter, then skip the policy update *)
+      | None -> Symex.Result.ok (Grouped (field, symb_map))
+      | Some value ->
+          let value =
+            match value with
             | SymbInt i -> Typed.cast i
             | SymbBool b -> Typed.cast b
             | SymbReceipt _ ->
                 failwith
                   "Unreachable: receipts cannot be used as grouping parameters"
           in
-          (*otherwise*)
-          let* k, s =
-            SymbolicMap.find_opt arg
-              symMap (*match it with previous argument assigned to p, if any*)
-          in
-          let** next =
-            match s with None -> f initial | Some state -> f state
+          (* Match it with previous argument assigned to [field], if any *)
+          let* key, s = SymbolicMap.find_opt value symb_map in
+          let** next_value =
+            match s with None -> f initial_state | Some value -> f value
           in
           Symex.Result.ok
-            (Grouped (field, SymbolicMap.syntactic_add k next symMap)))
+            (Grouped (field, SymbolicMap.syntactic_add key next_value symb_map))
+      )
 
-let update_policy invocation policy =
-  let svc = invocation.service in
-  match policy.checker with
-  | QosAggregate (sint, initial, aggrOp, aggrField, cmp, cmpInt, verNow) -> (
-      match StringMap.find_opt aggrField invocation.actual_qos with
-      | None -> Symex.Result.ok policy
-      | Some current_val -> (
-          match current_val with
-          | SymbInt cv ->
-              let** next =
-                map_state initial
-                  (fun aggregate ->
-                    let new_aggregate = aggrOp aggregate cv in
-                    if verNow then
-                      let policy_holds = cmp new_aggregate (Typed.int cmpInt) in
-                      if%sat policy_holds then Symex.Result.ok new_aggregate
-                      else
-                        Symex.Result.error
-                          (PolicyError (policy.id, policy.policy))
-                    else Symex.Result.ok new_aggregate)
-                  invocation svc sint
-              in
-              Symex.Result.ok
-                {
-                  policy with
-                  checker =
-                    QosAggregate
-                      (next, initial, aggrOp, aggrField, cmp, cmpInt, verNow);
-                }
-          | _ -> failwith "Expected integer QoS field for aggregate policy"))
-  | QosAvg (sint_count, cmp, avgField, cmpInt) -> (
-      match StringMap.find_opt avgField invocation.actual_qos with
-      | None ->
-          (* Service doesn't report this QoS field; skip policy update *)
-          Symex.Result.ok policy
-      | Some current_val -> (
-          match current_val with
-          | SymbInt cv ->
-              let** result =
-                map_state
-                  (Typed.int 0, 0)
-                  (fun value ->
-                    let new_cnt = snd value + 1 in
-                    let new_sum = Typed.add (fst value) cv in
-                    (* Do not check eagerly: avg can recover on future calls.
+(** Updates the state of the current [policy] against the given [invocation]. If
+    this can symbolically cause an error on some branches, they are reported. *)
+let update_policy ~loc invocation policy =
+  let** checker =
+    match policy.checker with
+    | QosAggregate checker -> (
+        match StringMap.find_opt checker.field invocation.actual_qos with
+        | Some (SymbInt value) ->
+            let** next_state =
+              update_checker_state ~initial_state:checker.initial_value
+                ~args:invocation.actual_args
+                ~f:(fun aggregate ->
+                  let new_aggregate = checker.aggr_op aggregate value in
+                  if checker.verify_now then
+                    let policy_holds =
+                      checker.cmp_op new_aggregate (Typed.int checker.threshold)
+                    in
+                    if%sat policy_holds then Symex.Result.ok new_aggregate
+                    else raise_violation ~loc policy
+                  else Symex.Result.ok new_aggregate)
+                checker.curr_state
+            in
+            Symex.Result.ok
+              (QosAggregate { checker with curr_state = next_state })
+        | None -> failwith "Unreachable: QoS field not found in invocation"
+        | _ ->
+            failwith
+              "Unreachable: expected integer QoS field for aggregate policy")
+    | QosAvg checker -> (
+        match StringMap.find_opt checker.field invocation.actual_qos with
+        | Some (SymbInt value) ->
+            let** next_state =
+              update_checker_state
+                ~initial_state:(Typed.int 0, 0)
+                ~args:invocation.actual_args
+                ~f:(fun (sum, cnt) ->
+                  let new_cnt = cnt + 1 in
+                  let new_sum = Typed.add sum value in
+                  (* Don't check eagerly: avg can recover on future calls.
                        Just accumulate (sum, count) and defer the check to verify_policy. *)
-                    Symex.Result.ok (new_sum, new_cnt))
-                  invocation svc sint_count
-              in
-              Symex.Result.ok
-                { policy with checker = QosAvg (result, cmp, avgField, cmpInt) }
-          | _ -> failwith "Expected integer QoS field for average policy"))
-  | Dfa (start, curState, servMap, transition, finalStates) ->
-      let** result =
-        map_state (Some start)
-          (fun cur ->
-            let chr_opt = StringMap.find_opt svc.name servMap in
-            match chr_opt with
-            (* Service not in the regex domain: self-loop, state unchanged *)
-            | None -> Symex.Result.ok cur
-            | Some chr -> (
-                let nextState = transition cur chr in
-                match nextState with
-                (* Ended up in sink state *)
-                | None -> Symex.Result.ok nextState
-                | Some nextState ->
-                    if List.mem nextState finalStates then
-                      Symex.Result.error
-                        (PolicyError (policy.id, policy.policy))
-                    else Symex.Result.ok (Some nextState)))
-          invocation svc curState
-      in
-      Symex.Result.ok
-        {
-          policy with
-          checker = Dfa (start, result, servMap, transition, finalStates);
-        }
-  | Ascending (maximum, field) -> (
-      match StringMap.find_opt field invocation.actual_qos with
-      | None -> Symex.Result.ok policy
-      | Some current_val -> (
-          match current_val with
-          | SymbInt cv ->
-              let** next =
-                map_state (Typed.int Int.min_int)
-                  (fun current_max ->
-                    let violation = Typed.lt cv current_max in
-                    if%sat violation then
-                      Symex.Result.error
-                        (PolicyError (policy.id, policy.policy))
-                    else Symex.Result.ok cv)
-                  invocation svc maximum
-              in
-              Symex.Result.ok { policy with checker = Ascending (next, field) }
-          | _ -> failwith "Expected integer QoS field for ascending policy"))
-  | Descending (minimum, field) -> (
-      match StringMap.find_opt field invocation.actual_qos with
-      | None -> Symex.Result.ok policy
-      | Some current_val -> (
-          match current_val with
-          | SymbInt cv ->
-              let** next =
-                map_state (Typed.int Int.max_int)
-                  (fun current_min ->
-                    let violation = Typed.gt cv current_min in
-                    if%sat violation then
-                      Symex.Result.error
-                        (PolicyError (policy.id, policy.policy))
-                    else Symex.Result.ok cv)
-                  invocation svc minimum
-              in
-              Symex.Result.ok { policy with checker = Descending (next, field) }
-          | _ -> failwith "Expected integer QoS field for descending policy"))
+                  Symex.Result.ok (new_sum, new_cnt))
+                checker.curr_state
+            in
+            Symex.Result.ok (QosAvg { checker with curr_state = next_state })
+        | None -> failwith "Unreachable: QoS field not found in invocation"
+        | _ -> failwith "Expected integer QoS field for average policy")
+    | Dfa checker ->
+        let** next_state =
+          update_checker_state ~initial_state:(Some checker.initial_state)
+            ~args:invocation.actual_args
+            ~f:(fun curr_state ->
+              match
+                StringMap.find_opt invocation.service.name checker.serv2letter
+              with
+              (* Service not in the regex domain: self-loop, state unchanged *)
+              | None -> Symex.Result.ok curr_state
+              | Some letter -> (
+                  match checker.transition curr_state letter with
+                  (* Ended up in a sink state *)
+                  | None -> Symex.Result.ok None
+                  | Some next_state ->
+                      if List.mem next_state checker.final_states then
+                        raise_violation ~loc policy
+                      else Symex.Result.ok (Some next_state)))
+            checker.curr_state
+        in
+        Symex.Result.ok (Dfa { checker with curr_state = next_state })
+    | Ascending checker -> (
+        match StringMap.find_opt checker.field invocation.actual_qos with
+        | Some (SymbInt cv) ->
+            let** new_max =
+              update_checker_state ~initial_state:(Typed.int Int.min_int)
+                ~args:invocation.actual_args
+                ~f:(fun current_max ->
+                  let violation = Typed.lt cv current_max in
+                  if%sat violation then raise_violation ~loc policy
+                  else Symex.Result.ok cv)
+                checker.max
+            in
+            Symex.Result.ok (Ascending { checker with max = new_max })
+        | None -> failwith "Unreachable: QoS field not found in invocation"
+        | _ -> failwith "Expected integer QoS field for ascending policy")
+    | Descending checker -> (
+        match StringMap.find_opt checker.field invocation.actual_qos with
+        | Some (SymbInt cv) ->
+            let** new_min =
+              update_checker_state ~initial_state:(Typed.int Int.max_int)
+                ~args:invocation.actual_args
+                ~f:(fun current_min ->
+                  let violation = Typed.gt cv current_min in
+                  if%sat violation then raise_violation ~loc policy
+                  else Symex.Result.ok cv)
+                checker.min
+            in
+            Symex.Result.ok (Descending { checker with min = new_min })
+        | None -> failwith "Unreachable: QoS field not found in invocation"
+        | _ -> failwith "Expected integer QoS field for descending policy")
+  in
+  Symex.Result.ok { policy with checker }
 
-(* Verify the final state of a policy checker without updating it.
-   Called at the end of symbolic execution for policies that cannot be
-   checked eagerly (i.e. QosAggregate with verNow = false, and QosAvg).
-   Returns Symex.Result.ok () if the policy is satisfied,
-   Symex.Result.error msg otherwise. *)
-
-(* Helper: apply a check function to every group's accumulated state.
-   For Ungrouped, applies f once to the single accumulated state.
-   For Grouped, uses ValMap.find_opt with a fresh symbolic key to let Soteria
-   branch over all possible groups under their respective path conditions. *)
-
+(** Helper function, which applies a check function [f] to every group's
+    accumulated state. For [Ungrouped], applies [f] once to the single
+    accumulated state. For [Grouped], it uses [SymbolicMap.find_opt] with a
+    fresh symbolic key to let Soteria branch over all possible groups under
+    their respective path conditions. *)
 let check_each_group f = function
   | Ungrouped s -> f s
-  | Grouped (_, symMap) -> (
-      (* syntactic_bindings returns the list of (key, value) pairs that have
-         been inserted with syntactic_add — i.e. the concrete groups built
-         during update_policy. We fold over them sequentially and stop at the
+  | Grouped (_, symb_map) -> (
+      (* [syntactic_bindings] returns the list of (key, value) pairs that have
+         been inserted with [syntactic_add] — i.e. the concrete groups built
+         during [update_policy]. We fold over them sequentially and stop at the
          first violation (the monadic bind propagates errors). *)
-      let bindings = List.of_seq (SymbolicMap.syntactic_bindings symMap) in
+      let bindings = List.of_seq (SymbolicMap.syntactic_bindings symb_map) in
       match bindings with
       | [] ->
           (* No invocations were ever grouped: nothing to verify *)
@@ -314,31 +324,35 @@ let check_each_group f = function
               f state)
             (Symex.Result.ok ()) bindings)
 
+(** Verifies the final state of a policy checker without updating it. Called at
+    the end of symbolic execution for policies that cannot be checked eagerly
+    (i.e. [QosAggregate] with [verify_now = false], and [QosAvg]). Returns [()]
+    if the policy is satisfied, an error message with [EOFLoc] as source code
+    location otherwise. *)
 let verify_policy policy =
   match policy.checker with
-  | QosAggregate (sint, _, _, _, cmp, cmpInt, verNow) ->
-      (* Already verified eagerly at each step when verNow = true *)
-      if verNow then Symex.Result.ok ()
-      else
-        check_each_group
-          (fun aggregate ->
-            (* cmp returns true when the policy IS satisfied, so negate for violation *)
-            let satisfied = cmp aggregate (Typed.int cmpInt) in
-            if%sat satisfied then Symex.Result.ok ()
-            else Symex.Result.error (PolicyError (policy.id, policy.policy)))
-          sint
-  | QosAvg (sint_count, cmp, _, cmpInt) ->
-      (* QosAvg is never verified eagerly (avg can recover across invocations) *)
+  | QosAggregate checker when not checker.verify_now ->
+      check_each_group
+        (fun aggregate ->
+          (* [cmp_op] returns true when the policy IS satisfied, so negate for violation *)
+          let satisfied =
+            checker.cmp_op aggregate (Typed.int checker.threshold)
+          in
+          if%sat satisfied then Symex.Result.ok ()
+          else raise_violation ~loc:EOFLoc policy)
+        checker.curr_state
+  | QosAvg checker ->
+      (* [QosAvg] is never verified eagerly (avg can always recover across invocations) *)
       check_each_group
         (fun (sum, count) ->
           if count = 0 then Symex.Result.ok ()
           else
             let avg = Typed.div sum (Typed.nonzero count) in
             (* cmp returns true when the policy IS satisfied, so negate for violation *)
-            let satisfied = cmp avg (Typed.int cmpInt) in
+            let satisfied = checker.cmp_op avg (Typed.int checker.threshold) in
             if%sat satisfied then Symex.Result.ok ()
-            else Symex.Result.error (PolicyError (policy.id, policy.policy)))
-        sint_count
-  (* Dfa, Ascending, Descending: violations are monotone.
-     If no violation occurred at any step, the final state is valid. *)
-  | Dfa _ | Ascending _ | Descending _ -> Symex.Result.ok ()
+            else raise_violation ~loc:EOFLoc policy)
+        checker.curr_state
+  (* [Dfa], [Ascending] and [Descending] violations are monotone: if no violation occurred
+     at any step, the final state is valid *)
+  | _ -> Symex.Result.ok ()
