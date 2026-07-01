@@ -6,7 +6,7 @@
         MAX_RETRIES: int
     ],
     globals_assumptions: [
-        MAX_RETRIES == 3,
+        MAX_RETRIES = 3,
         tries >= 1,
         tries <= MAX_RETRIES
     ],

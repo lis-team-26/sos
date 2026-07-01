@@ -128,7 +128,7 @@ let type_check_orchestrator contract program =
   let qos_env = contract.qos |> List.map drop_loc |> StringMap.of_list in
   let* typed_stmt, _ =
     type_check_stmt
-      ~scope:[ StringMap.of_list globals ]
+      ~scope:[ StringMap.empty; StringMap.of_list globals ]
       ~fun_env ~qos_env ~svc_env program
   in
   Ok typed_stmt

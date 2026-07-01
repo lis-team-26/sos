@@ -1,5 +1,6 @@
 {
-    globals: [ ],
+    globals: [ x: int ],
+    globals_assumptions: [ ],
     functions: [ ],
     QoS: [ ],
     services: [ ],

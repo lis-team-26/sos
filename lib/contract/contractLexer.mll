@@ -14,6 +14,7 @@ let regex = '"'(['a'-'z' 'A'-'Z' '0'-'9' '|' '(' ')' '[' ']' '*' '-' '^' '.' '?'
 
 rule read = parse
   (* Symbols and operators *)
+  | ":=" { ASSIGN }
   | ":" { COLON }
   | "," { COMMA }
   | "->" { ARROW }
@@ -26,10 +27,10 @@ rule read = parse
   | ">=" { GE }
   | ">" { GT }
   | "!" { NOT }
+  | "=" { EQ }
+  | "!=" { NEQ }
   | "&&" { AND }
   | "||" { OR }
-  | "=" { EQ }
-  | ":=" { ASSIGN }
   (* Aggregate operators *)
   | "sum" { SUM }
   | "avg" { AVG }
