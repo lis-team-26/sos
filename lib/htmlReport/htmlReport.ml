@@ -316,14 +316,13 @@ let service_anchor_opt contract_source service_name =
   |> Option.map (source_anchor contract_source)
 
 let policy_anchor_opt contract_source policy_idx =
-  let visible_idx = policy_idx + 1 in
-  IntMap.find_opt visible_idx contract_source.policy_lines
+  IntMap.find_opt policy_idx contract_source.policy_lines
   |> Option.map (source_anchor contract_source)
 
 let error_title = function
   | DivByZeroError -> "Division by zero"
   | PrecondError svc -> Fmt.str "Precondition failed for %s" svc.name
-  | PolicyError (idx, _) -> Fmt.str "Policy violation #%d" (idx + 1)
+  | PolicyError (idx, _) -> Fmt.str "Policy violation #%d" idx
   | AssertionError _ -> "Assertion failed"
 
 let error_detail = function
@@ -347,7 +346,7 @@ let error_context_json contract_source = function
       json_obj
         [
           field "kind" (json_string "Contract");
-          field "label" (json_string (Fmt.str "policy #%d" (idx + 1)));
+          field "label" (json_string (Fmt.str "policy #%d" idx));
           field "anchor"
             (json_option json_string (policy_anchor_opt contract_source idx));
         ]

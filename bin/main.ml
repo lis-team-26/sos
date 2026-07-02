@@ -205,7 +205,9 @@ let () =
       in
       (results, manifest_errors, stats)
     with exn ->
-      Fmt.epr "%a@." pp_runtime_error (Printexc.to_string exn);
+      Fmt.epr "%s@,%a@."
+        (Printexc.get_backtrace ())
+        pp_runtime_error (Printexc.to_string exn);
       exit 1
   in
   if !print_results_flag then print_results results;
