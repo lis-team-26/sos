@@ -4,10 +4,10 @@ synopsis: "Symbolic Orchestation w/Soteria"
 description:
   "Symbolic framework for the analysis of service orchestration, built on top of the Soteria symbolic execution engine"
 maintainer: [
-  "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietri, Lorenzo Maria Siverino, Natalija Tosic"
+  "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic"
 ]
 authors: [
-  "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietri, Lorenzo Maria Siverino, Natalija Tosic"
+  "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic"
 ]
 license: "GPL-3.0-or-later"
 homepage: "https://github.com/lis-team-26/lis-project"
@@ -20,7 +20,6 @@ depends: [
   "ppx_blob"
   "ppx_subliner"
   "soteria"
-  "z3"
   "ocamlformat" {with-dev-setup & = "0.29.0"}
   "ocaml-lsp-server" {with-dev-setup}
   "odoc" {with-doc}

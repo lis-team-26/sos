@@ -29,12 +29,16 @@ let pp_svalue fmt svalue =
     match kind e with
     | Var v ->
         let var_type =
-          if is_bool_ty (e |> Typed.type_ |> Typed.get_ty) then 'B' else 'I'
+          if e |> Typed.type_ |> Typed.get_ty |> is_bool_ty then 'B' else 'I'
         in
         Fmt.pf fmt "%c[%d]" var_type (Soteria.Symex.Var.to_int v)
     | Bool b -> Fmt.bool fmt b
     | Int i -> Fmt.int fmt @@ Z.to_int i
-    | Unop (Not, e) -> Fmt.pf fmt "!%a" pp_with_parens e
+    | Unop (Not, e) -> (
+        match kind e with
+        | Binop (Eq, e1, e2) ->
+            Fmt.pf fmt "%a != %a" pp_with_parens e1 pp_with_parens e2
+        | _ -> Fmt.pf fmt "!%a" pp_with_parens e)
     | Binop (op, e1, e2) ->
         Fmt.pf fmt "%a %a %a" pp_with_parens e1 pp_bin_op op pp_with_parens e2
     | Nop (Distinct, exprs) ->

@@ -62,7 +62,7 @@ let pp_counters =
       (unknown, "unknown results")
       pp_manifest_errors manifest
   in
-  Fmt.(vbox (pp_field ~name:"Found" pp ++ cut))
+  Fmt.(vbox ~indent:2 (cut ++ pp ++ cut) ++ cut)
 
 let print_contract_ast ast =
   Fmt.vbox
@@ -80,14 +80,14 @@ let print_orchestrator_ast ast =
 
 let print_results results =
   Fmt.vbox
-    (pp_section ~with_cut:true ~name:"Symbolic execution results"
+    (pp_field ~with_cut:true ~name:"Symbolic execution results"
        Symbolic.Runtime_pp.pp_results)
     Fmt.stdout results;
   pp_sep Fmt.stdout ()
 
 let print_manifest_errors manifest_errors =
   Fmt.vbox
-    (pp_section ~with_cut:true ~name:"Manifest errors"
+    (pp_field ~with_cut:true ~name:"Manifest errors"
        Symbolic.Runtime_pp.pp_manifest_errors)
     Fmt.stdout manifest_errors;
   pp_sep Fmt.stdout ()
@@ -198,10 +198,15 @@ let () =
         in
         Orchestrator.run ~fuel typed_contract_ast typed_orchestrator_ast
       in
+      Fmt.vbox
+        Fmt.(
+          const string "✅ Symbolic execution finished. 🔍 Analyzing results... "
+          ++ cut ++ flush)
+        Fmt.stdout ();
       let manifest_errors =
         ManifestError.find_manifest_errors
-          ~globals:(List.map drop_loc contract_ast.globals)
-          ~assumptions:contract_ast.globals_assumptions results
+          ~global_vars:(List.map drop_loc contract_ast.globals)
+          ~globals_assumptions:contract_ast.globals_assumptions results
       in
       (results, manifest_errors, stats)
     with exn ->
@@ -227,5 +232,4 @@ let () =
     ~orchestrator_file:!orchestrator_file ~results ~manifest_errors ~stats
     !report_dir;
   pp_counters Fmt.stdout counters;
-  Fmt.pr "✅ Symbolic execution report written to folder '%s'. Done@."
-    !report_dir
+  Fmt.pr "✅ Symbolic execution report written to folder '%s'.@." !report_dir

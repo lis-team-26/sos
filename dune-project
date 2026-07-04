@@ -8,10 +8,10 @@
  (github lis-team-26/lis-project))
 
 (authors
- "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietri, Lorenzo Maria Siverino, Natalija Tosic")
+ "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic")
 
 (maintainers
- "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietri, Lorenzo Maria Siverino, Natalija Tosic")
+ "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic")
 
 (license GPL-3.0-or-later)
 
@@ -30,7 +30,6 @@
   ppx_blob
   ppx_subliner
   soteria
-  z3
   (ocamlformat
    (and
     :with-dev-setup

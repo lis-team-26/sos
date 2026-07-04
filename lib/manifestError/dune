@@ -1,6 +1,6 @@
 (library
  (name manifestError)
  (modules manifestError)
- (libraries expr symbolic utils z3)
+ (libraries expr symbolic utils fmt simple_smt)
  (preprocess
   (pps soteria.ppx)))
