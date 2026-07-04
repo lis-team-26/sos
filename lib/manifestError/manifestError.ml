@@ -131,16 +131,17 @@ let make_smt_constant next_id t =
     binder. *)
 let binder (var_symbol, var_type) = Smt.list [ var_symbol; var_type ]
 
-(** Build an existential quantifier. *)
+(** Build an existential quantifier. If [bound_vars] is empty, returns [body].
+*)
 let exists_const bound_vars body =
   match bound_vars with
-  | [] -> Smt.bool_k false
+  | [] -> body
   | _ -> Smt.app_ "exists" [ bound_vars |> List.map binder |> Smt.list; body ]
 
-(** Build a universal quantifier. *)
+(** Build a universal quantifier. If [bound_vars] is empty, returns [body]. *)
 let forall_const bound_vars body =
   match bound_vars with
-  | [] -> Smt.bool_k true
+  | [] -> body
   | _ -> Smt.app_ "forall" [ bound_vars |> List.map binder |> Smt.list; body ]
 
 (** Collect and allocate SMT variables for the existential variables that occur

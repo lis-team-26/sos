@@ -1,5 +1,6 @@
 open Soteria.Stats
 open Symbolic.Runtime
+open Utils.Data
 open Utils.Data_pp
 open Utils.Loc
 open Utils.Loc_pp
@@ -41,25 +42,31 @@ let pp_runtime_error fmt msg =
 let pp_sep fmt () = Fmt.pf fmt "--------------------------------%a" Fmt.cut ()
 
 let pp_counters =
-  let pp_counter fmt (counter, descr) = Fmt.pf fmt "%d %s" counter descr in
+  let pp_counter fmt (counter, descr) =
+    match counter with
+    | n when n == 1 -> Fmt.pf fmt "%d %s" counter descr
+    | _ -> Fmt.pf fmt "%d %ss" counter descr
+  in
   let pp_manifest_errors fmt counter =
-    let status, style =
-      match counter with 0 -> ("👌 ", `Green) | n -> ("❗ ", `Red)
+    let status, styled_ =
+      match counter with
+      | 0 -> ("👌 ", Fmt.styled `Green)
+      | n -> ("❗ ", Fmt.styled `Red >> Fmt.styled `Bold)
     in
-    Fmt.(const string status ++ Fmt.styled style pp_counter)
+    Fmt.(const string status ++ styled_ pp_counter)
       fmt
-      (counter, "manifest errors")
+      (counter, "manifest error")
   in
   let pp fmt ((ok, err, unexplored, unknown), manifest) =
-    Fmt.pf fmt "🟢 %a@,🔴 %a@,🟠 %a@,🔵 %a@,%a"
+    Fmt.pf fmt "🟢 %a@,🔴 %a@,🟠 %a@,🔵 %a@,@,%a"
       (Fmt.styled `Green pp_counter)
-      (ok, "successful executions")
+      (ok, "successful execution")
       (Fmt.styled `Red pp_counter)
-      (err, "errorenous executions")
+      (err, "errorenous execution")
       (Fmt.styled `Yellow pp_counter)
-      (unexplored, "unexplored executions")
+      (unexplored, "unexplored execution")
       (Fmt.styled `Blue pp_counter)
-      (unknown, "unknown results")
+      (unknown, "unknown result")
       pp_manifest_errors manifest
   in
   Fmt.(vbox ~indent:2 (cut ++ pp ++ cut) ++ cut)
