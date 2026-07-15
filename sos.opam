@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Symbolic Orchestation w/ Soteria"
 description:
-  "Symbolic framework for the analysis of service orchestration, built on top of the Soteria symbolic execution engine"
+  "Symbolic framework for the analysis of gray-box microservices orchestration, built on top of the Soteria symbolic execution engine"
 maintainer: [
   "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic"
 ]
@@ -10,8 +10,8 @@ authors: [
   "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic"
 ]
 license: "LGPL-3.0-or-later"
-homepage: "https://github.com/lis-team-26/lis-project"
-bug-reports: "https://github.com/lis-team-26/lis-project/issues"
+homepage: "https://github.com/lis-team-26/sos"
+bug-reports: "https://github.com/lis-team-26/sos/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.22"}
