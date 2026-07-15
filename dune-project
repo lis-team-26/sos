@@ -19,7 +19,7 @@
 
 (package
  (name sos)
- (synopsis "Symbolic Orchestation w/ Soteria")
+ (synopsis "Symbolic Orchestation with Soteria")
  (description
   "Symbolic framework for the analysis of service orchestration, built on top of the Soteria symbolic execution engine")
  (depends
