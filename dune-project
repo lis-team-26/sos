@@ -5,7 +5,7 @@
 (generate_opam_files true)
 
 (source
- (github lis-team-26/lis-project))
+ (github lis-team-26/sos))
 
 (authors
  "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic")

@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Symbolic Orchestation w/ Soteria"
 description:
-  "Symbolic framework for the analysis of gray-box microservices orchestration, built on top of the Soteria symbolic execution engine"
+  "Symbolic framework for the analysis of service orchestration, built on top of the Soteria symbolic execution engine"
 maintainer: [
   "Francesco Borri, Lorenzo Ceccotti, Tommaso Crocetti, Federico Fornaciari, Andrea Malatesti, Eduardo Meli, Angelo Passarelli, Anna Ricci, Daniele Sampietro, Lorenzo Maria Siverino, Natalija Tosic"
 ]
@@ -16,7 +16,7 @@ depends: [
   "ocaml"
   "dune" {>= "3.22"}
   "fmt"
-  "menhir"
+  "menhir" {>= "20180523"}
   "ppx_blob"
   "ppx_subliner"
   "soteria"
@@ -38,7 +38,7 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/lis-team-26/lis-project.git"
+dev-repo: "git+https://github.com/lis-team-26/sos.git"
 x-maintenance-intent: ["(latest)"]
 pin-depends: [
   ["soteria.~dev" "git+https://github.com/soteria-tools/soteria#d8d790f7726c80b9cea66e6e545b8f291f52c424"]

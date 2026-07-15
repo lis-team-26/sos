@@ -141,8 +141,8 @@ Clone the repository and create a local OPAM switch with the project
 dependencies:
 
 ```bash
-git clone https://github.com/lis-team-26/lis-project
-cd lis-project
+git clone https://github.com/lis-team-26/sos
+cd sos
 opam switch create . --deps-only --with-dev-setup
 eval $(opam env)
 ```
