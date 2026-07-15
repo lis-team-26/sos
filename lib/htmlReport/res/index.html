@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Symbolic Execution Report</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css">
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+  <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-highlight/prism-line-highlight.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+</head>
+
+<body class="bg-body-tertiary">
+  <header class="sticky-top border-bottom bg-body">
+    <div class="container-xxl p-3">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+          <h1 class="h2 mb-1 align-middle">🛟 SOS report</h1>
+          <p class="text-body-secondary mb-0">Symbolic execution summary, including manifest error analysis and source
+            code locations</p>
+        </div>
+      </div>
+    </div>
+  </header>
+  <main class="container-xxl p-4">
+    <nav class="d-flex flex-wrap gap-2" aria-label="Report sections">
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100"
+          href="#overview" data-section-target="overview" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-info-circle"></i> Overview</span>
+          <span class="d-block small opacity-75 mt-1" data-nav-meta="overview">summary in numbers</span>
+        </a>
+      </div>
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100" href="#results"
+          data-section-target="results" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-search"></i> Results</span>
+          <span class="d-block small opacity-75 mt-1" data-nav-meta="results"></span>
+        </a>
+      </div>
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100" href="#errors"
+          data-section-target="errors" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-bug"></i> Errors</span>
+          <span class="d-block small opacity-75 mt-1" data-nav-meta="errors"></span>
+        </a>
+      </div>
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100" href="#statistics"
+          data-section-target="statistics" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-stopwatch"></i> Statistics</span>
+          <span class="d-block small opacity-75 mt-1">Soteria metrics</span>
+        </a>
+      </div>
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100" href="#orchestrator-source"
+          data-section-target="orchestrator-source" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-code-slash"></i> Orchestrator</span>
+          <span class="d-block small opacity-75 mt-1">source anchors</span>
+        </a>
+      </div>
+      <div class="flex-fill d-grid">
+        <a class="btn btn-outline-primary btn-sm text-start p-2 shadow-sm h-100 w-100" href="#contract-source"
+          data-section-target="contract-source" aria-pressed="false">
+          <span class="d-block fw-semibold small"><i class="bi bi-file-text"></i> Contract</span>
+          <span class="d-block small opacity-75 mt-1">specification anchors</span>
+        </a>
+      </div>
+    </nav>
+
+    <section id="overview" class="card mt-3 shadow-sm" data-report-section="overview">
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="overview">
+        <span class="d-block h4 mb-1">Overview</span>
+        <span class="text-body-secondary">Summary of the symbolic execution in numbers.</span>
+      </div>
+      <div class="card-body">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3" data-overview-container>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" class="card mt-3 shadow-sm" data-report-section="results" hidden>
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="results">
+        <span class="d-block h4 mb-1">Execution Results</span>
+        <span class="text-body-secondary">Details for each execution result, including the invocation history and the
+          path condition.</span>
+      </div>
+      <div class="card-body">
+        <div class="border rounded bg-body-tertiary p-3 mb-3">
+          <div class="row g-3 align-items-xl-center justify-content-between">
+            <div class="col-12 col-xl-5">
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input class="form-control" type="search" placeholder="Result, service, policy, variable..."
+                  data-report-search>
+              </div>
+            </div>
+            <div class="col-12 col-xl-auto d-flex flex-wrap align-items-center gap-2">
+              <div class="btn-group" role="group" aria-label="Filter results by status">
+                <button type="button" class="btn btn-outline-primary active" data-report-filter="all"
+                  aria-pressed="true">All <span data-filter-count="all"></span></button>
+                <button type="button" class="btn btn-outline-success" data-report-filter="success"
+                  aria-pressed="false">Success <span data-filter-count="success"></span></button>
+                <button type="button" class="btn btn-outline-danger" data-report-filter="error"
+                  aria-pressed="false">Error <span data-filter-count="error"></span></button>
+                <button type="button" class="btn btn-outline-secondary" data-report-filter="unexplored"
+                  aria-pressed="false">Unexplored <span data-filter-count="unexplored"></span></button>
+              </div>
+              <span class="small text-body-secondary" data-results-count></span>
+            </div>
+          </div>
+        </div>
+        <div data-results-list-view>
+          <div class="vstack gap-3" data-results-list></div>
+          <div class="d-none d-flex justify-content-center align-items-center gap-2 mt-3"
+            data-results-pagination></div>
+        </div>
+        <div class="d-none" data-result-detail-view></div>
+      </div>
+    </section>
+
+    <section id="errors" class="card mt-3 shadow-sm" data-report-section="errors" hidden>
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="errors">
+        <span class="d-block h4 mb-1">Error Index</span>
+        <span class="text-body-secondary">Runtime errors details, including their cause and their source code
+          location.</span>
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filter error causes">
+            <button type="button" class="btn btn-outline-secondary active" data-error-filter="all"
+              aria-pressed="true">All causes</button>
+            <button type="button" class="btn btn-outline-warning" data-error-filter="manifest"
+              aria-pressed="false">Manifest errors</button>
+          </div>
+          <span class="small text-body-secondary" data-error-count></span>
+        </div>
+        <div data-error-index></div>
+        <div class="d-none d-flex justify-content-center align-items-center gap-2 mt-3" data-error-pagination></div>
+      </div>
+    </section>
+
+    <section id="statistics" class="card mt-3 shadow-sm" data-report-section="statistics" hidden>
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="statistics">
+        <span class="d-block h4 mb-1">Statistics</span>
+        <span class="text-body-secondary">Execution metrics collected during symbolic execution and manifest error
+          analysis.</span>
+      </div>
+      <div class="card-body">
+        <div class="row row-cols-md-3 row-cols-sm-2 row-cols-1 g-3" data-statistics-list></div>
+      </div>
+    </section>
+
+    <section id="orchestrator-source" class="card mt-3 shadow-sm" data-report-section="orchestrator-source" hidden>
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="orchestrator-source">
+        <span class="d-block h4 mb-1">Orchestrator Code</span>
+        <span class="text-body-secondary">Source code analyzed during symbolic execution.</span>
+      </div>
+      <div class="card-body" data-source-body="orchestrator"></div>
+    </section>
+
+    <section id="contract-source" class="card mt-3 shadow-sm" data-report-section="contract-source" hidden>
+      <div class="card-header text-start rounded-0 border-0 p-3" data-section-title="contract-source">
+        <span class="d-block h4 mb-1">Contract Specification</span>
+        <span class="text-body-secondary">Service definitions and policies used during symbolic execution.</span>
+      </div>
+      <div class="card-body" data-source-body="contract"></div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/line-highlight/prism-line-highlight.min.js"></script>
+  <script src="report-utils.js"></script>
+  <script src="report-model.js"></script>
+  <script src="report-render.js"></script>
+  <script src="results.js"></script>
+  <script src="report.js"></script>
+</body>
+
+</html>

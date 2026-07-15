@@ -122,13 +122,13 @@ let specs =
       "Path to the output report directory (default: out)" );
     ( [ "-sf"; "--steps-fuel" ],
       Arg.Int (set_fuel steps_fuel),
-      "Steps fuel (default: infinite), must be greater than 0" );
+      "Steps fuel, must be greater than 0 (default: infinite)" );
     ( [ "-bf"; "--branching-fuel" ],
       Arg.Int (set_fuel branching_fuel),
-      "Branching fuel (default: infinite), must be greater than 0" );
+      "Branching fuel, must be greater than 0 (default: infinite)" );
     ( [ "-uf"; "--unroll-fuel" ],
       Arg.Int (set_fuel unroll_fuel),
-      "Unroll fuel (default: infinite), must be greater than 0" );
+      "Unroll fuel, must be greater than 0 (default: infinite)" );
     ( [ "-pc"; "--print-contract" ],
       Arg.Set print_contract_flag,
       "Print the parsed contract before analysis" );
@@ -193,29 +193,28 @@ let () =
   Fmt.vbox
     Fmt.(const string "👀 Running symbolic execution..." ++ cut ++ flush)
     Fmt.stdout ();
-  let results, manifest_errors, stats =
+  let results, manifest_errors, stats, manifest_error_stats =
     try
       let { res = results; stats } =
-        let fuel =
-          {
-            steps = !steps_fuel;
-            branching = !branching_fuel;
-            unroll = !unroll_fuel;
-          }
-        in
-        Orchestrator.run ~fuel typed_contract_ast typed_orchestrator_ast
+        Orchestrator.run typed_contract_ast typed_orchestrator_ast
+          ~fuel:
+            {
+              steps = !steps_fuel;
+              branching = !branching_fuel;
+              unroll = !unroll_fuel;
+            }
       in
       Fmt.vbox
         Fmt.(
           const string "✅ Symbolic execution finished. 🔍 Analyzing results... "
           ++ cut ++ flush)
         Fmt.stdout ();
-      let manifest_errors =
+      let manifest_errors, manifest_error_stats =
         ManifestError.find_manifest_errors
           ~global_vars:(List.map drop_loc contract_ast.globals)
           ~globals_assumptions:contract_ast.globals_assumptions results
       in
-      (results, manifest_errors, stats)
+      (results, manifest_errors, stats, manifest_error_stats)
     with exn ->
       Fmt.epr "%s@,%a@."
         (Printexc.get_backtrace ())
@@ -237,6 +236,6 @@ let () =
   in
   HtmlReport.write ~contract_file:!contract_file
     ~orchestrator_file:!orchestrator_file ~results ~manifest_errors ~stats
-    !report_dir;
+    ~manifest_error_stats !report_dir;
   pp_counters Fmt.stdout counters;
   Fmt.pr "✅ Symbolic execution report written to folder '%s'.@." !report_dir

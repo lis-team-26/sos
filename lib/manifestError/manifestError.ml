@@ -7,6 +7,8 @@ open Utils.Data
 open Utils.Loc
 open Utils.Types
 
+type stats = { sat_solving_time : float; sat_checks : int }
+
 (** Translate a source-language binary operator to the matching SMT operator. *)
 let translate_expr_bin_op op e1 e2 =
   match op with
@@ -216,16 +218,35 @@ let manifest_formula ~global_vars ~globals_assumptions path_condition_list =
     is unsatisfiable. *)
 let z3_assert formula =
   let solver = Smt.new_solver Smt.z3 in
+  let now = Unix.gettimeofday () in
   formula |> Smt.bool_not |> Smt.assume |> Smt.ack_command solver;
-  match Smt.check solver with
-  | Smt.Unsat -> true
-  | Smt.Sat | Smt.Unknown -> false
+  let result = Smt.check solver in
+  let elapsed = Unix.gettimeofday () -. now in
+  match result with
+  | Smt.Unsat -> (true, elapsed)
+  | Smt.Sat | Smt.Unknown -> (false, elapsed)
 
-(** Find all manifest error causes in symbolic-execution results. *)
+(** Takes a list of symbolic execution results and identifies manifest error
+    causes against the provided [global_vars] and [globals_assumptions],
+    returning a list of error causes leading to a manifest and the Z3 solving
+    time. *)
 let find_manifest_errors ~global_vars ~globals_assumptions results =
-  results |> group_by_error_cause
-  |> List.filter_map (fun (cause, path_condition_list) ->
-      let formula =
-        manifest_formula ~global_vars ~globals_assumptions path_condition_list
-      in
-      if z3_assert formula then Some cause else None)
+  let error_causes = group_by_error_cause results in
+  let total_elapsed, manifest_errors =
+    error_causes
+    |> List.fold_left_map
+         (fun total_elapsed (cause, path_condition_list) ->
+           let formula =
+             manifest_formula ~global_vars ~globals_assumptions
+               path_condition_list
+           in
+           let is_valid, elapsed = z3_assert formula in
+           let total_elapsed = total_elapsed +. elapsed in
+           if is_valid then (total_elapsed, Some cause)
+           else (total_elapsed, None))
+         0.0
+    |> Pair.map_snd (List.filter_map (fun x -> x))
+  in
+  ( manifest_errors,
+    { sat_solving_time = total_elapsed; sat_checks = List.length error_causes }
+  )

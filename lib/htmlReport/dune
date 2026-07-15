@@ -3,4 +3,4 @@
 (library
  (name htmlReport)
  (modules htmlReport)
- (libraries soteria fmt symbolic unix))
+ (libraries soteria fmt symbolic manifestError unix))

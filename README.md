@@ -1,37 +1,26 @@
-# SOS - Symbolic Orchestration with Soteria
+# 🛟 SOS - Symbolic Orchestration with Soteria
 
-SOS is an OCaml project for symbolic analysis of microservice orchestration. The
-tool takes a contract specification and an orchestration program as input,
-performs a preliminary static analysis with type checking, runs symbolic exploration with Soteria, detects manifest errors, and generates an HTML report.
+SOS is an OCaml project for symbolic analysis of microservice orchestration. The tool takes a contract specification and an orchestration program as input, performs a preliminary static analysis with type checking, runs symbolic exploration with Soteria, detects manifest errors, and generates an HTML report.
 
 ## Table of Contents
 
 - [Project Goals](#project-goals)
 - [Features](#features)
 - [Contracts](#contracts)
-- [Architecture](#architecture)
-- [Technologies Used](#technologies-used)
-- [Project Structure](#project-structure)
-- [Installation](#installation)
+- [Orchestration](#orchestration)
+- [Architecture and Project Structure](#architecture-and-project-structure)
 - [Prerequisites](#prerequisites)
+- [Installation](#installation)
 - [Configuration](#configuration)
 - [Running](#running)
 - [Usage Examples](#usage-examples)
-- [API if any](#api-if-any)
 - [Testing](#testing)
-- [Deployment](#deployment)
-- [Screenshots](#screenshots)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
 - [Authors](#authors)
 - [License](#license)
 
 ## Project Goals
 
-The goal of the project is to provide a tool for describing, checking, and
-symbolically exploring orchestration programs with respect to a contract
-specification. The analysis is capable of identifying successful executions, erroneous
-executions, unexplored states, unknown results, and finally computes the manifest errors.
+The goal of the project is to provide a tool for describing, checking, and symbolically exploring orchestration programs with respect to a contract specification. The analysis is capable of identifying successful executions, erroneous executions, unexplored states, unknown results, and finally computes the manifest errors.
 
 ## Features
 
@@ -48,10 +37,7 @@ executions, unexplored states, unknown results, and finally computes the manifes
 
 ## Contracts
 
-Contracts describe the environment in which an orchestration program is
-symbolically executed.
-
-At the top level, a contract contains:
+Contracts describe the environment in which an orchestration program is symbolically executed. At the top level, a contract contains:
 
 - `globals`: typed global variables modeling the context available to the orchestrator;
 - `functions`: black-box functions modeling operations whose behaviour is unknown to the orchestrator, declared by name and type signature;
@@ -59,8 +45,7 @@ At the top level, a contract contains:
 - `services`: specification of gray-box services callable by the orchestrator;
 - `policies`: specification of policies checked against the orchestrator's invocation history.
 
-The supported primitive types are `int` and `bool`. Function types use curried
-arrow notation, for example `verify: int -> int -> bool`.
+The supported primitive types are `int` and `bool`. Function types use curried arrow notation, for example `verify: int -> int -> bool`.
 
 Each service specification contains:
 
@@ -106,14 +91,12 @@ Additionally, the language exposes other useful statements like:
 
 - `assume(e)`, which adds the boolean condition `e` in the current execution state;
 - `assert(e)`, which verifies if the boolean condition `e` is always satisfied in the current execution state.
- 
+
 To model unknown values (e.g. dynamic input received by the orchestrator), the language allows to introduce typed non-deterministic values using `int?` and `bool?`.
 
-## Architecture
+## Architecture and Project Structure
 
-The project is organized as a command-line application composed of several Dune
-libraries. The main command reads the two input files, builds the ASTs, performs
-static checks, starts the symbolic runtime, and then produces an HTML report.
+The project is organized as a command-line application composed of several Dune libraries. The main command reads the two input files, builds the ASTs, performs static checks, starts the symbolic runtime, and then produces an HTML report.
 
 The main parts are:
 
@@ -125,8 +108,6 @@ The main parts are:
 - manifest error checker;
 - HTML report generator;
 - support libraries for data, expressions, automata.
-
-## Project Structure
 
 ```text
 .
@@ -152,7 +133,7 @@ The main parts are:
 
 - An OCaml version compatible with the dependencies declared in `dune-project`.
 - OPAM installed.
-- Z3 installed and available on the system.
+- [Z3](https://github.com/Z3Prover/z3) installed and available on the system.
 
 ## Installation
 
@@ -174,16 +155,14 @@ dune build
 
 ## Configuration
 
-The project does not require external configuration files. The main execution
-options are passed through the command line:
+The project does not require external configuration files. The main execution options are passed through the command line:
 
 - `-o <dir>`: HTML report output directory, default `out`;
 - `-sf <n>`, `--steps-fuel <n>`: symbolic execution step limit;
 - `-bf <n>`, `--branching-fuel <n>`: branching limit;
 - `-uf <n>`, `--unroll-fuel <n>`: unrolling limit.
 
-Fuel values must be greater than zero. If a fuel value is not provided, the
-corresponding limit is infinite.
+Fuel values must be greater than zero. If a fuel value is not provided, the corresponding limit is infinite.
 
 ## Running
 
@@ -221,9 +200,7 @@ dune exec -- run -o reports/simple_echo -pr -pm \
   test/orchestrator_examples/01_simple_echo.sos
 ```
 
-Examples are available in `test/contract_examples/` and
-`test/orchestrator_examples/`. Files with the same numeric prefix are intended
-to be run together.
+Examples are available in `test/contract_examples/` and `test/orchestrator_examples/`. Files with the same numeric prefix are intended to be run together.
 
 ## Testing
 
@@ -245,8 +222,7 @@ Run only the policy checker tests:
 dune build @policy_checker_test
 ```
 
-To manually check a specific case, run the `run` command on a matching pair of
-`.contract` and `.sos` files.
+To manually check a specific case, run the `run` command on a matching pair of `.contract` and `.sos` files.
 
 ## Authors
 
@@ -264,4 +240,4 @@ To manually check a specific case, run the `run` command on a matching pair of
 
 ## License
 
-GPL-3.0-or-later.
+LGPL-3.0-or-later.
