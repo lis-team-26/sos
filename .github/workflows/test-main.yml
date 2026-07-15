@@ -32,5 +32,5 @@ jobs:
     
     - name: Policy checker tests
       run: |
-        opam exec -- dune @policy_checker_test
+        opam exec -- dune build @policy_checker_test
     
