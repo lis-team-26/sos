@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is an OCaml/Dune project for symbolic analysis of service orchestration. Source code lives under `lib/`, split into libraries such as `contract`, `orchestrator`, `expr`, `symbolic`, `policyChecker`, `reg2dfa`, `stateMonad`, and `utils`. The CLI entry point is `bin/main.ml`, exposed as the public executable `run`. Example inputs live in `test/contract_examples/` (`*.contract`) and `test/orchestrator_examples/` (`*.sos`). Generated build output and local switches stay in `_build/` and `_opam/`.
+This is an OCaml/Dune project for symbolic analysis of service orchestration. Source code lives under `lib/`, split into libraries such as `contract`, `orchestrator`, `expr`, `symbolic`, `policyChecker`, `reg2dfa`, `stateMonad`, and `utils`. The CLI entry point is `bin/main.ml`, exposed as the public executable `run`. Example inputs live in `test/contract_examples/` (`*.contract`) and `test/orchestrator_examples/` (`*.sos`). Policy checker tests live in `test/policy_checker_test/`. Generated build output and local switches stay in `_build/` and `_opam/`.
 
 ## Build, Test, and Development Commands
 
@@ -10,7 +10,9 @@ This is an OCaml/Dune project for symbolic analysis of service orchestration. So
 - `eval $(opam env)`: load the local switch into the shell.
 - `dune build`: compile all libraries, Menhir parsers, ocamllex lexers, and the CLI.
 - `dune exec -- run test/contract_examples/01_simple_echo.contract test/orchestrator_examples/01_simple_echo.sos`: run the simple echo sample.
-- `dune runtest`: run Dune test aliases when present.
+- `dune build @example_test`: run only the example bash script over the contract/orchestrator samples.
+- `dune build @policy_checker_test`: run only the policy checker tests.
+- `dune runtest`: run both the example script and the policy checker tests.
 - `dune fmt`: format OCaml files with the project `ocamlformat` settings.
 
 Z3 is required at runtime by the symbolic stack; install it outside OPAM if your platform package manager provides it.
@@ -21,7 +23,7 @@ Use OCaml formatted by `ocamlformat` version `0.29.0` with the default profile f
 
 ## Testing Guidelines
 
-Current tests are example-driven. Add contract samples under `test/contract_examples/` and matching orchestrator programs under `test/orchestrator_examples/`, using descriptive lowercase names such as `division_by_zero.sos`. For behavior changes, include a runnable example and verify it with `dune exec -- run ...`. Add Dune test aliases or expect tests for automated regressions.
+Current tests are split between example-driven integration checks and policy checker unit tests. Add contract samples under `test/contract_examples/` and matching orchestrator programs under `test/orchestrator_examples/`, using descriptive lowercase names such as `division_by_zero.sos`; verify the example suite with `dune build @example_test`. Add policy checker tests under `test/policy_checker_test/` and verify them with `dune build @policy_checker_test`. Use `dune runtest` before handing off changes that should pass both suites.
 
 ## Commit & Pull Request Guidelines
 

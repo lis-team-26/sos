@@ -1,8 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-contract_dir="test/contract_examples"
-orchestrator_dir="test/orchestrator_examples"
+if [[ $# -gt 0 ]]; then
+  if [[ "$1" = /* ]]; then
+    run_cmd=("$1")
+  else
+    run_cmd=("$(pwd)/$1")
+  fi
+else
+  run_cmd=(dune exec -- run)
+fi
+
+if [[ -d "test/contract_examples" && -d "test/orchestrator_examples" ]]; then
+  contract_dir="test/contract_examples"
+  orchestrator_dir="test/orchestrator_examples"
+elif [[ -d "contract_examples" && -d "orchestrator_examples" ]]; then
+  cd ..
+  contract_dir="test/contract_examples"
+  orchestrator_dir="test/orchestrator_examples"
+elif [[ -d "../../../test/contract_examples" && -d "../../../test/orchestrator_examples" ]]; then
+  cd ../../..
+  contract_dir="test/contract_examples"
+  orchestrator_dir="test/orchestrator_examples"
+else
+  echo "Could not find contract_examples and orchestrator_examples directories" >&2
+  exit 1
+fi
+
 output_dir="out"
 
 mkdir -p "$output_dir"
@@ -36,7 +60,7 @@ for orchestrator in "$orchestrator_dir"/*.sos; do
   contract="${matching_contracts[0]}"
 
   echo "Running $name with $(basename "$contract")"
-  if dune exec -- run "$contract" "$orchestrator" -o "$output_dir/$name"; then
+  if "${run_cmd[@]}" "$contract" "$orchestrator" -o "$output_dir/$name"; then
     successes+=("$name")
   else
     echo "Failed $name" >&2

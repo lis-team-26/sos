@@ -1,6 +1,6 @@
 open StateMonadCore
 open Symbolic.Runtime
-open PolicyChecker
+open PolicyChecker.Data
 open Utils.Loc
 
 val get_state : (ok_state, 'fix) StatementMonad.t

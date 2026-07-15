@@ -1,4 +1,4 @@
-(executables
+(tests
  (names test_policy_checker test_policy_checker_extra)
  (libraries soteria contract policyChecker symbolic utils)
  (preprocess

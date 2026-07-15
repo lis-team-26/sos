@@ -143,7 +143,7 @@ The main parts are:
 ├── test/
 │   ├── contract_examples/       # Contract examples
 │   ├── orchestrator_examples/   # Orchestrator examples
-│   └── policy_examples/         # Policy checker tests
+│   └── policy_checker_test/     # Policy checker tests
 ├── dune-project
 └── README.md
 ```
@@ -227,10 +227,22 @@ to be run together.
 
 ## Testing
 
-Run the Dune test suite:
+Run the full Dune test suite:
 
 ```bash
 dune runtest
+```
+
+Run only the example script over the `.contract`/`.sos` examples:
+
+```bash
+dune build @example_test
+```
+
+Run only the policy checker tests:
+
+```bash
+dune build @policy_checker_test
 ```
 
 To manually check a specific case, run the `run` command on a matching pair of
@@ -248,7 +260,7 @@ To manually check a specific case, run the `run` command on a matching pair of
 - Anna Ricci
 - Daniele Sampietri
 - Lorenzo Maria Siverino
-- Natalija Tosic.
+- Natalija Tosic
 
 ## License
 

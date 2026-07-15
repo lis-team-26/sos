@@ -2,7 +2,7 @@
    Unit tests for PolicyChecker.verify_policy and check_each_group.
 
    Run with:
-     dune exec test/policy_examples/test_policy_checker.exe
+     dune exec test/policy_checker_test/test_policy_checker.exe
 
    Each test calls build_policy_checker, drives update_policy ~loc:EOFLoc with a hand-built
    sequence of calls, then calls verify_policy and checks the outcome.
@@ -14,7 +14,8 @@ open Soteria.Symex.Compo_res
 open Contract.TypedAST
 open Symbolic.Data
 open Symbolic.Runtime
-open PolicyChecker
+open PolicyChecker.Data
+open PolicyChecker.Logic
 open Utils.Data
 open Utils.Types
 module Typed = Soteria.Tiny_values.Typed

@@ -5,14 +5,15 @@
    grouped QosAggregate, and single-invoke edge cases.
 
    Run with:
-     dune exec test/policy_examples/test_policy_checker_extra.exe
+     dune exec test/policy_checker_test/test_policy_checker_extra.exe
 *)
 
 open Contract.TypedAST
 open Symbolic.Data
 open Symbolic.Runtime
 open Utils.Data
-open PolicyChecker
+open PolicyChecker.Data
+open PolicyChecker.Logic
 open Soteria.Symex.Compo_res
 open Symex.Syntax
 

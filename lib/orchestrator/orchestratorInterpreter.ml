@@ -6,7 +6,7 @@ open Symbolic.Data
 open Symbolic.Runtime
 open StateMonad.StatementMonad
 open StateMonad.Utils
-open PolicyChecker
+open PolicyChecker.Logic
 open Utils.Data
 open Utils.Loc
 open Utils.Scope
@@ -283,9 +283,7 @@ let build_symex_process ~fuel contract orchestrator =
     }
   in
   let policy_checkers =
-    List.mapi
-      (fun id -> PolicyChecker.build_policy_checker (id + 1))
-      contract.policies
+    List.mapi (fun id -> build_policy_checker (id + 1)) contract.policies
   in
   let process =
     (* Evaluate and assume the assumptions on global variables *)

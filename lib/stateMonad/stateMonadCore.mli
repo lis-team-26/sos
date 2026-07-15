@@ -1,7 +1,7 @@
 open Symbolic.Data
 open Symbolic.Runtime
 open Soteria.Symex
-open PolicyChecker
+open PolicyChecker.Data
 open Utils.Data
 open Utils.Loc
 

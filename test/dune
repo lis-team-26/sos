@@ -1,1 +1,22 @@
-(dirs policy_examples)
+(dirs policy_checker_test)
+
+(rule
+ (alias example_test)
+ (deps
+  %{bin:run}
+  test_examples.sh
+  (source_tree contract_examples)
+  (source_tree orchestrator_examples))
+ (action
+  (run bash test_examples.sh %{bin:run})))
+
+(alias
+ (name policy_checker_test)
+ (deps
+  (alias policy_checker_test/runtest)))
+
+(alias
+ (name runtest)
+ (deps
+  (alias example_test)
+  (alias policy_checker_test/runtest)))

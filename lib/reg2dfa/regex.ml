@@ -52,7 +52,7 @@ type 'c regex =
   | Seq : 'c regex * 'c regex -> 'c regex
   | Star : 'c regex -> 'c regex
 
-(** Λ(r) is {ε} ∩ L(r); we represent it as a bool. *)
+(** [Λ(r)] is [ε ∩ L(r)]; we represent it as a bool. *)
 let rec l = function
   | Empty -> false
   | Eps -> true
@@ -61,7 +61,7 @@ let rec l = function
   | Seq (e, f) -> l e && l f
   | Star _ -> true
 
-(** Firsts: P(r) = {c | ∃s.cs ∈ L(r) } *)
+(** Firsts: [P(r) = {c | ∃s.cs ∈ L(r) }] *)
 let rec p =
   let open LetterSet in
   function
@@ -71,7 +71,7 @@ let rec p =
   | Seq (e, f) -> p e <+> if l e then p f else S.empty
   | Star e -> p e
 
-(** Lasts: D(r) = {c | ∃s.sc ∈ L(r) } *)
+(** Lasts: [D(r) = {c | ∃s.sc ∈ L(r) }] *)
 let rec d =
   let open LetterSet in
   function
@@ -81,7 +81,7 @@ let rec d =
   | Seq (f, e) -> (if l e then d f else S.empty) <+> d e
   | Star e -> d e
 
-(** Factors of length 2: F(r) = {c₁c₂ | ∃s₁s₂.s₁c₁c₂s₂ ∈ L(R)} *)
+(** Factors of length 2: [F(r) = {c₁c₂ | ∃s₁s₂.s₁c₁c₂s₂ ∈ L(R)}] *)
 let rec f_ =
   let open Letter2Set in
   function
