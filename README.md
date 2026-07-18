@@ -24,7 +24,7 @@ The goal of the project is to provide a tool for describing, checking, and symbo
 
 ## Features
 
-- A contract specification langauge (for modeling gray-box microservices in `.contract` files);
+- A contract specification langauge (for modelling gray-box microservices in `.contract` files);
 - An orchestration language (for modelling the orchestrator code in `.sos` files);
 - Type checking for contracts and orchestrators;
 - Different policy specification;
@@ -39,8 +39,8 @@ The goal of the project is to provide a tool for describing, checking, and symbo
 
 Contracts describe the environment in which an orchestration program is symbolically executed. At the top level, a contract contains:
 
-- `globals`: typed global variables modeling the context available to the orchestrator;
-- `functions`: black-box functions modeling operations whose behaviour is unknown to the orchestrator, declared by name and type signature;
+- `globals`: typed global variables modelling the context available to the orchestrator;
+- `functions`: black-box functions modelling operations whose behaviour is unknown to the orchestrator, declared by name and type signature;
 - `QoS`: typed quality-of-service relevant fields generated at each microservice invocation;
 - `services`: specification of gray-box services callable by the orchestrator;
 - `policies`: specification of policies checked against the orchestrator's invocation history.
@@ -55,7 +55,7 @@ Each service specification contains:
 - `precond`: conditions that must hold before the service can be invoked;
 - `qos-postcond`: effects and constraints over QoS fields;
 - `ok-postcond`: effects and constraints for successful invocations;
-- `err-postcond`: optional effects and constraints modeling the non-deterministic service failure.
+- `err-postcond`: optional effects and constraints modelling the non-deterministic service failure.
 
 Postconditions are split into two parts:
 
