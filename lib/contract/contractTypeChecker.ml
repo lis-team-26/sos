@@ -52,14 +52,33 @@ let without_fun_app e =
   | Some loc -> located_error ~loc "Function applications are not allowed here"
 
 (** Type-checks a policy *)
-let type_check_policy ~services_names ~qos_fields policy =
+let type_check_policy ~services_names ~qos_env ~service_params_env policy =
   let (policy_type, group_by), loc = (policy.it, policy.at) in
+  let* () =
+    match group_by with
+    | None -> Ok ()
+    | Some name ->
+        if
+          StringMap.exists
+            (fun _ params ->
+              match StringMap.find_opt name params with
+              | Some _ -> true
+              | _ -> false)
+            service_params_env
+        then Ok ()
+        else located_error ~loc "Undefined group_by field '%s'" name
+  in
   match policy_type with
   | QosFieldOp (aggr, field, op, threshold) ->
       let* () =
         (* The aggregated field must be defined in the QoS fields *)
-        if StringSet.mem field qos_fields then Ok ()
-        else located_error ~loc "Undefined '%s' QoS field" field
+        match StringMap.find_opt field qos_env with
+        | Some t -> (
+            match t with
+            | Utils.Types.TInt -> Ok ()
+            | _ -> located_error ~loc "QoS field '%s' must be of type int" field
+            )
+        | None -> located_error ~loc "Undefined '%s' QoS field" field
       in
       (* A comparison operator must be used *)
       let* cmp = cmp_op_of_bin_op ~loc op in
@@ -85,10 +104,14 @@ let type_check_policy ~services_names ~qos_fields policy =
           located_error ~loc "Malformed regex"
       in
       Ok (TC.Regex (s2l, regex), group_by)
-  | Sort field ->
+  | Sort field -> (
       (* The sorted field must be defined in the QoS fields *)
-      if StringSet.mem field qos_fields then Ok (TC.Sort field, group_by)
-      else located_error ~loc "Undefined '%s' QoS field" field
+      match StringMap.find_opt field qos_env with
+      | Some t -> (
+          match t with
+          | Utils.Types.TInt -> Ok (TC.Sort field, group_by)
+          | _ -> located_error ~loc "QoS field '%s' must be of type int" field)
+      | None -> located_error ~loc "Undefined '%s' QoS field" field)
 
 (** Type-checks a single effect [lhs := rhs].
     - [lhs_type_env] resolves the declared type of an assigned variable
@@ -195,7 +218,7 @@ let type_check_service ~globals_env ~qos_env ~fun_env { it = s } =
         in
         Ok (Some typed_postcond)
   in
-  Ok
+  let typed_service =
     TC.
       {
         name = s.name;
@@ -206,6 +229,8 @@ let type_check_service ~globals_env ~qos_env ~fun_env { it = s } =
         ok_postcond = typed_ok_postcond;
         err_postcond = typed_err_postcond;
       }
+  in
+  Ok (typed_service, params_env)
 
 let type_check_contract c =
   let* services_names =
@@ -224,9 +249,6 @@ let type_check_contract c =
       ~pp_err:(fun fmt x -> Fmt.pf fmt "Duplicate QoS field name '%s'" x)
       c.qos
   in
-  let qos_fields =
-    qos_env |> StringMap.bindings |> List.map fst |> StringSet.of_list
-  in
   let* fun_env =
     build_env
       ~pp_err:(fun fmt x -> Fmt.pf fmt "Duplicate function name '%s'" x)
@@ -241,14 +263,21 @@ let type_check_contract c =
          (type_check_bool ~scope:[ globals_env ] ~fun_env:StringMap.empty)
     |> all_ok
   in
-  let* typed_services =
+  let* service_list =
     c.services
     |> List.map (type_check_service ~globals_env ~qos_env ~fun_env)
     |> all_ok
   in
+  let typed_services = List.map fst service_list in
+  let service_params_env =
+    List.fold_left
+      (fun acc ((svc : TC.service), params_env) ->
+        StringMap.add svc.name params_env acc)
+      StringMap.empty service_list
+  in
   let* typed_policies =
     c.policies
-    |> List.map (type_check_policy ~services_names ~qos_fields)
+    |> List.map (type_check_policy ~services_names ~qos_env ~service_params_env)
     |> all_ok
   in
   Ok

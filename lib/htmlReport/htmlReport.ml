@@ -340,7 +340,10 @@ let json_stats stats manifest_error_stats =
       field "execTime" (json_float (Stats.get_float stats StatKeys.exec_time));
       field "satTime" (json_float (Stats.get_float stats StatKeys.sat_time));
       field "manifestSatTime" (json_float manifest_error_stats.sat_solving_time);
-      field "satChecks" (json_int (Stats.get_int stats StatKeys.sat_checks + manifest_error_stats.sat_checks));
+      field "satChecks"
+        (json_int
+           (Stats.get_int stats StatKeys.sat_checks
+           + manifest_error_stats.sat_checks));
     ]
 
 let json_report_data ~contract_source ~orchestrator_source ~results

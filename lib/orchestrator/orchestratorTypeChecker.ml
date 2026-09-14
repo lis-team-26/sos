@@ -108,12 +108,16 @@ let rec type_check_stmt ~scope ~fun_env ~qos_env ~svc_env stmt =
             let scope = declare x t scope in
             Ok (T.DeclareInvoke (x, svc, args'), scope))
     | AssignInvoke (x, svc, args) -> (
-        let* ret_type, typed_args =
+        let* new_ret_type, typed_args =
           type_check_invoke ~scope ~fun_env ~svc_env ~loc svc args
         in
         match lookup x scope with
         | None -> located_error ~loc "Variable %s assigned before declaration" x
-        | Some (TReceipt { ret_type }) ->
+        | Some (TReceipt { ret_type }) when new_ret_type <> ret_type ->
+            located_error ~loc
+              "Variable %s expected receipt with return type %a but found %a" x
+              pp_var_type ret_type pp_var_type new_ret_type
+        | Some (TReceipt { ret_type }) when new_ret_type = ret_type ->
             Ok (T.AssignInvoke (x, svc, typed_args), scope)
         | Some t ->
             located_error ~loc "Variable %s expected receipt but found %a" x

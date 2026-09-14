@@ -1,0 +1,2 @@
+rcpt x := invoke a();
+rcpt y := invoke b();
