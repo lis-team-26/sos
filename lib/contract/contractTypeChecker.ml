@@ -94,7 +94,20 @@ let type_check_policy ~services_names ~qos_env ~service_params_env policy =
         | (svc, _) :: _ ->
             located_error ~loc "Unknown service '%s' in regex policy" svc
       in
-      (* Checks if the regex is well-formed, to avoid runtime errors in the regex-to-DFA conversion *)
+      let _, duplicate =
+        List.fold_left
+          (fun (found, duplicate) (s, _) ->
+            if StringSet.mem s found then (found, StringSet.add s duplicate)
+            else (StringSet.add s found, duplicate))
+          (StringSet.empty, StringSet.empty)
+          s2l
+      in
+      let* () =
+        if StringSet.is_empty duplicate then Ok ()
+        else
+          located_error ~loc "Found duplicate service names in regex policy: %s"
+            (String.concat ", " (StringSet.elements duplicate))
+      in
       let* () =
         try
           let domain = CharSet.of_list @@ List.map snd s2l in

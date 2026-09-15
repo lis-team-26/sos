@@ -60,10 +60,10 @@ for orchestrator in "$orchestrator_dir"/*.sos; do
   contract="${matching_contracts[0]}"
 
   echo "Running $name with $(basename "$contract")"
-  if "${run_cmd[@]}" "$contract" "$orchestrator" -o "$output_dir/$name"; then
+  if "${run_cmd[@]}" "$contract" "$orchestrator" -o "$output_dir/$name" 2>&1; then
     successes+=("$name")
   else
-    echo "Failed $name" >&2
+    echo "Failed $name"
     failures+=("$name")
   fi
 done

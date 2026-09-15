@@ -238,6 +238,16 @@ let verify_policy policy =
             if%sat satisfied then Symex.Result.ok ()
             else raise_violation ~loc:EOFLoc policy)
         checker.curr_state
-  (* [Dfa], [Ascending] and [Descending] violations are monotone: if no violation occurred
-     at any step, the final state is valid *)
+  | Dfa checker ->
+      check_each_group
+        (fun curr_state ->
+          match curr_state with
+          | None -> Symex.Result.ok ()
+          | Some state ->
+              if List.mem state checker.final_states then
+                raise_violation ~loc:EOFLoc policy
+              else Symex.Result.ok ())
+        checker.curr_state
+      (* [Ascending] and [Descending] violations are monotone: if no violation occurred
+      at any step, the final state is valid *)
   | _ -> Symex.Result.ok ()
